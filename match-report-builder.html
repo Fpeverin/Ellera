@@ -1,0 +1,1302 @@
+<meta charset="UTF-8">
+<title>Analisi Avversario — Generatore Report</title>
+<style>
+:root{
+  --bg: #f3f1e8;
+  --surface: #ffffff;
+  --surface-2: #eae6d8;
+  --ink: #1c1b17;
+  --ink-soft: #5b5749;
+  --line: #d9d3bf;
+  --pitch: #1f4d38;
+  --pitch-dark: #123324;
+  --pitch-tint: #e4ede7;
+  --amber: #b5762a;
+  --amber-tint: #f2e2c6;
+  --danger: #a8402f;
+  --danger-tint: #f5e2dd;
+  --radius: 10px;
+  --serif: Georgia, 'Times New Roman', Times, serif;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg: #14170f;
+    --surface: #1b1f16;
+    --surface-2: #232819;
+    --ink: #ece9dd;
+    --ink-soft: #b2ac99;
+    --line: #333a26;
+    --pitch: #4f9a70;
+    --pitch-dark: #2d6b48;
+    --pitch-tint: #1c2a20;
+    --amber: #e2a35a;
+    --amber-tint: #3a2c17;
+    --danger: #e26854;
+    --danger-tint: #3a2019;
+  }
+}
+:root[data-theme="dark"]{
+  --bg: #14170f; --surface: #1b1f16; --surface-2: #232819; --ink: #ece9dd; --ink-soft: #b2ac99;
+  --line: #333a26; --pitch: #4f9a70; --pitch-dark: #2d6b48; --pitch-tint: #1c2a20;
+  --amber: #e2a35a; --amber-tint: #3a2c17; --danger: #e26854; --danger-tint: #3a2019;
+}
+:root[data-theme="light"]{
+  --bg: #f3f1e8; --surface: #ffffff; --surface-2: #eae6d8; --ink: #1c1b17; --ink-soft: #5b5749;
+  --line: #d9d3bf; --pitch: #1f4d38; --pitch-dark: #123324; --pitch-tint: #e4ede7;
+  --amber: #b5762a; --amber-tint: #f2e2c6; --danger: #a8402f; --danger-tint: #f5e2dd;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.45;}
+h1,h2,h3{text-wrap:balance;}
+button{font-family:inherit;}
+input,textarea,select{font-family:inherit;font-size:14px;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:7px;padding:8px 10px;width:100%;}
+textarea{resize:vertical;line-height:1.5;}
+input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--pitch);outline-offset:1px;}
+label{display:block;font-size:12.5px;font-weight:600;letter-spacing:.02em;color:var(--ink-soft);
+  text-transform:uppercase;margin-bottom:5px;}
+.field{margin-bottom:16px;}
+.row{display:flex;gap:12px;flex-wrap:wrap;}
+.row > .field{flex:1;min-width:180px;}
+
+/* ---------- App shell ---------- */
+.topbar{position:sticky;top:0;z-index:20;background:var(--pitch-dark);color:#f4f1e4;
+  display:flex;align-items:center;gap:14px;padding:12px 20px;flex-wrap:wrap;}
+.topbar .brand{font-weight:700;letter-spacing:.02em;font-size:15px;white-space:nowrap;}
+.topbar .brand small{display:block;font-weight:400;font-size:11px;opacity:.7;letter-spacing:.04em;}
+.topbar input{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff;min-width:220px;flex:1;}
+.topbar input::placeholder{color:rgba(255,255,255,.55);}
+.topbar .spacer{flex:1;}
+.btnbar{display:flex;gap:8px;flex-wrap:wrap;}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;
+  padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.btn:hover{border-color:var(--pitch);}
+.btn.primary{background:var(--amber);border-color:var(--amber);color:#241704;}
+.btn.primary:hover{filter:brightness(1.06);}
+.btn.ghost{background:transparent;border-color:rgba(255,255,255,.35);color:#f4f1e4;}
+.btn.ghost:hover{background:rgba(255,255,255,.12);}
+.btn.small{padding:5px 10px;font-size:12px;}
+.btn.danger{color:var(--danger);border-color:var(--danger);background:var(--danger-tint);}
+
+.shell{display:grid;grid-template-columns:250px 1fr;gap:0;max-width:1180px;margin:0 auto;min-height:calc(100vh - 58px);}
+nav.steps{padding:22px 14px;border-right:1px solid var(--line);}
+nav.steps ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;}
+nav.steps li{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--ink-soft);}
+nav.steps li:hover{background:var(--surface-2);}
+nav.steps li.active{background:var(--pitch-tint);color:var(--pitch);font-weight:700;}
+nav.steps li .dot{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--ink-soft);flex:none;}
+nav.steps li.active .dot{border-color:var(--pitch);}
+nav.steps li.filled .dot{background:var(--amber);border-color:var(--amber);}
+
+main.content{padding:26px 32px 60px;}
+.step{display:none;}
+.step.active{display:block;animation:fade .18s ease;}
+@keyframes fade{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}
+.step h2{font-size:21px;margin:0 0 3px;}
+.step .step-sub{color:var(--ink-soft);font-size:13.5px;margin:0 0 22px;max-width:60ch;}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;}
+.card h3{font-size:14px;margin:0 0 12px;color:var(--pitch);text-transform:uppercase;letter-spacing:.03em;}
+.hint{font-size:12px;color:var(--ink-soft);margin-top:4px;}
+
+.imgpick{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.imgpick img{max-width:130px;max-height:100px;object-fit:contain;border:1px solid var(--line);border-radius:6px;background:#fff;}
+.imgpick .noimg{width:90px;height:66px;border:1.5px dashed var(--line);border-radius:6px;display:flex;
+  align-items:center;justify-content:center;font-size:11px;color:var(--ink-soft);text-align:center;padding:4px;}
+
+.block-item{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;background:var(--surface-2);}
+.block-item .block-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.block-item .block-head span{font-size:12px;font-weight:700;color:var(--ink-soft);}
+.line-item{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;}
+.line-item input{flex:1;}
+.list-add{margin-top:4px;}
+
+.footer-nav{display:flex;justify-content:space-between;margin-top:28px;padding-top:16px;border-top:1px solid var(--line);}
+
+table.roster{width:100%;border-collapse:collapse;font-size:13px;}
+table.roster th{text-align:left;font-size:11px;text-transform:uppercase;color:var(--ink-soft);padding:4px 6px;letter-spacing:.03em;}
+table.roster td{padding:4px 6px;vertical-align:top;}
+table.roster input,table.roster select{padding:6px 8px;}
+table.roster td.actions{width:36px;}
+
+.seed-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+.seed-row .names{font-size:12px;color:var(--ink-soft);}
+
+.storage-note{font-size:12px;color:var(--ink-soft);background:var(--amber-tint);border:1px solid var(--amber);
+  border-radius:8px;padding:10px 12px;margin:0 0 18px;}
+
+</style>
+
+<div class="topbar">
+  <div class="brand">Report Avversario<small>Generatore PDF stile scouting</small></div>
+  <input id="matchTitleInput" placeholder="Es. Spoleto — 3ª giornata" />
+  <div class="spacer"></div>
+  <div class="btnbar">
+    <button class="btn ghost" id="btnNew">Nuovo</button>
+    <button class="btn ghost" id="btnExport">Esporta bozza</button>
+    <label class="btn ghost" style="margin:0;">Importa bozza<input type="file" id="importFile" accept="application/json" style="display:none;"></label>
+    <button class="btn primary" id="btnPrint">Genera PDF ▸</button>
+  </div>
+</div>
+
+<div class="shell">
+  <nav class="steps"><ol id="stepNav"></ol></nav>
+  <main class="content">
+
+    <div class="storage-note">La bozza viene salvata automaticamente in questo browser. Per portarla su un altro dispositivo o tenerne una copia sicura, usa <strong>Esporta bozza</strong> (file .json) e poi <strong>Importa bozza</strong> per riprenderla.</div>
+
+    <!-- STEP 0: COVER -->
+    <section class="step" data-step="0">
+      <h2>1 · Copertina</h2>
+      <p class="step-sub">Logo, stemma avversario, gare visionate e dati di intestazione — la prima pagina del report.</p>
+
+      <div class="card">
+        <h3>Intestazione</h3>
+        <div class="row">
+          <div class="field"><label>Titolo report</label><input data-bind="meta.title"></div>
+          <div class="field"><label>Competizione</label><input data-bind="meta.competition"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Squadra avversaria</label><input data-bind="meta.opponent" placeholder="Es. Spoleto"></div>
+          <div class="field"><label>Luogo</label><input data-bind="meta.place"></div>
+          <div class="field"><label>Data report</label><input type="date" data-bind="meta.date"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Loghi</h3>
+        <div class="row">
+          <div class="field">
+            <label>Logo proprio / agenzia (in alto, ripetuto su ogni pagina)</label>
+            <div class="imgpick">
+              <div id="agencyLogoPreview"></div>
+              <input type="file" accept="image/*" data-imgtarget="agencyLogo">
+              <button class="btn small danger" data-action="clearImg" data-target="agencyLogo">Rimuovi</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Stemma squadra avversaria (copertina)</label>
+            <div class="imgpick">
+              <div id="crestLogoPreview"></div>
+              <input type="file" accept="image/*" data-imgtarget="crestLogo">
+              <button class="btn small danger" data-action="clearImg" data-target="crestLogo">Rimuovi</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Autore report</h3>
+        <div class="row">
+          <div class="field"><label>Nome e cognome</label><input data-bind="meta.authorName"></div>
+          <div class="field"><label>Qualifica</label><input data-bind="meta.authorRole" placeholder="Match Analyst"></div>
+        </div>
+        <div class="field">
+          <label>Riga credenziali a piè di pagina (ripetuta su tutte le pagine)</label>
+          <textarea rows="2" data-bind="meta.footerLine" placeholder="Nome Cognome, qualifiche, cell. ..., e-mail ..., sito web ..."></textarea>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Gare visionate</h3>
+        <div id="matchesViewedList"></div>
+        <button class="btn small list-add" data-action="addMatchViewed">+ Aggiungi gara</button>
+      </div>
+
+      <div class="footer-nav"><span></span><button class="btn primary" data-action="next">Avanti ▸</button></div>
+    </section>
+
+    <!-- STEP 1: PRESENTAZIONE -->
+    <section class="step" data-step="1">
+      <h2>2 · Presentazione squadra</h2>
+      <p class="step-sub">Sistema di gioco, risultati recenti, marcatori e il quadro generale sull'andamento della squadra.</p>
+
+      <div class="card">
+        <div class="field"><label>Sistema di gioco</label><input data-bind="presentation.system" placeholder="Es. 1-4-3-1-2"></div>
+        <h3 style="margin-top:14px;">Ultimi risultati</h3>
+        <div id="lastResultsList"></div>
+        <button class="btn small list-add" data-action="addLine" data-target="presentation.lastResults">+ Aggiungi risultato</button>
+
+        <div style="margin-top:16px;">
+          <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:600;">
+            <input type="checkbox" id="cupToggle" style="width:auto;"> Includi sezione "Percorso in Coppa"
+          </label>
+        </div>
+        <div id="cupBlock" style="display:none;margin-top:8px;">
+          <div id="cupResultsList"></div>
+          <button class="btn small list-add" data-action="addLine" data-target="presentation.cupResults">+ Aggiungi risultato coppa</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Score</h3>
+        <div class="row">
+          <div class="field"><label>Gol fatti</label><input type="number" min="0" data-bind="presentation.goalsFor"></div>
+          <div class="field"><label>Gol subiti</label><input type="number" min="0" data-bind="presentation.goalsAgainst"></div>
+        </div>
+        <label>Marcatori</label>
+        <div id="scorersList"></div>
+        <button class="btn small list-add" data-action="addScorer">+ Aggiungi marcatore</button>
+        <p class="hint">Anteprima riga marcatori: <span id="scorersPreview" style="color:var(--ink);"></span></p>
+      </div>
+
+      <div class="card">
+        <h3>Presentazione squadra (testo)</h3>
+        <textarea rows="12" data-bind="presentation.narrative" placeholder="Classifica, tecnico, assetto tattico, impressioni generali sull'andamento della squadra nelle gare viste..."></textarea>
+        <p class="hint">Suggerimento: usa **testo** per il grassetto (es. nomi di giocatori) nel PDF.</p>
+      </div>
+
+      <div class="footer-nav"><button class="btn" data-action="prev">◂ Indietro</button><button class="btn primary" data-action="next">Avanti ▸</button></div>
+    </section>
+
+    <!-- STEP 2: POSSESSO -->
+    <section class="step" data-step="2">
+      <h2>3 · Fase di possesso palla</h2>
+      <p class="step-sub">Descrivi il comportamento in costruzione e attacco. Ogni blocco = una frase + un'immagine (con eventuale riferimento video).</p>
+      <div class="card">
+        <div class="field"><label>Testo introduttivo (opzionale)</label><textarea rows="4" data-bind="possession.intro"></textarea></div>
+        <div id="possessionBlocks"></div>
+        <button class="btn small list-add" data-action="addBlock" data-target="possession">+ Aggiungi immagine/frase</button>
+      </div>
+      <div class="footer-nav"><button class="btn" data-action="prev">◂ Indietro</button><button class="btn primary" data-action="next">Avanti ▸</button></div>
+    </section>
+
+    <!-- STEP 3: NON POSSESSO -->
+    <section class="step" data-step="3">
+      <h2>4 · Fase di non possesso</h2>
+      <p class="step-sub">Comportamento difensivo, pressione, riaggressione e ripiegamento.</p>
+      <div class="card">
+        <div class="field"><label>Testo introduttivo (opzionale)</label><textarea rows="4" data-bind="nonPossession.intro"></textarea></div>
+        <div id="nonPossessionBlocks"></div>
+        <button class="btn small list-add" data-action="addBlock" data-target="nonPossession">+ Aggiungi immagine/frase</button>
+      </div>
+      <div class="footer-nav"><button class="btn" data-action="prev">◂ Indietro</button><button class="btn primary" data-action="next">Avanti ▸</button></div>
+    </section>
+
+    <!-- STEP 4: PUNTI DI FORZA -->
+    <section class="step" data-step="4">
+      <h2>5 · Punti di forza</h2>
+      <p class="step-sub">I punti di forza principali della squadra avversaria.</p>
+      <div class="card"><textarea rows="10" data-bind="strengths"></textarea></div>
+      <div class="footer-nav"><button class="btn" data-action="prev">◂ Indietro</button><button class="btn primary" data-action="next">Avanti ▸</button></div>
+    </section>
+
+    <!-- STEP 5: PUNTI DEBOLI -->
+    <section class="step" data-step="5">
+      <h2>6 · Punti deboli</h2>
+      <p class="step-sub">Le fragilità da poter sfruttare.</p>
+      <div class="card"><textarea rows="10" data-bind="weaknesses"></textarea></div>
+      <div class="footer-nav"><button class="btn" data-action="prev">◂ Indietro</button><button class="btn primary" data-action="next">Avanti ▸</button></div>
+    </section>
+
+    <!-- STEP 6: CALCI PIAZZATI A FAVORE -->
+    <section class="step" data-step="6">
+      <h2>7 · Calci piazzati — a favore</h2>
+      <p class="step-sub">Saltatori, tiratori e schemi offensivi su punizione/corner, con immagini e video di supporto.</p>
+      <div class="card">
+        <h3>Note puntuali</h3>
+        <div id="cpForBullets"></div>
+        <button class="btn small list-add" data-action="addLine" data-target="setPiecesFor.bullets">+ Aggiungi nota</button>
+      </div>
+      <div class="card">
+        <h3>Immagini e video</h3>
+        <div id="cpForBlocks"></div>
+        <button class="btn small list-add" data-action="addBlock" data-target="setPiecesFor">+ Aggiungi immagine/frase</button>
+      </div>
+      <div class="footer-nav"><button class="btn" data-action="prev">◂ Indietro</button><button class="btn primary" data-action="next">Avanti ▸</button></div>
+    </section>
+
+    <!-- STEP 7: CALCI PIAZZATI CONTRO -->
+    <section class="step" data-step="7">
+      <h2>8 · Calci piazzati — contro</h2>
+      <p class="step-sub">Come si dispone l'avversario in marcatura su palle inattive subite.</p>
+      <div class="card">
+        <h3>Note puntuali</h3>
+        <div id="cpAgainstBullets"></div>
+        <button class="btn small list-add" data-action="addLine" data-target="setPiecesAgainst.bullets">+ Aggiungi nota</button>
+      </div>
+      <div class="card">
+        <h3>Immagini e video</h3>
+        <div id="cpAgainstBlocks"></div>
+        <button class="btn small list-add" data-action="addBlock" data-target="setPiecesAgainst">+ Aggiungi immagine/frase</button>
+      </div>
+      <div class="footer-nav"><button class="btn" data-action="prev">◂ Indietro</button><button class="btn primary" data-action="next">Avanti ▸</button></div>
+    </section>
+
+    <!-- STEP 8: LISTE GARA + ROSA -->
+    <section class="step" data-step="8">
+      <h2>9 · Liste gara disponibili</h2>
+      <p class="step-sub">Carica le foto delle distinte/liste gara per giornata, e componi qui la rosa: i nomi verranno riproposti nella sezione successiva senza doverli riscrivere.</p>
+      <div class="card">
+        <h3>Liste per giornata</h3>
+        <div id="matchSheetsList"></div>
+        <button class="btn small list-add" data-action="addSheet">+ Aggiungi giornata</button>
+      </div>
+      <div class="card">
+        <h3>Rosa giocatori</h3>
+        <table class="roster">
+          <thead><tr><th style="width:34%;">Nome</th><th style="width:16%;">Anno</th><th style="width:22%;">Ruolo</th><th>Note</th><th></th></tr></thead>
+          <tbody id="rosterBody"></tbody>
+        </table>
+        <button class="btn small list-add" data-action="addRosterRow">+ Aggiungi giocatore</button>
+      </div>
+      <div class="footer-nav"><button class="btn" data-action="prev">◂ Indietro</button><button class="btn primary" data-action="next">Avanti ▸</button></div>
+    </section>
+
+    <!-- STEP 9: ANALISI CALCIATORI -->
+    <section class="step" data-step="9">
+      <h2>10 · Analisi calciatori</h2>
+      <p class="step-sub">Un paragrafo per reparto. Usa "Inserisci nomi rosa" per riprendere automaticamente i nomi già inseriti nella sezione precedente, in base al ruolo assegnato.</p>
+
+      <div class="card">
+        <label>Foto squadra (opzionale)</label>
+        <div class="imgpick">
+          <div id="squadPhotoPreview"></div>
+          <input type="file" accept="image/*" data-imgtarget="playerAnalysis.squadPhoto">
+          <button class="btn small danger" data-action="clearImg" data-target="playerAnalysis.squadPhoto">Rimuovi</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="seed-row"><h3 style="margin:0;">Portiere</h3><button class="btn small" data-action="seedRole" data-role="GK">Inserisci nomi rosa</button><span class="names" id="namesGK"></span></div>
+        <textarea rows="4" data-bind="playerAnalysis.gk"></textarea>
+      </div>
+      <div class="card">
+        <div class="seed-row"><h3 style="margin:0;">Difesa</h3><button class="btn small" data-action="seedRole" data-role="DF">Inserisci nomi rosa</button><span class="names" id="namesDF"></span></div>
+        <textarea rows="5" data-bind="playerAnalysis.df"></textarea>
+      </div>
+      <div class="card">
+        <div class="seed-row"><h3 style="margin:0;">Centrocampo</h3><button class="btn small" data-action="seedRole" data-role="MF">Inserisci nomi rosa</button><span class="names" id="namesMF"></span></div>
+        <textarea rows="5" data-bind="playerAnalysis.mf"></textarea>
+      </div>
+      <div class="card">
+        <div class="seed-row"><h3 style="margin:0;">Attacco</h3><button class="btn small" data-action="seedRole" data-role="FW">Inserisci nomi rosa</button><span class="names" id="namesFW"></span></div>
+        <textarea rows="5" data-bind="playerAnalysis.fw"></textarea>
+      </div>
+
+      <div class="footer-nav"><button class="btn" data-action="prev">◂ Indietro</button><button class="btn primary" data-action="next">Avanti ▸</button></div>
+    </section>
+
+    <!-- STEP 10: FORMAZIONE -->
+    <section class="step" data-step="10">
+      <h2>11 · Probabile formazione</h2>
+      <p class="step-sub">Nota tattica, eventuale grafica formazione (es. esportata da creaformazioni.it) e squalificati.</p>
+      <div class="card">
+        <div class="field"><label>Nota tattica</label><textarea rows="4" data-bind="formation.note"></textarea></div>
+        <label>Immagine formazione (opzionale)</label>
+        <div class="imgpick">
+          <div id="formationImgPreview"></div>
+          <input type="file" accept="image/*" data-imgtarget="formation.image">
+          <button class="btn small danger" data-action="clearImg" data-target="formation.image">Rimuovi</button>
+        </div>
+        <div class="field" style="margin-top:14px;"><label>Squalificati</label><textarea rows="3" data-bind="formation.disqualified"></textarea></div>
+      </div>
+      <div class="footer-nav"><button class="btn" data-action="prev">◂ Indietro</button><button class="btn primary" data-action="genPdfFinal">Genera PDF ▸</button></div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* ---------------- state ---------------- */
+const STORAGE_KEY = 'oppReportDraft_v1';
+const ROLE_LABELS = {GK:'Portiere', DF:'Difensore', MF:'Centrocampista', FW:'Attaccante'};
+const MONTHS_IT = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+
+function emptyBlock(){ return {caption:'', image:null, videoRef:'', videoLink:''}; }
+function defaultState(){
+  return {
+    matchTitle:'',
+    meta:{ title:'ANALISI AVVERSARIO', competition:'CAMPIONATO DI ECCELLENZA UMBRA', opponent:'',
+      place:'', date:'', authorName:'', authorRole:'Match Analyst', footerLine:'' },
+    agencyLogo:null, crestLogo:null,
+    matchesViewed:[{label:'',date:''}],
+    presentation:{ system:'', lastResults:[''], cupToggle:false, cupResults:[''],
+      scorers:[{name:'',goals:1}], goalsFor:'', goalsAgainst:'', narrative:'' },
+    possession:{ intro:'', blocks:[] },
+    nonPossession:{ intro:'', blocks:[] },
+    strengths:'', weaknesses:'',
+    setPiecesFor:{ bullets:[''], blocks:[] },
+    setPiecesAgainst:{ bullets:[''], blocks:[] },
+    matchSheets:[],
+    roster:[],
+    playerAnalysis:{ squadPhoto:null, gk:'', df:'', mf:'', fw:'' },
+    formation:{ note:'', image:null, disqualified:'' }
+  };
+}
+let state = loadLS() || defaultState();
+let currentStep = 0;
+
+/* ---------------- generic path helpers ---------------- */
+function getPath(obj, path){
+  return path.split('.').reduce((o,k)=> (o==null? undefined : o[k]), obj);
+}
+function setPath(obj, path, value){
+  const keys = path.split('.');
+  let o = obj;
+  for(let i=0;i<keys.length-1;i++){ o = o[keys[i]]; }
+  o[keys[keys.length-1]] = value;
+}
+
+function saveLS(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){} }
+function loadLS(){ try{ const raw = localStorage.getItem(STORAGE_KEY); return raw? JSON.parse(raw): null; }catch(e){ return null; } }
+
+function readFileAsDataURL(file){
+  return new Promise((resolve,reject)=>{
+    const r = new FileReader();
+    r.onload = ()=> resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+/* ---------------- step nav ---------------- */
+const STEP_TITLES = [
+  'Copertina','Presentazione squadra','Fase di possesso','Fase di non possesso',
+  'Punti di forza','Punti deboli','Calci piazzati — a favore','Calci piazzati — contro',
+  'Liste gara & rosa','Analisi calciatori','Probabile formazione'
+];
+function hasContent(i){
+  switch(i){
+    case 0: return !!(state.crestLogo || state.meta.opponent || state.matchesViewed.some(m=>m.label));
+    case 1: return !!(state.presentation.system || state.presentation.narrative);
+    case 2: return state.possession.blocks.length>0 || !!state.possession.intro;
+    case 3: return state.nonPossession.blocks.length>0 || !!state.nonPossession.intro;
+    case 4: return !!state.strengths;
+    case 5: return !!state.weaknesses;
+    case 6: return state.setPiecesFor.blocks.length>0 || state.setPiecesFor.bullets.some(Boolean);
+    case 7: return state.setPiecesAgainst.blocks.length>0 || state.setPiecesAgainst.bullets.some(Boolean);
+    case 8: return state.matchSheets.length>0 || state.roster.length>0;
+    case 9: return !!(state.playerAnalysis.gk||state.playerAnalysis.df||state.playerAnalysis.mf||state.playerAnalysis.fw);
+    case 10: return !!(state.formation.note || state.formation.image);
+  }
+  return false;
+}
+function renderNav(){
+  const ol = document.getElementById('stepNav');
+  ol.innerHTML = STEP_TITLES.map((t,i)=>
+    `<li data-goto="${i}" class="${i===currentStep?'active':''} ${hasContent(i)?'filled':''}">
+      <span class="dot"></span>${i+1}. ${t}</li>`
+  ).join('');
+}
+function showStep(i){
+  currentStep = Math.max(0, Math.min(STEP_TITLES.length-1, i));
+  document.querySelectorAll('.step').forEach(s=> s.classList.toggle('active', Number(s.dataset.step)===currentStep));
+  renderNav();
+  window.scrollTo({top:0, behavior:'instant'});
+}
+
+/* ---------------- renderers for dynamic lists ---------------- */
+function renderTextList(containerId, path, placeholder){
+  const arr = getPath(state, path);
+  const el = document.getElementById(containerId);
+  el.innerHTML = arr.map((v,i)=>
+    `<div class="line-item">
+      <input data-bind="${path}.${i}" value="${escAttr(v)}" placeholder="${placeholder||''}">
+      <button class="btn small danger" data-action="removeLine" data-target="${path}" data-index="${i}">✕</button>
+    </div>`
+  ).join('');
+}
+
+function mediaBlockHTML(path, i, b, imgLabel){
+  return `<div class="block-item">
+    <div class="block-head"><span>${imgLabel||'Blocco'} ${i+1}</span>
+      <button class="btn small danger" data-action="removeBlock" data-target="${path}" data-index="${i}">Rimuovi</button></div>
+    <div class="field"><label>Frase descrittiva</label>
+      <textarea rows="2" data-bind="${path}.blocks.${i}.caption">${escHtmlText(b.caption)}</textarea></div>
+    <div class="imgpick" style="margin-bottom:10px;">
+      ${b.image? `<img src="${b.image}">` : `<div class="noimg">nessuna<br>immagine</div>`}
+      <input type="file" accept="image/*" data-imgtarget="${path}.blocks.${i}.image">
+      ${b.image? `<button class="btn small danger" data-action="clearImg" data-target="${path}.blocks.${i}.image">Rimuovi</button>`:''}
+    </div>
+    <div class="row">
+      <div class="field"><label>Riferimento video (es. min. 53'17'')</label>
+        <input data-bind="${path}.blocks.${i}.videoRef" value="${escAttr(b.videoRef)}"></div>
+      <div class="field"><label>Link video (opzionale)</label>
+        <input data-bind="${path}.blocks.${i}.videoLink" value="${escAttr(b.videoLink)}" placeholder="https://..."></div>
+    </div>
+  </div>`;
+}
+function renderBlocks(containerId, path){
+  const data = getPath(state, path);
+  const el = document.getElementById(containerId);
+  el.innerHTML = data.blocks.map((b,i)=> mediaBlockHTML(path, i, b)).join('') ||
+    '<p class="hint">Nessun blocco ancora. Aggiungine uno qui sotto.</p>';
+}
+
+function renderMatchesViewed(){
+  const el = document.getElementById('matchesViewedList');
+  el.innerHTML = state.matchesViewed.map((m,i)=>
+    `<div class="line-item">
+      <input data-bind="matchesViewed.${i}.label" value="${escAttr(m.label)}" placeholder="Es. Spoleto - Tavernelle 0-0" style="flex:2;">
+      <input type="date" data-bind="matchesViewed.${i}.date" value="${escAttr(m.date)}" style="flex:1;">
+      <button class="btn small danger" data-action="removeMatchViewed" data-index="${i}">✕</button>
+    </div>`
+  ).join('');
+}
+
+function renderScorers(){
+  const el = document.getElementById('scorersList');
+  el.innerHTML = state.presentation.scorers.map((s,i)=>
+    `<div class="line-item">
+      <input data-bind="presentation.scorers.${i}.name" value="${escAttr(s.name)}" placeholder="Nome giocatore" style="flex:2;">
+      <input type="number" min="1" data-bind="presentation.scorers.${i}.goals" value="${escAttr(s.goals)}" style="width:80px;flex:none;">
+      <button class="btn small danger" data-action="removeScorer" data-index="${i}">✕</button>
+    </div>`
+  ).join('');
+  updateScorersPreview();
+}
+function computeScorersLine(){
+  const scorers = state.presentation.scorers.filter(s=>s.name && s.name.trim());
+  if(!scorers.length) return '';
+  const byGoals = {};
+  scorers.forEach(s=>{ const g = Number(s.goals)||1; (byGoals[g] = byGoals[g]||[]).push(s.name.trim()); });
+  const groups = Object.keys(byGoals).map(Number).sort((a,b)=> b-a);
+  return groups.map(g=> byGoals[g].join(', ') + ' (' + g + ')').join(', ') + '.';
+}
+function updateScorersPreview(){
+  document.getElementById('scorersPreview').textContent = computeScorersLine() || '—';
+}
+
+function renderMatchSheets(){
+  const el = document.getElementById('matchSheetsList');
+  el.innerHTML = state.matchSheets.map((s,i)=>
+    `<div class="block-item">
+      <div class="block-head"><span>Giornata ${i+1}</span>
+        <button class="btn small danger" data-action="removeSheet" data-index="${i}">Rimuovi</button></div>
+      <div class="field"><label>Etichetta</label><input data-bind="matchSheets.${i}.label" value="${escAttr(s.label)}"></div>
+      <div class="imgpick">
+        ${s.image? `<img src="${s.image}">` : `<div class="noimg">nessuna<br>immagine</div>`}
+        <input type="file" accept="image/*" data-imgtarget="matchSheets.${i}.image">
+        ${s.image? `<button class="btn small danger" data-action="clearImg" data-target="matchSheets.${i}.image">Rimuovi</button>`:''}
+      </div>
+    </div>`
+  ).join('') || '<p class="hint">Nessuna lista gara ancora caricata.</p>';
+}
+
+function renderRoster(){
+  const el = document.getElementById('rosterBody');
+  el.innerHTML = state.roster.map((p,i)=>
+    `<tr>
+      <td><input data-bind="roster.${i}.name" value="${escAttr(p.name)}"></td>
+      <td><input data-bind="roster.${i}.year" value="${escAttr(p.year)}" placeholder="'05"></td>
+      <td><select data-bind="roster.${i}.role">
+        ${Object.keys(ROLE_LABELS).map(r=>`<option value="${r}" ${p.role===r?'selected':''}>${ROLE_LABELS[r]}</option>`).join('')}
+      </select></td>
+      <td><input data-bind="roster.${i}.notes" value="${escAttr(p.notes)}" placeholder="piede, note brevi"></td>
+      <td class="actions"><button class="btn small danger" data-action="removeRoster" data-index="${i}">✕</button></td>
+    </tr>`
+  ).join('');
+  renderRoleNamePreviews();
+}
+function renderRoleNamePreviews(){
+  Object.keys(ROLE_LABELS).forEach(role=>{
+    const names = state.roster.filter(p=>p.role===role && p.name).map(p=> p.name + (p.year? ' ('+p.year+')':''));
+    document.getElementById('names'+role).textContent = names.length? ('in rosa: '+names.join(', ')) : '';
+  });
+}
+
+function renderImgPreview(elId, dataUrl, alt){
+  const el = document.getElementById(elId);
+  el.innerHTML = dataUrl? `<img src="${dataUrl}" alt="${alt||''}">` : `<div class="noimg">nessuna<br>immagine</div>`;
+}
+
+function renderAllDynamic(){
+  renderMatchesViewed();
+  renderTextList('lastResultsList','presentation.lastResults','Es. TERNI FC – SPOLETO 1-1');
+  document.getElementById('cupToggle').checked = !!state.presentation.cupToggle;
+  document.getElementById('cupBlock').style.display = state.presentation.cupToggle? 'block':'none';
+  renderTextList('cupResultsList','presentation.cupResults','Es. ATLETICO BMG – SPOLETO 3-1');
+  renderScorers();
+  renderBlocks('possessionBlocks','possession');
+  renderBlocks('nonPossessionBlocks','nonPossession');
+  renderTextList('cpForBullets','setPiecesFor.bullets','Es. I saltatori più importanti sono...');
+  renderBlocks('cpForBlocks','setPiecesFor');
+  renderTextList('cpAgainstBullets','setPiecesAgainst.bullets','Es. Su punizione laterale marcano a zona...');
+  renderBlocks('cpAgainstBlocks','setPiecesAgainst');
+  renderMatchSheets();
+  renderRoster();
+  renderImgPreview('agencyLogoPreview', state.agencyLogo);
+  renderImgPreview('crestLogoPreview', state.crestLogo);
+  renderImgPreview('squadPhotoPreview', state.playerAnalysis.squadPhoto);
+  renderImgPreview('formationImgPreview', state.formation.image);
+  renderNav();
+}
+
+/* ---------------- bind existing simple inputs on load ---------------- */
+function bindSimpleInputs(){
+  document.querySelectorAll('[data-bind]').forEach(inp=>{
+    if(inp.closest('#matchesViewedList,#lastResultsList,#cupResultsList,#scorersList,#possessionBlocks,#nonPossessionBlocks,#cpForBullets,#cpForBlocks,#cpAgainstBullets,#cpAgainstBlocks,#matchSheetsList,#rosterBody')) return;
+    const path = inp.dataset.bind;
+    const val = getPath(state, path);
+    if(inp.type==='checkbox') inp.checked = !!val; else inp.value = val==null? '': val;
+  });
+  document.getElementById('matchTitleInput').value = state.matchTitle || '';
+}
+
+function escAttr(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+function escHtmlText(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ---------------- global input delegation ---------------- */
+document.addEventListener('input', (e)=>{
+  const t = e.target;
+  if(t.id==='matchTitleInput'){ state.matchTitle = t.value; saveLS(); return; }
+  if(t.dataset && t.dataset.bind){
+    let val = t.type==='checkbox'? t.checked : t.value;
+    if(t.type==='number') val = val===''? '' : Number(val);
+    setPath(state, t.dataset.bind, val);
+    if(t.dataset.bind.startsWith('presentation.scorers')) updateScorersPreview();
+    if(t.dataset.bind.startsWith('roster.')) renderRoleNamePreviews();
+    saveLS();
+  }
+});
+document.addEventListener('change', (e)=>{
+  const t = e.target;
+  if(t.id==='cupToggle'){ state.presentation.cupToggle = t.checked; document.getElementById('cupBlock').style.display = t.checked?'block':'none'; saveLS(); return; }
+  if(t.dataset && t.dataset.imgtarget){
+    const file = t.files && t.files[0];
+    if(!file) return;
+    readFileAsDataURL(file).then(durl=>{
+      setPath(state, t.dataset.imgtarget, durl);
+      saveLS();
+      refreshImageSpot(t.dataset.imgtarget);
+    });
+  }
+});
+function refreshImageSpot(path){
+  if(path==='agencyLogo') return renderImgPreview('agencyLogoPreview', state.agencyLogo);
+  if(path==='crestLogo') return renderImgPreview('crestLogoPreview', state.crestLogo);
+  if(path==='playerAnalysis.squadPhoto') return renderImgPreview('squadPhotoPreview', state.playerAnalysis.squadPhoto);
+  if(path==='formation.image') return renderImgPreview('formationImgPreview', state.formation.image);
+  if(path.startsWith('possession.blocks')) return renderBlocks('possessionBlocks','possession');
+  if(path.startsWith('nonPossession.blocks')) return renderBlocks('nonPossessionBlocks','nonPossession');
+  if(path.startsWith('setPiecesFor.blocks')) return renderBlocks('cpForBlocks','setPiecesFor');
+  if(path.startsWith('setPiecesAgainst.blocks')) return renderBlocks('cpAgainstBlocks','setPiecesAgainst');
+  if(path.startsWith('matchSheets')) return renderMatchSheets();
+}
+
+/* ---------------- click delegation for actions ---------------- */
+document.addEventListener('click', (e)=>{
+  const nav = e.target.closest('[data-goto]');
+  if(nav){ showStep(Number(nav.dataset.goto)); return; }
+
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  const action = btn.dataset.action;
+
+  if(action==='next') return showStep(currentStep+1);
+  if(action==='prev') return showStep(currentStep-1);
+  if(action==='genPdfFinal') return doPrint();
+
+  if(action==='addMatchViewed'){ state.matchesViewed.push({label:'',date:''}); renderMatchesViewed(); saveLS(); return; }
+  if(action==='removeMatchViewed'){ state.matchesViewed.splice(Number(btn.dataset.index),1); renderMatchesViewed(); saveLS(); return; }
+
+  if(action==='addLine'){
+    const arr = getPath(state, btn.dataset.target); arr.push('');
+    rerenderListByPath(btn.dataset.target); saveLS(); return;
+  }
+  if(action==='removeLine'){
+    const arr = getPath(state, btn.dataset.target); arr.splice(Number(btn.dataset.index),1);
+    rerenderListByPath(btn.dataset.target); saveLS(); return;
+  }
+
+  if(action==='addScorer'){ state.presentation.scorers.push({name:'',goals:1}); renderScorers(); saveLS(); return; }
+  if(action==='removeScorer'){ state.presentation.scorers.splice(Number(btn.dataset.index),1); renderScorers(); saveLS(); return; }
+
+  if(action==='addBlock'){
+    const data = getPath(state, btn.dataset.target); data.blocks.push(emptyBlock());
+    rerenderBlocksByPath(btn.dataset.target); saveLS(); return;
+  }
+  if(action==='removeBlock'){
+    const data = getPath(state, btn.dataset.target); data.blocks.splice(Number(btn.dataset.index),1);
+    rerenderBlocksByPath(btn.dataset.target); saveLS(); return;
+  }
+
+  if(action==='addSheet'){ state.matchSheets.push({label:'Giornata '+(state.matchSheets.length+1), image:null}); renderMatchSheets(); saveLS(); return; }
+  if(action==='removeSheet'){ state.matchSheets.splice(Number(btn.dataset.index),1); renderMatchSheets(); saveLS(); return; }
+
+  if(action==='addRosterRow'){ state.roster.push({name:'',year:'',role:'MF',notes:''}); renderRoster(); saveLS(); return; }
+  if(action==='removeRoster'){ state.roster.splice(Number(btn.dataset.index),1); renderRoster(); saveLS(); return; }
+
+  if(action==='seedRole'){
+    const role = btn.dataset.role;
+    const key = {GK:'gk',DF:'df',MF:'mf',FW:'fw'}[role];
+    const names = state.roster.filter(p=>p.role===role && p.name);
+    const existing = state.playerAnalysis[key] || '';
+    const toAdd = names.filter(p=> !existing.includes(p.name)).map(p=> '**'+p.name+'**'+(p.year? ' (\''+p.year.replace(/^'/,'')+')':'') );
+    if(toAdd.length){
+      state.playerAnalysis[key] = (existing? existing.trim()+' ' : '') + toAdd.join(', ') + '. ';
+      document.querySelector(`[data-bind="playerAnalysis.${key}"]`).value = state.playerAnalysis[key];
+      saveLS();
+    }
+    return;
+  }
+
+  if(action==='clearImg'){
+    setPath(state, btn.dataset.target, null);
+    saveLS();
+    refreshImageSpot(btn.dataset.target);
+    return;
+  }
+});
+
+function rerenderListByPath(path){
+  const map = {
+    'presentation.lastResults': ()=>renderTextList('lastResultsList','presentation.lastResults',''),
+    'presentation.cupResults': ()=>renderTextList('cupResultsList','presentation.cupResults',''),
+    'setPiecesFor.bullets': ()=>renderTextList('cpForBullets','setPiecesFor.bullets',''),
+    'setPiecesAgainst.bullets': ()=>renderTextList('cpAgainstBullets','setPiecesAgainst.bullets',''),
+  };
+  if(map[path]) map[path]();
+}
+function rerenderBlocksByPath(path){
+  const map = {
+    'possession': ()=>renderBlocks('possessionBlocks','possession'),
+    'nonPossession': ()=>renderBlocks('nonPossessionBlocks','nonPossession'),
+    'setPiecesFor': ()=>renderBlocks('cpForBlocks','setPiecesFor'),
+    'setPiecesAgainst': ()=>renderBlocks('cpAgainstBlocks','setPiecesAgainst'),
+  };
+  if(map[path]) map[path]();
+}
+
+/* ---------------- save helper: uses the claude.ai download bridge when available,
+   falls back to a plain browser download (works when this file is opened on its own,
+   e.g. from a local folder / git repo, outside the claude.ai artifact viewer) ---------------- */
+function browserDownload(filename, data, mimeType){
+  const blob = data instanceof Blob ? data : new Blob([data], {type: mimeType||'application/octet-stream'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=> URL.revokeObjectURL(a.href), 2000);
+}
+const SAVE_ERROR_MESSAGES = {
+  declined: 'Hai annullato il salvataggio.',
+  too_large: 'Il file è troppo pesante per essere salvato (oltre 16 MB) — riduci il numero o il peso delle immagini caricate.',
+  rate_limited: 'C\'è già una richiesta di salvataggio in corso, riprova tra un istante.',
+  unavailable: 'Il salvataggio file non è disponibile in questa vista.'
+};
+async function saveFileSmart(filename, data, mimeType){
+  if(window.claude && window.claude.downloads){
+    return window.claude.downloads.save({filename, data});
+  }
+  browserDownload(filename, data, mimeType);
+  return {status:'saved'};
+}
+
+/* ---------------- top bar actions ---------------- */
+document.getElementById('btnNew').addEventListener('click', ()=>{
+  if(!confirm('Creare una nuova bozza? Il contenuto attuale non salvato con "Esporta" andrà perso da qui.')) return;
+  state = defaultState(); saveLS(); bindSimpleInputs(); renderAllDynamic(); showStep(0);
+});
+document.getElementById('btnExport').addEventListener('click', async ()=>{
+  const filename = (state.matchTitle||'report-avversario').replace(/[^a-z0-9-_]+/gi,'_') + '.json';
+  const data = JSON.stringify(state,null,2);
+  try{
+    await saveFileSmart(filename, data, 'application/json');
+  }catch(err){
+    if(err && (err.code==='rejected_extension' || err.code==='extension_not_enabled')){
+      try{ browserDownload(filename, data, 'application/json'); return; }catch(e2){}
+    }
+    alert(SAVE_ERROR_MESSAGES[err && err.code] || ('Salvataggio non riuscito: ' + (err && err.message || 'errore sconosciuto')));
+  }
+});
+document.getElementById('importFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    try{
+      const imported = JSON.parse(r.result);
+      state = Object.assign(defaultState(), imported);
+      saveLS(); bindSimpleInputs(); renderAllDynamic(); showStep(0);
+    }catch(err){ alert('File non valido.'); }
+  };
+  r.readAsText(file);
+  e.target.value = '';
+});
+document.getElementById('btnPrint').addEventListener('click', doPrint);
+
+/* ---------------- shared text helpers ---------------- */
+function formatDateSlash(iso){
+  if(!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return d+'/'+m+'/'+y;
+}
+function formatDateLong(iso, place){
+  if(!iso) return place||'';
+  const [y,m,d] = iso.split('-');
+  return (place? place+', lì ':'') + Number(d) + ' ' + MONTHS_IT[Number(m)-1] + ' ' + y;
+}
+function tokenizeParagraph(paragraphText){
+  const lines = String(paragraphText||'').split('\n');
+  const tokens = [];
+  lines.forEach((line, li)=>{
+    if(li>0) tokens.push({brk:true});
+    const runs = line.split(/(\*\*[^*]*\*\*)/g).filter(s=>s.length);
+    runs.forEach(run=>{
+      let bold=false, txt=run;
+      if(run.length>=4 && run.startsWith('**') && run.endsWith('**')){ bold=true; txt=run.slice(2,-2); }
+      txt.split(/\s+/).filter(Boolean).forEach(w=> tokens.push({text:w, bold}));
+    });
+  });
+  return tokens;
+}
+function splitParagraphs(raw){
+  return String(raw||'').split(/\n{2,}/).map(p=>p.trim()).filter(Boolean);
+}
+
+/* ---------------- PDF byte-level primitives (no external library) ---------------- */
+const WINANSI_MAP = {0x2013:0x96,0x2014:0x97,0x2018:0x91,0x2019:0x92,0x201C:0x93,0x201D:0x94,0x2022:0x95,0x2026:0x85,0x00A0:0x20};
+function toWinAnsiBytes(str){
+  const out = [];
+  for(const ch of String(str==null?'':str)){
+    let code = ch.codePointAt(0);
+    if(WINANSI_MAP[code]!=null) code = WINANSI_MAP[code];
+    if(code>255) code = 0x3F;
+    out.push(code);
+  }
+  return out;
+}
+function pdfEscapeBytes(bytes){
+  const out=[];
+  for(const b of bytes){ if(b===0x28||b===0x29||b===0x5C) out.push(0x5C); out.push(b); }
+  return out;
+}
+function bytesToPdfLiteral(bytes){
+  let s='(';
+  for(const b of bytes) s += String.fromCharCode(b);
+  return s+')';
+}
+function asciiToBytes(str){
+  const arr = new Uint8Array(str.length);
+  for(let i=0;i<str.length;i++) arr[i] = str.charCodeAt(i) & 0xFF;
+  return arr;
+}
+function fx(n){ return (Math.round(n*100)/100).toString(); }
+
+class PDFBuilder{
+  constructor(){ this.objects = {}; this.nextId = 1; }
+  reserveId(){ return this.nextId++; }
+  addObject(id, body){
+    this.objects[id] = (typeof body==='string')? asciiToBytes(body) : body;
+    return id;
+  }
+  makeStream(id, dictStr, bytes){
+    const header = asciiToBytes(dictStr + '\nstream\n');
+    const footer = asciiToBytes('\nendstream');
+    const combined = new Uint8Array(header.length + bytes.length + footer.length);
+    combined.set(header,0); combined.set(bytes, header.length); combined.set(footer, header.length+bytes.length);
+    return this.addObject(id, combined);
+  }
+  serialize(rootId){
+    const parts = []; let length = 0;
+    function push(u8){ parts.push(u8); length += u8.length; }
+    push(asciiToBytes('%PDF-1.4\n%'));
+    push(Uint8Array.from([0xE2,0xE3,0xCF,0xD3]));
+    push(asciiToBytes('\n'));
+    const offsets = [];
+    for(let id=1; id<this.nextId; id++){
+      offsets[id] = length;
+      push(asciiToBytes(id+' 0 obj\n'));
+      push(this.objects[id]);
+      push(asciiToBytes('\nendobj\n'));
+    }
+    const xrefStart = length;
+    push(asciiToBytes('xref\n0 '+this.nextId+'\n'));
+    push(asciiToBytes('0000000000 65535 f \n'));
+    for(let id=1; id<this.nextId; id++){
+      push(asciiToBytes(String(offsets[id]).padStart(10,'0')+' 00000 n \n'));
+    }
+    push(asciiToBytes('trailer\n<< /Size '+this.nextId+' /Root '+rootId+' 0 R >>\nstartxref\n'+xrefStart+'\n%%EOF'));
+    const out = new Uint8Array(length);
+    let o=0; for(const p of parts){ out.set(p,o); o+=p.length; }
+    return out;
+  }
+}
+
+/* ---------------- layout engine ---------------- */
+const PT = {MM:2.83464567};
+PT.PAGE_W = 595.28; PT.PAGE_H = 841.89;
+PT.MARGIN_TOP = 22*PT.MM; PT.MARGIN_BOTTOM = 20*PT.MM; PT.MARGIN_LEFT = 20*PT.MM; PT.MARGIN_RIGHT = 20*PT.MM;
+PT.CONTENT_W = PT.PAGE_W - PT.MARGIN_LEFT - PT.MARGIN_RIGHT;
+
+// Official Adobe Core-14 AFM glyph widths (1/1000 em, indexed by WinAnsiEncoding byte code).
+// Using the exact metrics every PDF viewer already has built in for these standard fonts
+// guarantees our word-wrap and glyph positions match the real rendering exactly, instead of
+// depending on whatever font happens to be installed for canvas measurement.
+const AFM_TIMES_ROMAN = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,250,333,408,500,500,833,778,180,333,333,500,564,250,333,250,278,500,500,500,500,500,500,500,500,500,500,278,278,564,564,564,444,921,722,667,667,722,611,556,722,722,333,389,722,611,889,722,722,556,722,667,556,611,722,722,944,722,722,611,333,278,333,469,500,333,444,500,444,500,444,333,500,500,278,278,500,278,778,500,500,500,500,333,389,278,500,500,722,500,500,444,480,200,480,541,350,500,350,333,500,444,1000,500,500,333,1000,556,333,889,350,611,350,350,333,333,444,444,350,500,1000,333,980,389,333,722,350,444,722,250,333,500,500,500,500,200,500,333,760,276,500,564,333,760,333,400,564,300,300,333,500,453,250,333,300,310,500,750,750,750,444,722,722,722,722,722,722,889,667,611,611,611,611,333,333,333,333,722,722,722,722,722,722,722,564,722,722,722,722,722,722,556,500,444,444,444,444,444,444,667,444,444,444,444,444,278,278,278,278,500,500,500,500,500,500,500,564,500,500,500,500,500,500,500,500];
+const AFM_TIMES_BOLD = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,250,333,555,500,500,1000,833,278,333,333,500,570,250,333,250,278,500,500,500,500,500,500,500,500,500,500,333,333,570,570,570,500,930,722,667,722,722,667,611,778,778,389,500,778,667,944,722,778,611,778,722,556,667,722,722,1000,722,722,667,333,278,333,581,500,333,500,556,444,556,444,333,500,556,278,333,556,278,833,556,500,556,556,444,389,333,556,500,722,500,500,444,394,220,394,520,350,500,350,333,500,500,1000,500,500,333,1000,556,333,1000,350,667,350,350,333,333,500,500,350,500,1000,333,1000,389,333,722,350,444,722,250,333,500,500,500,500,220,500,333,747,300,500,570,333,747,333,400,570,300,300,333,556,540,250,333,300,330,500,750,750,750,500,722,722,722,722,722,722,1000,722,667,667,667,667,389,389,389,389,722,722,778,778,778,778,778,570,778,722,722,722,722,722,611,556,500,500,500,500,500,500,722,444,444,444,444,444,278,278,278,278,500,556,500,500,500,500,500,570,500,556,556,556,556,500,556,500];
+const AFM_TIMES_ITALIC = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,250,333,420,500,500,833,778,214,333,333,500,675,250,333,250,278,500,500,500,500,500,500,500,500,500,500,333,333,675,675,675,500,920,611,611,667,722,611,611,722,722,333,444,667,556,833,667,722,611,722,611,500,556,722,611,833,611,556,556,389,278,389,422,500,333,500,500,444,500,444,278,500,500,278,278,444,278,722,500,500,500,500,389,389,278,500,444,667,444,444,389,400,275,400,541,350,500,350,333,500,556,889,500,500,333,1000,500,333,944,350,556,350,350,333,333,556,556,350,500,889,333,980,389,333,667,350,389,556,250,389,500,500,500,500,275,500,333,760,276,500,675,333,760,333,400,675,300,300,333,500,523,250,333,300,310,500,750,750,750,500,611,611,611,611,611,611,889,667,611,611,611,611,333,333,333,333,722,667,722,722,722,722,722,675,722,722,722,722,722,556,611,500,500,500,500,500,500,500,667,444,444,444,444,444,278,278,278,278,500,500,500,500,500,500,500,675,500,500,500,500,500,444,500,444];
+function winAnsiCode(ch){
+  let code = ch.codePointAt(0);
+  if(WINANSI_MAP[code]!=null) code = WINANSI_MAP[code];
+  if(code>255) code = 0x3F;
+  return code;
+}
+function measureWidth(text, size, bold, italic){
+  const table = italic? AFM_TIMES_ITALIC : (bold? AFM_TIMES_BOLD : AFM_TIMES_ROMAN);
+  let units = 0;
+  for(const ch of String(text||'')) units += (table[winAnsiCode(ch)] || 500);
+  return units * size / 1000;
+}
+
+class Layout{
+  constructor(doc, headerLogo, footerText){
+    this.doc = doc;
+    this.headerLogo = headerLogo; // {id,w,h} or null
+    this.footerText = footerText || '';
+    this.fontRegId = doc.reserveId();
+    this.fontBoldId = doc.reserveId();
+    this.fontItalicId = doc.reserveId();
+    doc.addObject(this.fontRegId, '<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman /Encoding /WinAnsiEncoding >>');
+    doc.addObject(this.fontBoldId, '<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold /Encoding /WinAnsiEncoding >>');
+    doc.addObject(this.fontItalicId, '<< /Type /Font /Subtype /Type1 /BaseFont /Times-Italic /Encoding /WinAnsiEncoding >>');
+    this.pageIds = [];
+    this.pagesId = doc.reserveId();
+    this.page = null;
+    this.marginLeft = PT.MARGIN_LEFT;
+    this.contentWidth = PT.CONTENT_W;
+    this.newPage(false);
+  }
+  newPage(withChrome){
+    if(this.page) this._finalizePage();
+    this.page = {ops:[], images:{}, imgCounter:0};
+    this.y = PT.PAGE_H - PT.MARGIN_TOP;
+    if(withChrome!==false){
+      if(this.headerLogo) this.drawImageBox(this.headerLogo, PT.MARGIN_LEFT, PT.PAGE_H - 17, 40, 12, true);
+      if(this.footerText){
+        this.page.ops.push('0.6 0.6 0.55 RG 0.5 w '+fx(PT.MARGIN_LEFT)+' '+fx(PT.MARGIN_BOTTOM-6)+' m '+fx(PT.PAGE_W-PT.MARGIN_RIGHT)+' '+fx(PT.MARGIN_BOTTOM-6)+' l S');
+        this.drawTextAbs(this.footerText, PT.MARGIN_LEFT, PT.MARGIN_BOTTOM-16, 7.5, false, true);
+      }
+    }
+  }
+  ensure(h){ if(this.y - h < PT.MARGIN_BOTTOM) this.newPage(); }
+  localImageName(imgInfo){
+    const key = imgInfo.id;
+    for(const n in this.page.images) if(this.page.images[n]===key) return n;
+    const name = 'Im'+(this.page.imgCounter++);
+    this.page.images[name] = key;
+    return name;
+  }
+  drawTextAbs(text, x, y, size, bold, italic){
+    if(!text) return;
+    const bytes = pdfEscapeBytes(toWinAnsiBytes(text));
+    const fname = italic? '/F3' : (bold? '/F2' : '/F1');
+    this.page.ops.push('BT '+fname+' '+fx(size)+' Tf 1 0 0 1 '+fx(x)+' '+fx(y)+' Tm '+bytesToPdfLiteral(bytes)+' Tj ET');
+  }
+  drawLineRule(x1,y,x2){ this.page.ops.push('0 0 0 RG 0.6 w '+fx(x1)+' '+fx(y)+' m '+fx(x2)+' '+fx(y)+' l S'); }
+  drawRect(x,y,w,h){ this.page.ops.push('0 0 0 RG 0.7 w '+fx(x)+' '+fx(y)+' '+fx(w)+' '+fx(h)+' re S'); }
+  drawImageBox(imgInfo, x, yTop, maxW, maxH, italicLogoSlot){
+    const scale = Math.min(maxW/imgInfo.w, maxH/imgInfo.h);
+    const w = imgInfo.w*scale, h = imgInfo.h*scale;
+    const name = this.localImageName(imgInfo);
+    this.page.ops.push('q '+fx(w)+' 0 0 '+fx(h)+' '+fx(x)+' '+fx(yTop-h)+' cm /'+name+' Do Q');
+    return {w,h};
+  }
+  paragraph(text, opts){
+    opts = opts||{};
+    const size = opts.size||11; const bold = !!opts.bold; const italic = !!opts.italic;
+    const x0 = opts.x!=null? opts.x : this.marginLeft;
+    const maxWidth = opts.maxWidth!=null? opts.maxWidth : this.contentWidth;
+    const align = opts.align||'left';
+    const lineHeight = size*1.32;
+    const tokens = opts.tokens || tokenizeParagraph(text).map(t=> bold? Object.assign({},t,{bold:true}) : t);
+    const spaceW = measureWidth(' ', size, false, italic);
+    let lineTokens = [], lineWidth = 0;
+    const flush = ()=>{
+      this.ensure(lineHeight);
+      let lineW = 0;
+      lineTokens.forEach((t,i)=>{ lineW += measureWidth(t.text,size,t.bold,italic) + (i? spaceW:0); });
+      let x = x0;
+      if(align==='center') x = x0 + (maxWidth-lineW)/2;
+      if(align==='right') x = x0 + (maxWidth-lineW);
+      lineTokens.forEach(t=>{
+        this.drawTextAbs(t.text, x, this.y, size, t.bold, italic);
+        x += measureWidth(t.text, size, t.bold, italic) + spaceW;
+      });
+      this.y -= lineHeight;
+      lineTokens = []; lineWidth = 0;
+    };
+    for(const tok of tokens){
+      if(tok.brk){ flush(); continue; }
+      const w = measureWidth(tok.text, size, tok.bold, italic);
+      const projected = lineWidth + (lineTokens.length? spaceW:0) + w;
+      if(projected > maxWidth && lineTokens.length){ flush(); lineTokens=[tok]; lineWidth=w; }
+      else { lineTokens.push(tok); lineWidth = projected; }
+    }
+    if(lineTokens.length) flush();
+    this.y -= (opts.gapAfter!=null? opts.gapAfter : size*0.55);
+  }
+  multiParagraph(raw, opts){
+    splitParagraphs(raw).forEach(p=> this.paragraph(p, opts));
+  }
+  heading(text, opts){
+    opts = opts||{};
+    this.ensure((opts.size||16)*1.6);
+    this.paragraph(text, {size:opts.size||16, bold:true, gapAfter:opts.gapAfter!=null?opts.gapAfter:10});
+    if(opts.underline){
+      const w = measureWidth(text, opts.size||16, true);
+      this.drawLineRule(this.marginLeft, this.y + (opts.gapAfter!=null?opts.gapAfter:10) + (opts.size||16)*0.22, this.marginLeft+w);
+    }
+  }
+  bulletList(items, opts){
+    opts = opts||{};
+    const size = opts.size||10.5; const indent = 12;
+    items.filter(Boolean).forEach(item=>{
+      const tokens = tokenizeParagraph('•  '+item);
+      this.paragraph(null, {size, x:this.marginLeft+indent, maxWidth:this.contentWidth-indent, tokens, gapAfter:4});
+    });
+  }
+  image(imgInfo, opts){
+    opts = opts||{};
+    const maxW = opts.maxWidth!=null? opts.maxWidth : this.contentWidth;
+    const maxH = opts.maxHeight!=null? opts.maxHeight : 260;
+    const scale = Math.min(maxW/imgInfo.w, maxH/imgInfo.h, 1.4);
+    const w = imgInfo.w*scale, h = imgInfo.h*scale;
+    this.ensure(h+6);
+    const x = opts.center? this.marginLeft + (this.contentWidth-w)/2 : this.marginLeft;
+    this.drawImageBox(imgInfo, x, this.y, w, h);
+    this.drawRect(x, this.y-h, w, h);
+    this.y -= h + 8;
+  }
+  sectionBreak(){ this.newPage(); }
+  _finalizePage(){
+    const opsStr = this.page.ops.join('\n');
+    const contentId = this.doc.reserveId();
+    this.doc.makeStream(contentId, '<< /Length '+asciiToBytes(opsStr).length+' >>', asciiToBytes(opsStr));
+    let xobj = '';
+    for(const name in this.page.images) xobj += ' /'+name+' '+this.page.images[name]+' 0 R';
+    const pageId = this.doc.reserveId();
+    this.doc.addObject(pageId, '<< /Type /Page /Parent '+this.pagesId+' 0 R /MediaBox [0 0 '+fx(PT.PAGE_W)+' '+fx(PT.PAGE_H)+'] '+
+      '/Resources << /Font << /F1 '+this.fontRegId+' 0 R /F2 '+this.fontBoldId+' 0 R /F3 '+this.fontItalicId+' 0 R >> /XObject << '+xobj+' >> >> '+
+      '/Contents '+contentId+' 0 R >>');
+    this.pageIds.push(pageId);
+  }
+  finish(){
+    this._finalizePage();
+    const kids = this.pageIds.map(id=> id+' 0 R').join(' ');
+    this.doc.addObject(this.pagesId, '<< /Type /Pages /Kids ['+kids+'] /Count '+this.pageIds.length+' >>');
+    const catalogId = this.doc.reserveId();
+    this.doc.addObject(catalogId, '<< /Type /Catalog /Pages '+this.pagesId+' 0 R >>');
+    return this.doc.serialize(catalogId);
+  }
+}
+
+/* ---------------- image embedding (rasterize any format to JPEG for DCTDecode) ---------------- */
+function loadImageEl(src){
+  return new Promise((resolve,reject)=>{ const img=new Image(); img.onload=()=>resolve(img); img.onerror=reject; img.src=src; });
+}
+async function embedImage(doc, dataUrl, cache){
+  if(!dataUrl) return null;
+  if(cache.has(dataUrl)) return cache.get(dataUrl);
+  const img = await loadImageEl(dataUrl);
+  const maxDim = 1400;
+  let w = img.naturalWidth||img.width, h = img.naturalHeight||img.height;
+  const scale = Math.min(1, maxDim/Math.max(w,h));
+  w = Math.max(1,Math.round(w*scale)); h = Math.max(1,Math.round(h*scale));
+  const canvas = document.createElement('canvas'); canvas.width=w; canvas.height=h;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h);
+  ctx.drawImage(img,0,0,w,h);
+  const jpegUrl = canvas.toDataURL('image/jpeg', 0.82);
+  const b64 = jpegUrl.split(',')[1];
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  const id = doc.reserveId();
+  doc.makeStream(id, '<< /Type /XObject /Subtype /Image /Width '+w+' /Height '+h+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+bytes.length+' >>', bytes);
+  const result = {id, w, h};
+  cache.set(dataUrl, result);
+  return result;
+}
+
+/* ---------------- assemble the report into a PDF ---------------- */
+async function buildPdfBytes(state){
+  const s = state;
+  const doc = new PDFBuilder();
+  const cache = new Map();
+  const headerLogo = await embedImage(doc, s.agencyLogo, cache);
+  const footerText = s.meta.footerLine || '';
+  const layout = new Layout(doc, headerLogo, footerText);
+
+  // ---- cover ----
+  layout.y = PT.PAGE_H - 60;
+  layout.paragraph(s.meta.title||'ANALISI AVVERSARIO', {size:26, bold:true, align:'center', gapAfter:26});
+  const crest = await embedImage(doc, s.crestLogo, cache);
+  if(crest) layout.image(crest, {maxWidth:200, maxHeight:200, center:true});
+  layout.y -= 10;
+  const boxW = 380, boxX = layout.marginLeft + (layout.contentWidth-boxW)/2;
+  const boxTop = layout.y;
+  const oldMargin = layout.marginLeft, oldWidth = layout.contentWidth;
+  layout.marginLeft = boxX+20; layout.contentWidth = boxW-40;
+  layout.y -= 14;
+  layout.paragraph(s.meta.competition||'', {size:12, bold:true, align:'center', gapAfter:12});
+  layout.paragraph('Report Avversario a cura di:', {size:11, gapAfter:2});
+  layout.paragraph('**'+(s.meta.authorName||'')+'**', {size:11, gapAfter:2});
+  layout.paragraph(s.meta.authorRole||'', {size:11, italic:true, gapAfter:12});
+  const mv = s.matchesViewed.filter(m=>m.label);
+  if(mv.length){
+    layout.paragraph('Gare visionate:', {size:11, gapAfter:4});
+    mv.forEach(m=> layout.paragraph('•  '+m.label+(m.date? ', disputata il '+formatDateSlash(m.date):''), {size:10.5, gapAfter:3}));
+    layout.y -= 6;
+  }
+  layout.paragraph(formatDateLong(s.meta.date, s.meta.place), {size:11, gapAfter:0});
+  const boxBottom = layout.y - 14;
+  layout.marginLeft = oldMargin; layout.contentWidth = oldWidth;
+  layout.drawRect(boxX, boxBottom, boxW, boxTop-boxBottom);
+  layout.y = boxBottom - 10;
+
+  // ---- presentazione avversario ----
+  layout.sectionBreak();
+  layout.heading('PRESENTAZIONE AVVERSARIO', {size:18, gapAfter:14});
+  layout.heading('SISTEMA DI GIOCO: '+(s.presentation.system||''), {size:12.5, underline:true, gapAfter:10});
+  const lastResults = s.presentation.lastResults.filter(Boolean);
+  if(lastResults.length){
+    layout.paragraph('ULTIMI RISULTATI:', {size:11, gapAfter:4});
+    layout.bulletList(lastResults.map(r=>r.toUpperCase()), {});
+    layout.y -= 6;
+  }
+  layout.paragraph('SCORE:', {size:11, gapAfter:4});
+  const scorersLine = computeScorersLine();
+  const scoreLines = ['GOL FATTI: '+(s.presentation.goalsFor||''), 'GOL SUBITI: '+(s.presentation.goalsAgainst||'')];
+  if(scorersLine) scoreLines.push('MARCATORI: '+scorersLine);
+  layout.bulletList(scoreLines, {});
+  layout.y -= 6;
+  if(s.presentation.cupToggle){
+    const cupResults = s.presentation.cupResults.filter(Boolean);
+    if(cupResults.length){
+      layout.paragraph('PERCORSO IN COPPA', {size:11, gapAfter:4});
+      layout.bulletList(cupResults.map(r=>r.toUpperCase()), {});
+      layout.y -= 6;
+    }
+  }
+  layout.heading('PRESENTAZIONE SQUADRA', {size:13.5, gapAfter:10});
+  layout.multiParagraph(s.presentation.narrative, {size:11, gapAfter:8});
+
+  // ---- possesso / non possesso ----
+  async function mediaSection(title, data){
+    layout.sectionBreak();
+    layout.heading(title, {size:13.5, gapAfter:10});
+    layout.multiParagraph(data.intro, {size:11, gapAfter:8});
+    for(const b of data.blocks){
+      if(!b.caption && !b.image) continue;
+      if(b.caption) layout.multiParagraph(b.caption, {size:11, gapAfter:4});
+      if(b.image){
+        const info = await embedImage(doc, b.image, cache);
+        if(info) layout.image(info, {maxHeight:230});
+      }
+      const vref = [b.videoRef, b.videoLink].filter(Boolean).join(' — ');
+      if(vref) layout.paragraph(vref, {size:9.5, gapAfter:10});
+      else layout.y -= 6;
+    }
+  }
+  await mediaSection('FASE DI POSSESSO PALLA', s.possession);
+  await mediaSection('FASE DI NON POSSESSO', s.nonPossession);
+
+  // ---- punti di forza / deboli ----
+  layout.sectionBreak();
+  layout.heading('PUNTI DI FORZA', {size:16, gapAfter:12});
+  layout.multiParagraph(s.strengths, {size:11, gapAfter:8});
+
+  layout.sectionBreak();
+  layout.heading('PUNTI DEBOLI', {size:16, gapAfter:12});
+  layout.multiParagraph(s.weaknesses, {size:11, gapAfter:8});
+
+  // ---- calci piazzati ----
+  layout.sectionBreak();
+  layout.heading('CALCI PIAZZATI', {size:16, gapAfter:12});
+  layout.heading('A favore', {size:12, underline:true, gapAfter:8});
+  layout.bulletList(s.setPiecesFor.bullets.filter(Boolean), {});
+  layout.y -= 6;
+  for(const b of s.setPiecesFor.blocks){
+    if(!b.caption && !b.image) continue;
+    if(b.caption) layout.multiParagraph(b.caption, {size:11, gapAfter:4});
+    if(b.image){ const info = await embedImage(doc, b.image, cache); if(info) layout.image(info, {maxHeight:220}); }
+  }
+  layout.heading('Contro', {size:12, underline:true, gapAfter:8});
+  layout.bulletList(s.setPiecesAgainst.bullets.filter(Boolean), {});
+  layout.y -= 6;
+  for(const b of s.setPiecesAgainst.blocks){
+    if(!b.caption && !b.image) continue;
+    if(b.caption) layout.multiParagraph(b.caption, {size:11, gapAfter:4});
+    if(b.image){ const info = await embedImage(doc, b.image, cache); if(info) layout.image(info, {maxHeight:220}); }
+  }
+
+  // ---- liste gara ----
+  layout.sectionBreak();
+  layout.heading('LISTE GARA DISPONIBILI', {size:16, gapAfter:12});
+  for(const sh of s.matchSheets){
+    if(!sh.label && !sh.image) continue;
+    if(sh.label) layout.paragraph(sh.label, {size:11, bold:true, gapAfter:4});
+    if(sh.image){ const info = await embedImage(doc, sh.image, cache); if(info) layout.image(info, {maxWidth:220, maxHeight:260}); }
+  }
+
+  // ---- analisi calciatori ----
+  layout.sectionBreak();
+  layout.heading('ANALISI CALCIATORI', {size:16, gapAfter:12});
+  const squadPhoto = await embedImage(doc, s.playerAnalysis.squadPhoto, cache);
+  if(squadPhoto) layout.image(squadPhoto, {maxHeight:220, center:true});
+  const roles = [['PORTIERE', s.playerAnalysis.gk],['DIFESA', s.playerAnalysis.df],['CENTROCAMPO', s.playerAnalysis.mf],['ATTACCO', s.playerAnalysis.fw]];
+  for(const [label, text] of roles){
+    if(!text) continue;
+    layout.paragraph('**'+label+':**  '+text, {size:11, gapAfter:8});
+  }
+
+  // ---- probabile formazione ----
+  layout.sectionBreak();
+  layout.heading('PROBABILE FORMAZIONE', {size:16, gapAfter:12});
+  layout.multiParagraph(s.formation.note, {size:11, gapAfter:8});
+  const formImg = await embedImage(doc, s.formation.image, cache);
+  if(formImg) layout.image(formImg, {maxHeight:280, center:true});
+  if(s.formation.disqualified) layout.paragraph('**SQUALIFICATI:**  '+s.formation.disqualified, {size:11, gapAfter:10});
+  layout.y -= 20;
+  layout.paragraph('Report a cura di', {size:11, align:'right', gapAfter:2});
+  layout.paragraph('**'+(s.meta.authorName||'')+'**', {size:11, align:'right', gapAfter:2});
+  layout.paragraph(s.meta.authorRole||'', {size:11, italic:true, align:'right', gapAfter:0});
+
+  return layout.finish();
+}
+
+async function doPrint(){
+  const btn = document.getElementById('btnPrint');
+  const genPdfBtn = document.querySelector('[data-action="genPdfFinal"]');
+  const originalLabel = btn.textContent;
+  btn.textContent = 'Genero il PDF…'; btn.disabled = true;
+  if(genPdfBtn) genPdfBtn.disabled = true;
+  try{
+    const baseName = (state.matchTitle || state.meta.opponent || 'analisi-avversario').replace(/[^a-z0-9-_]+/gi,'_') || 'analisi-avversario';
+    const pdfBytes = await buildPdfBytes(state);
+    if(!window.claude || !window.claude.downloads){
+      // running as a plain local file / outside claude.ai: no extension restrictions apply
+      browserDownload(baseName + '.pdf', pdfBytes, 'application/pdf');
+      return;
+    }
+    try{
+      await window.claude.downloads.save({filename: baseName + '.pdf', data: pdfBytes});
+    }catch(err){
+      if(err && (err.code === 'rejected_extension' || err.code === 'extension_not_enabled')){
+        try{
+          await window.claude.downloads.save({filename: baseName + '.txt', data: pdfBytes});
+          alert('Questa vista non permette di scaricare direttamente un file .pdf: ho salvato lo stesso identico PDF con estensione .txt.\\nPer completare basta rinominare il file da .txt a .pdf: si aprirà normalmente in qualsiasi lettore PDF.');
+        }catch(err2){
+          alert('Salvataggio non riuscito: ' + (err2 && err2.message || 'errore sconosciuto'));
+        }
+        return;
+      }
+      alert(SAVE_ERROR_MESSAGES[err && err.code] || ('Salvataggio non riuscito: ' + (err && err.message || 'errore sconosciuto')));
+    }
+  }catch(genErr){
+    alert('Errore nella generazione del PDF: ' + (genErr && genErr.message || genErr));
+  }finally{
+    btn.textContent = originalLabel; btn.disabled = false;
+    if(genPdfBtn) genPdfBtn.disabled = false;
+  }
+}
+
+/* ---------------- init ---------------- */
+bindSimpleInputs();
+renderAllDynamic();
+showStep(0);
+</script>
