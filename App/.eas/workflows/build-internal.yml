@@ -1,0 +1,13 @@
+name: Build interna Android (manuale)
+# Nessun trigger automatico: si lancia a mano da expo.dev (o con
+# "eas workflow:run .eas/workflows/build-internal.yml") solo quando serve
+# davvero una build nativa nuova: nuova libreria nativa, nuova icona,
+# nuovo permesso, oppure un futuro upgrade di Expo SDK.
+
+jobs:
+  build:
+    name: Build Android (distribuzione interna)
+    type: build
+    params:
+      platform: android
+      profile: preview

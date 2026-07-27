@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Dimensions, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import ViewShot, { captureRef } from 'react-native-view-shot';
+import ViewShot, { captureRef, type ViewShotRef } from 'react-native-view-shot';
 
 // === Tipi ===
 type TacticElementType = 'HOME' | 'AWAY' | 'BALL';
@@ -111,7 +111,7 @@ export default function TacticsEditor() {
   const [elements, setElements] = useState<TacticElement[]>([]);
   const [showNameModal, setShowNameModal] = useState(false);
 
-  const shotRef = useRef<ViewShot>(null);
+  const shotRef = useRef<ViewShotRef>(null);
 
   // carica se editing
   useEffect(() => {

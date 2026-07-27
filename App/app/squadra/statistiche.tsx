@@ -2,7 +2,7 @@
 import { CalendarEvent, STORAGE_KEY } from '@/app/data/events';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePlayers } from '@/app/hooks/usePlayers';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Print from 'expo-print';
 import { useFocusEffect } from 'expo-router';
 import * as Sharing from 'expo-sharing';

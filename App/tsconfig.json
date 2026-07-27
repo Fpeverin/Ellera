@@ -15,7 +15,6 @@
     "lib": ["ESNext", "DOM"],
     "types": ["react", "react-native", "react/jsx-runtime"],
 
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
     }

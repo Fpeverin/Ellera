@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "elleraapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.ElleraApp",
@@ -20,7 +19,6 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "package": "com.anonymous.ElleraApp"
     },
     "web": {
@@ -48,6 +46,12 @@
       "eas": {
         "projectId": "0c1ed799-f724-4c4c-b383-46bdad8831da"
       }
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/0c1ed799-f724-4c4c-b383-46bdad8831da"
     }
   }
 }

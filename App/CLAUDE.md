@@ -12,9 +12,36 @@ App Expo/React Native (gestionale stagione calcistica per allenatore), build APK
 i dati vivono in locale sul dispositivo tramite `@react-native-async-storage/async-storage`. Backup/ripristino
 manuale via export/import di un file JSON.
 
-Stack: Expo SDK 53, expo-router 5 (file-based routing, typed routes), React Native 0.79 / React 19,
-`react-native-reanimated` + `react-native-gesture-handler` per le lavagne tattiche drag&drop,
+Stack: Expo SDK 57, expo-router 5 (file-based routing, typed routes), React Native 0.86 / React 19,
+`react-native-reanimated` 4 + `react-native-gesture-handler` per le lavagne tattiche drag&drop,
 `react-native-calendars` per i selettori di date, `expo-print` + `expo-sharing` per l'export PDF.
+
+Il progetto usa **Continuous Native Generation (CNG)**: non esiste più una cartella `android/` (né `ios/`)
+committata — `app.json` è l'unica fonte di verità per icona, splash, permessi e plugin nativi, e la
+cartella nativa viene rigenerata automaticamente da EAS a ogni build in cloud. Questo significa che
+**non serve mai aprire Android Studio o toccare file Gradle/Kotlin** per gestire l'app.
+
+## Come rilascio una modifica
+
+Ci sono solo due scenari:
+
+1. **Modifica normale (99% dei casi)** — hai cambiato una schermata, una logica, un testo, uno stile.
+   → Fai commit e push su GitHub del branch `main`. Basta questo: in 1-2 minuti chi ha già l'app
+   installata riceve l'aggiornamento **da solo**, senza reinstallare nulla (aggiornamento OTA via
+   `App/.eas/workflows/update-on-push.yml`). Non serve lanciare nessun comando.
+
+2. **Serve una build nuova (raro)** — hai aggiunto una libreria che usa codice nativo, cambiato icona/
+   splash/permessi, o aggiornato la versione di Expo. In questi casi una modifica "al volo" (OTA) non
+   basta: serve una nuova build Android.
+   → Vai su [expo.dev](https://expo.dev) → progetto `ElleraApp` → tab **Workflows** → lancia
+   `build-internal.yml` (o da terminale: `eas workflow:run .eas/workflows/build-internal.yml`).
+   Dopo qualche minuto ottieni un link/QR code: apri il link sul telefono e installa il nuovo APK
+   (distribuzione interna, nessun Play Store).
+
+### Setup una tantum (già fatto, da rifare solo se si crea un nuovo progetto EAS)
+Perché l'aggiornamento automatico al push funzioni, il repository GitHub deve essere collegato al
+progetto Expo: su [expo.dev](https://expo.dev) → progetto → tab **GitHub** → "Install & Authorize"
+(un click, richiede l'autorizzazione GitHub del proprietario del repo).
 
 ## Modello dati (AsyncStorage)
 
@@ -102,3 +129,25 @@ inutilizzati — l'app usa quelli in `assets/images/`).
 Sono stati **mantenuti** `ThemedText`/`ThemedView`/`useThemeColor`/`useColorScheme`/`constants/Colors.ts`
 perché usati dalla schermata di fallback `+not-found.tsx`, e `assets/avatar.png` perché usato come
 foto profilo di default in `rosa.tsx`.
+
+## Aggiornamento SDK e automazione rilasci (2026-07-26)
+
+- Aggiornato Expo da SDK 53 a **SDK 57** (React Native 0.79 → 0.86) con `npx expo install --fix`, e
+  rimossa `react-native-uuid` (dipendenza dichiarata ma mai importata da nessun file).
+- Rimossa la cartella `android/` dal repository (era solo un artefatto generato, nessun codice nativo
+  custom) e passaggio al workflow **CNG** — vedi sezione sopra.
+- Corrette 3 rotture d'API introdotte dall'aggiornamento:
+  - `expo-file-system`: la vecchia API a funzioni (`cacheDirectory`, `writeAsStringAsync`, ecc., usata in
+    [index.tsx](app/index.tsx) e [statistiche.tsx](app/squadra/statistiche.tsx)) ora si importa da
+    `expo-file-system/legacy` (il pacchetto principale è stato riscritto con una nuova API a classi).
+  - `react-native-view-shot` v5: il ref della lavagna tattica in
+    [tattiche/editor.tsx](app/squadra/tattiche/editor.tsx) ora usa il tipo `ViewShotRef` esportato dalla
+    libreria invece del componente stesso.
+  - [`useThemeColor.ts`](hooks/useThemeColor.ts): il tema del sistema può restituire anche `'unspecified'`
+    (Android) oltre a `'light'/'dark'` — normalizzato con fallback a `'light'`.
+- Aggiunta `expo-updates` e configurato **EAS Update (OTA)** con `runtimeVersion.policy: "fingerprint"`
+  (Expo capisce da solo quando una modifica nativa rende un aggiornamento OTA incompatibile, senza bisogno
+  di alzare manualmente un numero di versione) e un canale (`development`/`preview`/`production`) per
+  ciascun profilo di build in `eas.json`.
+- Aggiunte le EAS Workflows in `.eas/workflows/` descritte nella sezione "Come rilascio una modifica"
+  sopra.

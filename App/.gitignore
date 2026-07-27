@@ -9,6 +9,12 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Native folders: generati automaticamente da EAS Build (Continuous Native
+# Generation) a partire da app.json. Non vanno committati: se servono in
+# locale si rigenerano con `npx expo prebuild --clean`.
+/android
+/ios
+
 # Native
 .kotlin/
 *.orig.*
