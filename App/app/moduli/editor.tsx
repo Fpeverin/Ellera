@@ -1,15 +1,12 @@
 // app/moduli/editor.tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { loadModules, saveModule } from '../data/modules';
 import { MODULES as DEFAULT_MODULES, type FieldSlot } from '../utils/modules-layout';
-
-type CustomModule = { name: string; slots: FieldSlot[] };
-const CUSTOM_KEY = 'modules/custom';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const FIELD_W = Math.round(SW * 0.7);
@@ -88,8 +85,7 @@ export default function ModuleEditor() {
         return;
       }
       // custom esistente
-      const raw = await AsyncStorage.getItem(CUSTOM_KEY);
-      const list: CustomModule[] = raw ? JSON.parse(raw) : [];
+      const list = await loadModules();
       const found = isEditing ? list.find(m => m.name === name) : undefined;
       if (found) {
         setSlots(found.slots);
@@ -166,13 +162,7 @@ export default function ModuleEditor() {
 
   // --- SALVA core ---
   const saveCore = async (finalName: string) => {
-    const raw = await AsyncStorage.getItem(CUSTOM_KEY);
-    const all: CustomModule[] = raw ? JSON.parse(raw) : [];
-    const payload: CustomModule = { name: finalName, slots };
-    const idx = all.findIndex(m => m.name === finalName);
-    if (idx >= 0) all[idx] = payload;
-    else all.push(payload);
-    await AsyncStorage.setItem(CUSTOM_KEY, JSON.stringify(all));
+    await saveModule({ name: finalName, slots });
   };
 
   // --- SALVA: apre modale nome se manca, altrimenti modale conferma ---

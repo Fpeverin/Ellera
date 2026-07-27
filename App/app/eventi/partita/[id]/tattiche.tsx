@@ -1,36 +1,21 @@
 // app/eventi/partita/[id]/tattiche.tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CalendarEvent, loadEvents, saveEvents } from '../../../data/events';
+import {
+  loadLineup as loadLineupRemote,
+  loadLiveFormation as loadLiveFormationRemote,
+  loadTacticsAssignments as loadTacticsAssignmentsRemote,
+  saveTacticsAssignments as saveTacticsAssignmentsRemote,
+  type AssignState,
+} from '../../../data/matchLive';
+import { loadTactics, type TacticItem } from '../../../data/tactics';
 import { usePlayers } from '../../../hooks/usePlayers';
 
 /* ------------------------- TYPES & CONSTANTS ------------------------- */
 
-type TacticElementType = 'HOME' | 'AWAY' | 'BALL';
-type TacticItem = {
-  id: string;
-  name: string;
-  preview?: string; // base64 (senza prefisso)
-  elements: { id: string; type: TacticElementType; x: number; y: number; number?: number }[];
-};
-
-const TACTICS_KEY = 'tactics/custom';
-const LINEUP_KEY = (id: string) => `match/${id}/lineup`;
-const TACTICS_ASSIGN_KEY = (id: string) => `match/${id}/tacticsAssignments`;
-const LIVE_FORMATION_KEY = (id: string) => `live/formation/${id}`;
-
-type SavedLineup = {
-  moduleName: string | null;
-  convocati: string[];
-  field: (string | null)[];
-  bench: string[];
-  /** mappa idGiocatore -> numero di maglia (da pagina "Formazione") */
-  numbers?: Record<string, number>;
-};
-type AssignState = Record<string, Record<string, string | null>>;
 type LivePlayer = { id: string; name: string; inField: boolean };
 
 /* ------------------------------ UI CONST ----------------------------- */
@@ -127,18 +112,15 @@ export default function TattichePartita() {
     setAssigned(ev?.tacticsIds ?? []);
 
     // Tattiche
-    const rawTac = await AsyncStorage.getItem(TACTICS_KEY);
-    setAllTactics(rawTac ? JSON.parse(rawTac) : []);
+    setAllTactics(await loadTactics());
 
     // LIVE (solo inField)
-    const liveRaw = await AsyncStorage.getItem(LIVE_FORMATION_KEY(id));
-    const liveArr: LivePlayer[] = liveRaw ? JSON.parse(liveRaw) : [];
+    const liveArr = await loadLiveFormationRemote(id);
     const justInField = liveArr.filter(p => p.inField).map(p => ({ id: p.id, name: p.name }));
     setInCampoPlayers(justInField);
 
     // TITOLARI + NUMERI dalla lineup salvata
-    const lineupRaw = await AsyncStorage.getItem(LINEUP_KEY(id));
-    const saved: SavedLineup | null = lineupRaw ? JSON.parse(lineupRaw) : null;
+    const saved = await loadLineupRemote(id);
     const nums = saved?.numbers || {};
     setNumbersMap(nums);
 
@@ -153,8 +135,7 @@ export default function TattichePartita() {
     }
 
     // Assegnazioni tattiche
-    const assignRaw = await AsyncStorage.getItem(TACTICS_ASSIGN_KEY(id));
-    setAssignments(assignRaw ? JSON.parse(assignRaw) : {});
+    setAssignments(await loadTacticsAssignmentsRemote(id));
   }, [id, allPlayers]);
 
   useFocusEffect(
@@ -222,7 +203,7 @@ export default function TattichePartita() {
       }
 
       if (anyChange) {
-        AsyncStorage.setItem(TACTICS_ASSIGN_KEY(id), JSON.stringify(next));
+        saveTacticsAssignmentsRemote(id, next);
       }
       return next;
     });
@@ -256,7 +237,7 @@ export default function TattichePartita() {
     setAssignments(prev => {
       const n = { ...prev };
       delete n[tid];
-      AsyncStorage.setItem(TACTICS_ASSIGN_KEY(id!), JSON.stringify(n));
+      saveTacticsAssignmentsRemote(id!, n);
       return n;
     });
   };
@@ -268,7 +249,7 @@ export default function TattichePartita() {
       const next = { ...(prev || {}) };
       next[tid] = { ...(next[tid] || {}) };
       next[tid][elId] = playerId;
-      AsyncStorage.setItem(TACTICS_ASSIGN_KEY(id!), JSON.stringify(next));
+      saveTacticsAssignmentsRemote(id!, next);
       return next;
     });
   };
@@ -305,7 +286,7 @@ export default function TattichePartita() {
               <View style={styles.card}>
                 <Pressable style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }} onPress={() => openAssign(item.id)}>
                   {item.preview ? (
-                    <Image source={{ uri: `data:image/png;base64,${item.preview}` }} style={styles.preview} />
+                    <Image source={{ uri: item.preview }} style={styles.preview} />
                   ) : (
                     <View style={[styles.preview, styles.previewPlaceholder]}>
                       <Text style={{ color: '#6b7280', fontSize: 12 }}>Nessuna preview</Text>
@@ -338,7 +319,7 @@ export default function TattichePartita() {
                 renderItem={({ item }) => (
                   <Pressable style={[styles.tacticRow, assigned.includes(item.id) && { opacity: 0.6 }]} onPress={() => addTactic(item.id)}>
                     {item.preview ? (
-                      <Image source={{ uri: `data:image/png;base64,${item.preview}` }} style={styles.previewSmall} />
+                      <Image source={{ uri: item.preview }} style={styles.previewSmall} />
                     ) : (
                       <View style={[styles.previewSmall, styles.previewPlaceholder]} />
                     )}
@@ -454,7 +435,7 @@ export default function TattichePartita() {
                             setAssignments(prev => {
                               const next = { ...prev };
                               next[tid] = resetAssignments;
-                              AsyncStorage.setItem(TACTICS_ASSIGN_KEY(id!), JSON.stringify(next));
+                              saveTacticsAssignmentsRemote(id!, next);
                               return next;
                             });
                           }}

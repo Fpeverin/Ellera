@@ -109,5 +109,3 @@ export interface SeasonArchive {
   trainings: ArchivedTraining[];
 }
 
-export const ARCHIVE_INDEX_KEY = 'seasons/archive/index';
-export const archiveKey = (id: string) => `seasons/archive/${id}`;

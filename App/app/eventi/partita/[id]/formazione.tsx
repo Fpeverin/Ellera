@@ -1,5 +1,4 @@
 // app/eventi/partita/[id]/formazione.tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useRef, useState } from 'react';
@@ -7,16 +6,19 @@ import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'r
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  loadLineup as loadLineupRemote,
+  loadPositions as loadPositionsRemote,
+  saveLineup as saveLineupRemote,
+  savePositions as savePositionsRemote,
+  type PosOverride,
+  type SavedLineup,
+} from '../../../data/matchLive';
+import { loadModules, type CustomModule } from '../../../data/modules';
 import { usePlayers } from '../../../hooks/usePlayers';
-import { MODULES as DEFAULT_MODULES, type FieldSlot } from '../../../utils/modules-layout';
+import { MODULES as DEFAULT_MODULES } from '../../../utils/modules-layout';
 
 type Player = { id: string; name: string; role?: string; number?: number };
-
-// === STORAGE KEYS ===
-type CustomModule = { name: string; slots: FieldSlot[] };
-const CUSTOM_KEY = 'modules/custom';
-const lineupKey = (matchId: string) => `match/${matchId}/lineup`;
-const positionsKey = (matchId: string) => `match/${matchId}/positions`; // override posizioni live (x,y in %)
 
 const SHIRT_W = 46;
 const SHIRT_H = 30;
@@ -25,17 +27,6 @@ const MAX_CONVOCATI = 20;
 type PickTarget =
   | { kind: 'FIELD'; index: number }
   | { kind: 'BENCH'; index: number };
-
-type SavedLineup = {
-  moduleName: string | null;
-  convocati: string[];          // ids
-  field: (string | null)[];     // ids by slot index
-  bench: string[];              // ids in order
-  /** NUOVO: mappa idGiocatore -> numero assegnato */
-  numbers?: Record<string, number>;
-};
-
-type PosOverride = { x: number; y: number } | null; // in percent
 
 // helper per mostrare solo il cognome
 const surnameOf = (full: string) => (full || '').trim().split(/\s+/)[0];
@@ -117,8 +108,7 @@ export default function Schieramento() {
         const defaultArray: CustomModule[] = Object.entries(DEFAULT_MODULES || {}).map(
           ([name, slots]) => ({ name, slots })
         );
-        const raw = await AsyncStorage.getItem(CUSTOM_KEY);
-        const customList: CustomModule[] = raw ? JSON.parse(raw) : [];
+        const customList = await loadModules();
         const combined = [...defaultArray, ...customList];
         setModules(combined);
         if (!selectedModuleName && combined.length > 0) {
@@ -151,8 +141,7 @@ export default function Schieramento() {
     (async () => {
       if (!matchId) return;
       try {
-        const raw = await AsyncStorage.getItem(lineupKey(matchId));
-        const saved: SavedLineup | null = raw ? JSON.parse(raw) : null;
+        const saved = await loadLineupRemote(matchId);
         if (saved) {
           if (saved.moduleName) setSelectedModuleName(saved.moduleName);
           setConvocatiIds(new Set(saved.convocati));
@@ -180,9 +169,7 @@ export default function Schieramento() {
           setFieldAssignments(fieldById);
           setBenchAssignments(benchById);
         }
-        const posRaw = await AsyncStorage.getItem(positionsKey(matchId));
-        const pos: PosOverride[] = posRaw ? JSON.parse(posRaw) : [];
-        setPosOverrides(pos);
+        setPosOverrides(await loadPositionsRemote(matchId));
       } catch {
       } finally {
         loadedRef.current = true;
@@ -337,7 +324,7 @@ export default function Schieramento() {
           bench: benchAssignments.map(p => p.id),
           numbers, // <-- SALVO I NUMERI
         };
-        await AsyncStorage.setItem(lineupKey(matchId), JSON.stringify(payload));
+        await saveLineupRemote(matchId, payload);
       } catch {}
     })();
   }, [matchId, selectedModuleName, convocatiIds, fieldAssignments, benchAssignments]);
@@ -347,7 +334,7 @@ export default function Schieramento() {
     if (!liveMode) return;
     (async () => {
       try {
-        await AsyncStorage.setItem(positionsKey(matchId), JSON.stringify(posOverrides));
+        await savePositionsRemote(matchId, posOverrides);
       } catch {}
     })();
   }, [posOverrides, matchId, liveMode]);

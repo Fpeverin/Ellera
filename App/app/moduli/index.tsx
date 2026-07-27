@@ -1,12 +1,9 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MODULES as DEFAULT_MODULES, FieldSlot } from '../utils/modules-layout';
-
-type CustomModule = { name: string; slots: FieldSlot[] };
-const CUSTOM_KEY = 'modules/custom';
+import { CustomModule, deleteModule, loadModules } from '../data/modules';
+import { MODULES as DEFAULT_MODULES } from '../utils/modules-layout';
 
 export default function ModuliIndex() {
   const router = useRouter();
@@ -17,9 +14,7 @@ export default function ModuliIndex() {
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
-    const raw = await AsyncStorage.getItem(CUSTOM_KEY);
-    const list: CustomModule[] = raw ? JSON.parse(raw) : [];
-    setCustom(list);
+    setCustom(await loadModules());
   };
 
   useFocusEffect(
@@ -44,10 +39,7 @@ export default function ModuliIndex() {
   const actuallyDeleteOne = async () => {
     if (!confirmDeleteId) return;
     setBusy(true);
-    const raw = await AsyncStorage.getItem(CUSTOM_KEY);
-    const all: CustomModule[] = raw ? JSON.parse(raw) : [];
-    const updated = all.filter((m) => m.name !== confirmDeleteId);
-    await AsyncStorage.setItem(CUSTOM_KEY, JSON.stringify(updated));
+    await deleteModule(confirmDeleteId);
     setBusy(false);
     setConfirmDeleteId(null);
     load();

@@ -12,11 +12,10 @@ App Expo/React Native (gestionale stagione calcistica per allenatore), build APK
 
 Dal 2026-07-27 l'app ha un backend (**Supabase**: Postgres + Auth + Row Level Security, piano gratuito)
 con login/registrazione e dati legati a un account, non più al singolo dispositivo — vedi sezione
-"Autenticazione e squadre" più sotto. **Eventi/Calendario e Giocatori/Rosa (+ foto/allegati) sono già su
-Supabase**; i domini rimasti (dati live-partita, moduli, tattiche, archivio stagioni) restano ancora
-locali via `@react-native-async-storage/async-storage`, in attesa delle fasi successive (vedi
-[PIANO_LAVORO.md](PIANO_LAVORO.md)). Backup/ripristino manuale via export/import di un file JSON (copre
-solo i dati ancora locali).
+"Autenticazione e squadre" più sotto. **Tutti i dati reali dell'app sono su Supabase** (eventi/calendario,
+rosa/foto/allegati, dati live-partita, moduli, tattiche, archivio stagioni) — nessun dominio importante
+resta più solo sul dispositivo. Restano solo dati locali minori non legati alla squadra (es. un flag
+"ultimo aggiornamento" usato per far ricontrollare i dati ad alcune schermate).
 
 Stack: Expo SDK 57, expo-router 5 (file-based routing, typed routes), React Native 0.86 / React 19,
 `react-native-reanimated` 4 + `react-native-gesture-handler` per le lavagne tattiche drag&drop,
@@ -65,22 +64,17 @@ progetto Expo: su [expo.dev](https://expo.dev) → progetto → tab **GitHub** �
   (pre-Supabase) e la squadra su Supabase non ha ancora eventi, la Dashboard chiede esplicitamente se
   caricarli (`app/utils/importLocalEvents.ts`) — mai in automatico.
 
-## Modello dati
+## Modello dati (tutto su Supabase, scoping automatico per `org_id` via Row Level Security)
 
-| Dove | Contenuto |
+| Tabella/bucket | Contenuto |
 |---|---|
-| **Supabase** — tabella `events` | Tutti gli eventi (partite + allenamenti), tipo `CalendarEvent` ([events.ts](app/data/events.ts)); colonne dirette per i campi filtrabili (type/date/time/location/opponent), il resto in una colonna `data` jsonb |
-| **Supabase** — tabella `players` | Giocatori aggiunti manualmente (colonna `is_ex` invece di due liste separate) — il roster di base resta hardcoded in [players.ts](app/data/players.ts) |
-| **Supabase** — tabelle `player_photos`, `player_attachments`, `player_injury_types` + bucket Storage `player-photos`/`player-attachments` | Foto profilo, allegati e tipologia infortuni per QUALSIASI giocatore (anche quelli statici) — vedi [playerMedia.ts](app/data/playerMedia.ts) |
-| *(sotto: ancora `AsyncStorage` locale, in attesa di migrazione — vedi PIANO_LAVORO.md)* | |
-| `modules/custom` | Moduli di gioco personalizzati (oltre ai predefiniti in [modules-layout.tsx](app/utils/modules-layout.tsx)) |
-| `tactics/custom` | Tattiche/schemi salvati dalla lavagna tattica |
-| `matches/goals/{id}`, `matches/subs/{id}`, `matches/cards/{id}` | Eventi live di una partita (gol, sostituzioni, cartellini) |
-| `match/{id}/lineup` | Formazione (convocati, titolari, panchina, numeri di maglia) |
-| `match/{id}/positions`, `live/formation/{id}` | Posizioni live in campo durante la partita |
-| `live/timerState/{id}`, `live/started/{id}` | Stato persistente del cronometro partita (sopravvive a background/kill dell'app) |
-| `match/{id}/tacticsAssignments` | Assegnazione tattiche salvate ai giocatori per una specifica partita |
-| Archivio stagioni | Vedi [archive.ts](app/data/archive.ts) / [archiveBuilder.ts](app/utils/archiveBuilder.ts) |
+| `events` | Tutti gli eventi (partite + allenamenti), tipo `CalendarEvent` ([events.ts](app/data/events.ts)); colonne dirette per i campi filtrabili (type/date/time/location/opponent), il resto in una colonna `data` jsonb |
+| `players` | Giocatori aggiunti manualmente (colonna `is_ex` invece di due liste separate) — il roster di base resta hardcoded in [players.ts](app/data/players.ts) |
+| `player_photos`, `player_attachments`, `player_injury_types` + bucket Storage `player-photos`/`player-attachments` | Foto profilo, allegati e tipologia infortuni per QUALSIASI giocatore (anche quelli statici) — vedi [playerMedia.ts](app/data/playerMedia.ts) |
+| `modules` | Moduli di gioco personalizzati (chiave naturale = nome), oltre ai predefiniti hardcoded in [modules-layout.tsx](app/utils/modules-layout.tsx) — vedi [modules.ts](app/data/modules.ts) |
+| `tactics` + bucket Storage `tactic-previews` | Tattiche/schemi salvati dalla lavagna tattica, con preview immagine su Storage — vedi [tactics.ts](app/data/tactics.ts) |
+| `match_live` | Una riga per partita: gol, sostituzioni, cartellini, formazione/posizioni live, timer persistente, tattiche assegnate — vedi [matchLive.ts](app/data/matchLive.ts) |
+| `season_archives` | Archivio stagioni: un `data` jsonb con l'intero snapshot (`SeasonArchive` — vedi [archive.ts](app/data/archive.ts) / [archiveBuilder.ts](app/utils/archiveBuilder.ts)) |
 
 ## Funzionalità attive per area
 
@@ -88,7 +82,9 @@ progetto Expo: su [expo.dev](https://expo.dev) → progetto → tab **GitHub** �
 - Calendario mensile con pallini/etichette colorate per partita (rosso) e allenamento (verde).
 - Lista eventi futuri (nascosta su schermi piccoli per mancanza di spazio).
 - Creazione rapida evento da tap su un giorno del calendario.
-- **Export/Import backup**: esporta tutte le chiavi AsyncStorage in un JSON condivisibile e le reimporta.
+- **Export/Import backup**: esporta le eventuali chiavi AsyncStorage ancora locali in un JSON
+  condivisibile e le reimporta — ora che tutti i dati veri vivono su Supabase, resta poco da
+  esportare (es. flag interni), la vera "copia di sicurezza" dei dati è il database Supabase stesso.
 - Scorciatoie verso Allenamenti, Partite, Gestione Squadra.
 
 ### Calendario (`app/calendario.tsx`)
@@ -210,3 +206,26 @@ Vedi anche [PIANO_LAVORO.md](PIANO_LAVORO.md) per il contesto/motivazione comple
 - `app/hooks/usePlayers.ts` riscritto per usare Supabase mantenendo la stessa interfaccia pubblica.
 - Bug corretto: `app/eventi/partita/[id]/tattiche.tsx` usava il roster statico invece di
   `usePlayers()`, quindi i giocatori aggiunti a mano non comparivano nella lavagna tattiche di partita.
+
+## Dati condivisi su Supabase — Fase 3: ultimi 3 domini (2026-07-27)
+
+Con questa fase tutti i domini dell'app sono su Supabase. Tre nuovi script SQL aggiuntivi in
+`App/supabase/` (`schema_archive.sql`, `schema_modules_tactics.sql`, `schema_match_live.sql`), da
+eseguire una volta ciascuno dopo quelli delle fasi precedenti.
+
+- **Archivio stagioni** → tabella `season_archives` (`app/utils/archiveBuilder.ts`
+  `saveArchive`/`loadAllArchives`/`loadArchiveById`/`deleteArchive` riscritte, stessa firma).
+- **Moduli** → tabella `modules` (chiave naturale = nome, come si comportava già l'app) —
+  `app/data/modules.ts`. **Tattiche** → tabella `tactics` + bucket Storage pubblico `tactic-previews`
+  per la preview (prima base64 incorporato nel JSON, ora un URL) — `app/data/tactics.ts`. Toccati
+  `app/moduli/*`, `app/squadra/tattiche/*`, e le letture in sola lettura in
+  `eventi/partita/[id]/formazione.tsx` (moduli) e `tattiche.tsx` (tattiche).
+- **Dati live-partita** → tabella `match_live`, una riga per partita con una colonna per ciascun
+  "pezzo" di prima (goals/subs/cards/lineup/positions/live_formation/started/timer_state/
+  tactics_assignments). Nuovo modulo `app/data/matchLive.ts` con funzioni get/set granulari (upsert
+  mirato su una sola colonna per volta). Riscritti soprattutto `app/eventi/partita/[id]/live.tsx` (il
+  file più grande dell'app), oltre a `formazione.tsx`, `tattiche.tsx` di partita, e le letture in sola
+  lettura in `archiveBuilder.ts`, `player/[id].tsx`, `squadra/statistiche.tsx`.
+- **Corretto un bug di pulizia dati**: `clearCurrentSeasonData` (chiamata quando si archivia una
+  stagione) prima lasciava orfane le chiavi `match/{id}/positions` e `match/{id}/tacticsAssignments`
+  (mai cancellate). Ora cancella l'intera riga `match_live` della partita, quindi sparisce tutto.

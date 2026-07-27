@@ -1,13 +1,8 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-type TacticElementType = 'HOME' | 'AWAY' | 'BALL';
-type TacticItem = { id: string; name: string; preview?: string; elements: { id: string; type: TacticElementType; x: number; y: number; number?: number }[] };
-
-const TACTICS_KEY = 'tactics/custom';
+import { deleteTactic, loadTactics, TacticItem } from '../../data/tactics';
 
 export default function TacticsIndex() {
   const router = useRouter();
@@ -15,16 +10,14 @@ export default function TacticsIndex() {
   const [toDelete, setToDelete] = useState<TacticItem | null>(null);
 
   const load = useCallback(async () => {
-    const raw = await AsyncStorage.getItem(TACTICS_KEY);
-    setList(raw ? JSON.parse(raw) : []);
+    setList(await loadTactics());
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const doDelete = async (id: string) => {
-    const next = list.filter(t => t.id !== id);
-    await AsyncStorage.setItem(TACTICS_KEY, JSON.stringify(next));
-    setList(next);
+    await deleteTactic(id);
+    setList((prev) => prev.filter(t => t.id !== id));
   };
 
   return (
@@ -44,7 +37,7 @@ export default function TacticsIndex() {
         renderItem={({ item }) => (
           <View style={styles.card}>
             {item.preview ? (
-              <Image source={{ uri: `data:image/png;base64,${item.preview}` }} style={styles.preview} />
+              <Image source={{ uri: item.preview }} style={styles.preview} />
             ) : (
               <View style={[styles.preview, styles.previewPlaceholder]}>
                 <Text style={{ color:'#6b7280', fontSize:12 }}>Nessuna preview</Text>

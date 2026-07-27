@@ -18,6 +18,12 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarEvent, loadEvents } from '../data/events';
+import {
+  loadCards as loadCardsRemote,
+  loadGoals as loadGoalsRemote,
+  loadLineup as loadLineupRemote,
+  loadSubs as loadSubsRemote,
+} from '../data/matchLive';
 import { Player } from '../data/players';
 import {
   addAttachment as addAttachmentRemote,
@@ -30,12 +36,6 @@ import {
   uploadPlayerPhoto,
 } from '../data/playerMedia';
 import { usePlayers } from '../hooks/usePlayers';
-
-const LINEUP_KEY = (matchId: string) => `match/${matchId}/lineup`;
-
-const GOALS_KEY = (matchId: string) => `matches/goals/${matchId}`;
-const SUBS_KEY  = (matchId: string) => `matches/subs/${matchId}`;
-const CARDS_KEY = (matchId: string) => `matches/cards/${matchId}`;
 const LAST_TOUCH_KEY = 'app/lastUpdate/touch';
 
 type TabKey = 'PARTITE' | 'ALLENAMENTI' | 'INFORTUNI' | 'ALLEGATI';
@@ -213,21 +213,20 @@ export default function PlayerDetail() {
         for (const ev of finished) {
           const matchId = `${ev.id}`;
           
-          const [liveGoalsRaw, liveSubsRaw, liveCardsRaw] = await Promise.all([
-            AsyncStorage.getItem(GOALS_KEY(matchId)),
-            AsyncStorage.getItem(SUBS_KEY(matchId)),
-            AsyncStorage.getItem(CARDS_KEY(matchId)),
+          const [liveGoals, liveSubs, liveCards] = await Promise.all([
+            loadGoalsRemote(matchId),
+            loadSubsRemote(matchId),
+            loadCardsRemote(matchId),
           ]);
-          const goals = liveGoalsRaw ? JSON.parse(liveGoalsRaw) as SavedGoal[] : (ev.goals || []);
-          const subs  = liveSubsRaw  ? JSON.parse(liveSubsRaw)  as SavedSub[]  : (ev.subs  || []);
-          const cards = liveCardsRaw ? JSON.parse(liveCardsRaw) as SavedCard[] : ((ev as any).cards as SavedCard[] | undefined);
+          const goals = liveGoals.length > 0 ? liveGoals as SavedGoal[] : (ev.goals || []);
+          const subs  = liveSubs.length > 0  ? liveSubs  as SavedSub[]  : (ev.subs  || []);
+          const cards = liveCards.length > 0 ? liveCards as SavedCard[] : ((ev as any).cards as SavedCard[] | undefined);
 
           // titolare?
           let started = false;
           try {
-            const luRaw = await AsyncStorage.getItem(LINEUP_KEY(matchId));
-            if (luRaw) {
-              const lu = JSON.parse(luRaw) as { field?: (string|null)[]; bench?: string[] };
+            const lu = await loadLineupRemote(matchId);
+            if (lu) {
               const fieldIds = (lu.field || []).filter(Boolean) as string[];
               started = fieldIds.includes(id);
             }

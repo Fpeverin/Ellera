@@ -20,44 +20,22 @@ che potranno usare l'app in futuro con ruoli diversi (admin vs utente normale).
 
 ## Backlog
 
-### 1. Migrare a Supabase gli ultimi domini rimasti
-Stesso pattern già validato con Eventi e Giocatori: una tabella + `org_id` + Row Level Security,
-funzioni di data-access con la stessa firma di prima così le schermate cambiano il meno possibile.
-
-- **Dati live-partita** (il più complesso dei tre — merita una sessione dedicata tutta sua). Oggi sono
-  9 chiavi AsyncStorage separate per partita: `matches/goals/{id}`, `matches/subs/{id}`,
-  `matches/cards/{id}`, `match/{id}/lineup`, `match/{id}/positions`, `live/formation/{id}`,
-  `live/started/{id}`, `live/timerState/{id}`, `match/{id}/tacticsAssignments`. Diventano **una riga
-  per partita** in una tabella `match_live` (`event_id` = id dell'evento partita, `org_id`, e una
-  colonna jsonb per ciascuno dei gruppi sopra: `goals`, `subs`, `cards`, `lineup`, `positions`,
-  `live_formation`, `timer_state`, `tactics_assignments`, più `started boolean`). Un nuovo modulo
-  `app/data/matchLive.ts` espone le stesse funzioni granulari usate oggi (goals/subs/cards/lineup/
-  timer) ma come update mirati di singole colonne della riga, invece di 9 chiavi separate. Tocca
-  soprattutto `live.tsx`, `formazione.tsx`, `tattiche.tsx` (partita), `player/[id].tsx` (statistiche).
-- **Moduli personalizzati e tattiche/lavagna tattica**: `modules/custom` → tabella `modules` (id, org_id,
-  name, slots jsonb); `tactics/custom` → tabella `tactics` (id, org_id, name, elements jsonb, preview
-  testo/immagine). Tocca `app/moduli/*`, `app/squadra/tattiche/*`.
-- **Archivio stagioni**: `seasons/archive/index` + `seasons/archive/{id}` → un'unica tabella
-  `season_archives` (id, org_id, label, archived_at, `data` jsonb con l'intero snapshot stagione —
-  è già un blob unico oggi, la migrazione è la più semplice delle tre). Tocca `app/squadra/archivio*`.
-
-### 2. Gestione staff (lato admin)
+### 1. Gestione staff (lato admin)
 Schermata per l'admin per vedere chi è nella squadra, cambiare ruoli, rimuovere una persona, rigenerare
 l'invite code.
 
-### 3. Rimuovere i dati "di default" scritti nel codice
-Rosa giocatori in `app/data/players.ts`, moduli/tattiche predefiniti — una volta che tutti i domini
-vivono davvero nel backend, non ha più senso avere una rosa hardcoded nei sorgenti. *Dipende dal
-punto 1 (in particolare dalla migrazione Giocatori, già fatta, e da quella dei Moduli).*
+### 2. Rimuovere i dati "di default" scritti nel codice
+Rosa giocatori in `app/data/players.ts`, moduli/tattiche predefiniti — ora che tutti i domini vivono
+davvero nel backend, non ha più senso avere una rosa/moduli hardcoded nei sorgenti.
 
-### 4. Import/Export massivo CSV/XLSX per la Rosa
+### 3. Import/Export massivo CSV/XLSX per la Rosa
 Esportare l'intera rosa (attivi + ex) in CSV/XLSX, e poterla reimportare **lavorando per differenze**:
 i giocatori nuovi nel file vengono aggiunti, quelli già esistenti (stesso id o stesso nome?) vengono
 aggiornati sui campi cambiati, non un "cancella tutto e ricrea". Da definire nel dettaglio quando ci
 arriviamo: come si riconosce "lo stesso giocatore" tra rosa attuale e file importato, e cosa succede ai
 giocatori presenti in rosa ma assenti dal file (restano, vengono spostati ex, o segnalati per conferma).
 
-### 5. Import/Export massivo CSV/XLSX per il Calendario
+### 4. Import/Export massivo CSV/XLSX per il Calendario
 Stessa idea per il calendario, **diviso per competizione** (un export/import per competizione, non
 uno unico per tutto il calendario). Deve coprire anche gli **allenamenti**, che oggi sono già visibili
 nel calendario insieme alle partite (`app/calendario.tsx`) e già creabili manualmente dall'utente
@@ -69,6 +47,28 @@ file, non sostituire la creazione manuale che resta com'è.
 *(vuoto — si popola quando iniziamo davvero il prossimo punto del backlog)*
 
 ## Completato
+
+### 2026-07-27 — Dati condivisi su Supabase: ultimi 3 domini (Fase 3) — TUTTO ora su Supabase
+Con questa fase **tutti** i dati dell'app vivono su Supabase: non resta più nulla di importante solo
+sul dispositivo (a parte impostazioni locali minori tipo l'ultimo tocco per il refresh).
+
+- **Archivio stagioni**: `seasons/archive/index` + `seasons/archive/{id}` → tabella `season_archives`
+  (un `data` jsonb con l'intero snapshot stagione, com'era già prima — nessuna normalizzazione in più).
+- **Moduli personalizzati**: `modules/custom` → tabella `modules`, chiave naturale = nome (come si
+  comportava già l'app). **Tattiche/lavagna tattica**: `tactics/custom` → tabella `tactics`; la preview
+  (prima un'immagine PNG base64 incorporata nel JSON) ora è su **Supabase Storage** (bucket pubblico
+  `tactic-previews`), più leggero e sincronizzato tra dispositivi.
+- **Dati live-partita** (il dominio più complesso): le 9 chiavi per-partita di prima (gol, sostituzioni,
+  cartellini, formazione, posizioni live, timer, tattiche assegnate) diventano **una sola riga per
+  partita** nella tabella `match_live`. Nuovo modulo `app/data/matchLive.ts` con funzioni get/set per
+  ciascun "pezzo" (stessa granularità di prima, solo lato Supabase). Tocca soprattutto `live.tsx` (il
+  file più grande dell'app), oltre a `formazione.tsx` e `tattiche.tsx` di partita.
+- **Corretto un piccolo bug di pulizia dati**: quando si archivia una stagione, prima restavano orfane
+  le chiavi `match/{id}/positions` e `match/{id}/tacticsAssignments` (mai cancellate). Ora sparisce
+  tutto insieme cancellando la riga `match_live` della partita.
+- Dettagli tecnici: tre script SQL aggiuntivi in `App/supabase/` (`schema_archive.sql`,
+  `schema_modules_tactics.sql`, `schema_match_live.sql`), da eseguire una volta ciascuno dopo quelli
+  delle fasi precedenti.
 
 ### 2026-07-27 — Dati condivisi su Supabase: Giocatori/Rosa + foto/allegati/infortuni (Fase 2)
 - Migrata la rosa (giocatori aggiunti manualmente + ex giocatori) da `AsyncStorage` a una tabella

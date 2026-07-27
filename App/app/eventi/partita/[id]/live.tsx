@@ -13,28 +13,31 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { useTimer } from '../../../context/TimerContext';
 import { loadEvents, saveEvents } from '../../../data/events';
+import {
+  CardItem,
+  GoalItem,
+  InCampoPlayer,
+  loadCards as loadCardsRemote,
+  loadGoals as loadGoalsRemote,
+  loadLineup as loadLineupRemote,
+  loadLiveFormation as loadLiveFormationRemote,
+  loadStarted as loadStartedRemote,
+  loadSubs as loadSubsRemote,
+  loadTimerState,
+  PersistTimer,
+  saveCards as saveCardsRemote,
+  saveGoals as saveGoalsRemote,
+  saveLiveFormation as saveLiveFormationRemote,
+  saveSubs as saveSubsRemote,
+  saveTimerState,
+  setStarted as setStartedRemote,
+  SubItem,
+  TeamSide,
+} from '../../../data/matchLive';
 import { usePlayers } from '../../../hooks/usePlayers';
-
-type TeamSide = 'HOME' | 'AWAY';
-
-// ⬇️ Aggiungo playerId opzionale per poter modificare il marcatore in modo solido
-type GoalItem = { id: string; team: TeamSide; minute: number; scorer: string; playerId?: string };
-type SubItem  = { id: string; minute: number; outId?: string; outName: string; inId?: string; inName: string; team?: TeamSide };
-
-// Estendo il tipo per marcare espulsi
-type InCampoPlayer = { id: string; name: string; inField: boolean; expelled?: boolean };
 
 // Cartellini
 type CardColor = 'YELLOW' | 'RED';
-type CardItem = {
-  id: string;
-  minute: number;
-  team: TeamSide;
-  color: CardColor;
-  playerId?: string;
-  playerName: string;
-  autoFromSecondYellow?: boolean;
-};
 
 // Eventi per lista
 type EventRow =
@@ -49,23 +52,6 @@ const touchApp = async () => {
   try { await AsyncStorage.setItem(LAST_TOUCH_KEY, String(Date.now())); } catch (e) {}
 };
 const CLUB_NAME = 'Ellera';
-
-// Storage keys
-const GOALS_KEY          = (id: string) => `matches/goals/${id}`;
-const SUBS_KEY           = (id: string) => `matches/subs/${id}`;
-const CARDS_KEY          = (id: string) => `matches/cards/${id}`;
-const LINEUP_KEY         = (id: string) => `match/${id}/lineup`;
-const LIVE_FORMATION_KEY = (id: string) => `live/formation/${id}`;
-const LIVE_STARTED_KEY   = (id: string) => `live/started/${id}`;
-
-// TIMER persistente per background
-const PERSIST_TIMER_KEY = (id: string) => `live/timerState/${id}`;
-type PersistTimer = {
-  running: boolean;
-  startAt: number | null;
-  pausedAccum: number;
-  lastPausedAt: number | null;
-};
 
 const nowMs = () => Date.now();
 const msToClock = (ms: number) => {
@@ -109,9 +95,8 @@ export default function LivePartita() {
   useEffect(() => {
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(PERSIST_TIMER_KEY(matchId!));
-        if (raw) {
-          const parsed: PersistTimer = JSON.parse(raw);
+        const parsed = await loadTimerState(matchId!);
+        if (parsed) {
           const fixed: PersistTimer = {
             running: !!parsed.running,
             startAt: typeof parsed.startAt === 'number' ? parsed.startAt : null,
@@ -126,7 +111,7 @@ export default function LivePartita() {
 
   const savePersistTimer = async (pt: PersistTimer) => {
     setPersistTimer(pt);
-    try { await AsyncStorage.setItem(PERSIST_TIMER_KEY(matchId!), JSON.stringify(pt)); } catch {}
+    try { await saveTimerState(matchId!, pt); } catch {}
   };
 
   useEffect(() => {
@@ -218,8 +203,8 @@ const setSecondHalfBaseline = async () => {
 
   useEffect(() => {
     (async () => {
-      const started = await AsyncStorage.getItem(LIVE_STARTED_KEY(matchId!));
-      setStartedOnce(started === '1');
+      const started = await loadStartedRemote(matchId!);
+      setStartedOnce(started);
     })();
   }, [matchId]);
 
@@ -227,16 +212,14 @@ const setSecondHalfBaseline = async () => {
   const [inCampo, setInCampo]       = useState<InCampoPlayer[]>([]);
   const loadLiveFormation = async () => {
    // 1) leggi la formazione live attuale
-    let raw = await AsyncStorage.getItem(LIVE_FORMATION_KEY(matchId!));
-    let arr: InCampoPlayer[] = raw ? JSON.parse(raw) : [];
+    let arr = await loadLiveFormationRemote(matchId!);
 
     // 2) Fallback: se vuota/incoerente, rigenera dalla lineup salvata
     if (!arr || arr.length === 0) {
       const regenerated = await initializeLiveFormationFromLineup();
       if (regenerated) {
         // ricarica la versione appena salvata per uniformità
-        raw = await AsyncStorage.getItem(LIVE_FORMATION_KEY(matchId!));
-        arr = raw ? JSON.parse(raw) : [];
+        arr = await loadLiveFormationRemote(matchId!);
       }
     }
 
@@ -257,17 +240,16 @@ const setSecondHalfBaseline = async () => {
   const saveLiveFormation = async (list: InCampoPlayer[]) => {
     setAllPlayers(list);
     setInCampo(list.filter(p => p.inField));
-    await AsyncStorage.setItem(LIVE_FORMATION_KEY(matchId!), JSON.stringify(list));
+    await saveLiveFormationRemote(matchId!, list);
   };
 
   const initializeLiveFormationFromLineup = async () => {
-    const already = await AsyncStorage.getItem(LIVE_STARTED_KEY(matchId!));
-    if (already === '1') return;
+    const already = await loadStartedRemote(matchId!);
+    if (already) return;
 
-    const raw = await AsyncStorage.getItem(LINEUP_KEY(matchId!));
-    if (!raw) return false;
+    const lineup = await loadLineupRemote(matchId!);
+    if (!lineup) return false;
 
-    const lineup: { field: (string|null)[]; bench: string[] } = JSON.parse(raw);
     const idToName = new Map(basePlayers.map(p => [p.id, p.name]));
     const inFieldIds = (lineup.field || []).filter(Boolean) as string[];
     const benchIds   = lineup.bench || [];
@@ -276,8 +258,8 @@ const setSecondHalfBaseline = async () => {
       ...inFieldIds.map((id) => ({ id, name: idToName.get(id) || id, inField: true, expelled: false })),
       ...benchIds.map((id)   => ({ id, name: idToName.get(id) || id, inField: false, expelled: false })),
     ];
-    await AsyncStorage.setItem(LIVE_FORMATION_KEY(matchId!), JSON.stringify(list));
-    await AsyncStorage.setItem(LIVE_STARTED_KEY(matchId!), '1');
+    await saveLiveFormationRemote(matchId!, list);
+    await setStartedRemote(matchId!, true);
       await touchApp();
     setAllPlayers(list);
     setInCampo(list.filter(p => p.inField));
@@ -293,7 +275,7 @@ const setSecondHalfBaseline = async () => {
   const handleReset = async () => {
     reset();
     await persistReset();
-    await AsyncStorage.removeItem(LIVE_STARTED_KEY(matchId!));
+    await setStartedRemote(matchId!, false);
     setStartedOnce(false);
   };
   const onPressPhaseBtn = async () => {
@@ -332,7 +314,7 @@ const setSecondHalfBaseline = async () => {
         };
         await saveEvents(events);
       }
-      await AsyncStorage.setItem(LIVE_STARTED_KEY(matchId!), '1');
+      await setStartedRemote(matchId!, true);
       await touchApp();
       setIsFinished(true);
       setFinishOpen(false);
@@ -346,16 +328,14 @@ const setSecondHalfBaseline = async () => {
 
   /* ---------------- GOAL ---------------- */
   const [goals, setGoals] = useState<GoalItem[]>([]);
-  const goalsKey = GOALS_KEY(matchId!);
   useEffect(() => {
     (async () => {
-      const raw = await AsyncStorage.getItem(goalsKey);
-      setGoals(raw ? JSON.parse(raw) as GoalItem[] : []);
+      setGoals(await loadGoalsRemote(matchId!));
     })();
-  }, [goalsKey]);
+  }, [matchId]);
   const saveGoals = async (list: GoalItem[]) => {
     setGoals(list);
-    await AsyncStorage.setItem(goalsKey, JSON.stringify(list));
+    await saveGoalsRemote(matchId!, list);
     await touchApp();
   };
 
@@ -364,16 +344,14 @@ const setSecondHalfBaseline = async () => {
 
   /* ---------------- SOSTITUZIONI ---------------- */
   const [subs, setSubs] = useState<SubItem[]>([]);
-  const subsKey = SUBS_KEY(matchId!);
   useEffect(() => {
     (async () => {
-      const raw = await AsyncStorage.getItem(subsKey);
-      setSubs(raw ? JSON.parse(raw) as SubItem[] : []);
+      setSubs(await loadSubsRemote(matchId!));
     })();
-  }, [subsKey]);
+  }, [matchId]);
   const saveSubs = async (list: SubItem[]) => {
     setSubs(list);
-    await AsyncStorage.setItem(subsKey, JSON.stringify(list));
+    await saveSubsRemote(matchId!, list);
     await touchApp();
   };
 
@@ -386,18 +364,15 @@ const setSecondHalfBaseline = async () => {
     recomputeExpulsionsFromCards(cards);
   }, [cards, allPlayers]);
 
-  const cardsKey = CARDS_KEY(matchId!);
   useEffect(() => {
     (async () => {
-      const raw = await AsyncStorage.getItem(cardsKey);
-      const list: CardItem[] = raw ? JSON.parse(raw) : [];
-      setCards(list);
+      setCards(await loadCardsRemote(matchId!));
     })();
-  }, [cardsKey]);
+  }, [matchId]);
 
   const saveCards = async (list: CardItem[]) => {
     setCards(list);
-    await AsyncStorage.setItem(cardsKey, JSON.stringify(list));
+    await saveCardsRemote(matchId!, list);
     await touchApp();
     await recomputeExpulsionsFromCards(list);
   };

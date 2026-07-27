@@ -1,9 +1,10 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Player } from '../data/players';
 import { CalendarEvent, loadEvents, saveEvents } from '../data/events';
+import { deleteMatchLive, loadCards, loadGoals, loadLineup, loadSubs } from '../data/matchLive';
 import { loadPhotoMap } from '../data/playerMedia';
+import { getCurrentOrgId } from '../lib/currentOrg';
+import { supabase } from '../lib/supabase';
 import {
-  ARCHIVE_INDEX_KEY,
   ArchivedCard,
   ArchivedGoal,
   ArchivedLineup,
@@ -14,23 +15,9 @@ import {
   ArchivedTraining,
   SeasonArchive,
   SeasonSummary,
-  archiveKey,
 } from '../data/archive';
 
 type PresenceStatus = 'presente' | 'assente' | 'infortunato' | 'differenziato';
-
-const GOALS_KEY = (id: string) => `matches/goals/${id}`;
-const SUBS_KEY = (id: string) => `matches/subs/${id}`;
-const CARDS_KEY = (id: string) => `matches/cards/${id}`;
-const LINEUP_KEY = (id: string) => `match/${id}/lineup`;
-const LIVE_KEY = (id: string) => `live/formation/${id}`;
-const TIMER_KEY = (id: string) => `live/timerState/${id}`;
-const LIVE_STARTED_KEY = (id: string) => `live/started/${id}`;
-
-function parseOrNull<T>(raw: string | null): T | null {
-  if (!raw) return null;
-  try { return JSON.parse(raw) as T; } catch { return null; }
-}
 
 type RawGoal = {
   id: string; team: 'HOME' | 'AWAY'; minute: number;
@@ -238,20 +225,20 @@ export async function buildSeasonArchive(label: string, allPlayers: Player[]): P
     matchEvents.map(async (ev) => {
       const id = String(ev.id);
       const [goalsRaw, subsRaw, cardsRaw, lineupRaw] = await Promise.all([
-        AsyncStorage.getItem(GOALS_KEY(id)),
-        AsyncStorage.getItem(SUBS_KEY(id)),
-        AsyncStorage.getItem(CARDS_KEY(id)),
-        AsyncStorage.getItem(LINEUP_KEY(id)),
+        loadGoals(id),
+        loadSubs(id),
+        loadCards(id),
+        loadLineup(id),
       ]);
       return { ev, goalsRaw, subsRaw, cardsRaw, lineupRaw };
     })
   );
 
   const matches: ArchivedMatch[] = matchDataBatch.map(({ ev, goalsRaw, subsRaw, cardsRaw, lineupRaw }) => {
-    const goals = normalizeGoals(parseOrNull<RawGoal[]>(goalsRaw));
-    const subs = normalizeSubs(parseOrNull<RawSub[]>(subsRaw));
-    const cards = normalizeCards(parseOrNull<RawCard[]>(cardsRaw));
-    const lineup = normalizeLineup(parseOrNull<RawLineup>(lineupRaw), ev);
+    const goals = normalizeGoals(goalsRaw);
+    const subs = normalizeSubs(subsRaw);
+    const cards = normalizeCards(cardsRaw);
+    const lineup = normalizeLineup(lineupRaw, ev);
     // isHome e homeAway sono campi runtime non dichiarati nel tipo CalendarEvent
     const evAny = ev as any;
     const isHome = evAny.isHome !== false && evAny.homeAway !== 'AWAY';
@@ -306,57 +293,48 @@ export async function buildSeasonArchive(label: string, allPlayers: Player[]): P
 }
 
 export async function saveArchive(archive: SeasonArchive): Promise<void> {
-  const indexRaw = await AsyncStorage.getItem(ARCHIVE_INDEX_KEY);
-  const index: string[] = indexRaw ? JSON.parse(indexRaw) : [];
-  index.push(archive.id);
-  await Promise.all([
-    AsyncStorage.setItem(ARCHIVE_INDEX_KEY, JSON.stringify(index)),
-    AsyncStorage.setItem(archiveKey(archive.id), JSON.stringify(archive)),
-  ]);
+  const orgId = getCurrentOrgId();
+  const { error } = await supabase.from('season_archives').upsert({
+    id: archive.id,
+    org_id: orgId,
+    label: archive.label,
+    archived_at: archive.archivedAt,
+    data: archive,
+  });
+  if (error) throw error;
 }
 
 export async function clearCurrentSeasonData(matches: ArchivedMatch[]): Promise<void> {
   // Elimina tutte le partite e gli allenamenti correnti (ora su Supabase)
   await saveEvents([]);
 
-  // Elimina i dati dettaglio di ogni partita
-  const keysToDelete: string[] = [];
-  for (const m of matches) {
-    keysToDelete.push(
-      GOALS_KEY(m.id),
-      SUBS_KEY(m.id),
-      CARDS_KEY(m.id),
-      LINEUP_KEY(m.id),
-      LIVE_KEY(m.id),
-      TIMER_KEY(m.id),
-      LIVE_STARTED_KEY(m.id),
-    );
-  }
-  await Promise.all(keysToDelete.map(k => AsyncStorage.removeItem(k)));
-}
-
-export async function loadArchiveIndex(): Promise<string[]> {
-  const raw = await AsyncStorage.getItem(ARCHIVE_INDEX_KEY);
-  return raw ? JSON.parse(raw) : [];
+  // Elimina i dati dettaglio di ogni partita (una riga in match_live per
+  // partita, invece delle 7 chiavi separate di prima).
+  await Promise.all(matches.map((m) => deleteMatchLive(m.id)));
 }
 
 export async function loadArchiveById(id: string): Promise<SeasonArchive | null> {
-  const raw = await AsyncStorage.getItem(archiveKey(id));
-  return raw ? JSON.parse(raw) : null;
+  const { data, error } = await supabase
+    .from('season_archives')
+    .select('data')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.data as SeasonArchive) ?? null;
 }
 
 export async function loadAllArchives(): Promise<SeasonArchive[]> {
-  const index = await loadArchiveIndex();
-  const results = await Promise.all(index.map(id => loadArchiveById(id)));
-  return results.filter(Boolean) as SeasonArchive[];
+  const orgId = getCurrentOrgId();
+  const { data, error } = await supabase
+    .from('season_archives')
+    .select('data')
+    .eq('org_id', orgId)
+    .order('archived_at');
+  if (error) throw error;
+  return (data ?? []).map((row) => row.data as SeasonArchive);
 }
 
 export async function deleteArchive(id: string): Promise<void> {
-  const indexRaw = await AsyncStorage.getItem(ARCHIVE_INDEX_KEY);
-  const index: string[] = indexRaw ? JSON.parse(indexRaw) : [];
-  const updated = index.filter(i => i !== id);
-  await Promise.all([
-    AsyncStorage.setItem(ARCHIVE_INDEX_KEY, JSON.stringify(updated)),
-    AsyncStorage.removeItem(archiveKey(id)),
-  ]);
+  const { error } = await supabase.from('season_archives').delete().eq('id', id);
+  if (error) throw error;
 }

@@ -1,18 +1,11 @@
 // app/squadra/tattiche/editor.tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Dimensions, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import ViewShot, { captureRef, type ViewShotRef } from 'react-native-view-shot';
-
-// === Tipi ===
-type TacticElementType = 'HOME' | 'AWAY' | 'BALL';
-type TacticElement = { id: string; type: TacticElementType; x: number; y: number; number?: number };
-type TacticItem = { id: string; name: string; preview?: string; elements: TacticElement[] };
-
-const TACTICS_KEY = 'tactics/custom';
+import { loadTactics, saveTactic, type TacticElement } from '../../data/tactics';
 
 // === Misure schermo/campo ===
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
@@ -117,8 +110,7 @@ export default function TacticsEditor() {
   useEffect(() => {
     (async () => {
       if (!isEditing) return;
-      const raw = await AsyncStorage.getItem(TACTICS_KEY);
-      const list: TacticItem[] = raw ? JSON.parse(raw) : [];
+      const list = await loadTactics();
       const found = list.find(t => t.id === id);
       if (found) {
         setTitle(found.name);
@@ -185,24 +177,8 @@ export default function TacticsEditor() {
       // ignora eventuali errori preview
     }
 
-    const raw = await AsyncStorage.getItem(TACTICS_KEY);
-    const list: TacticItem[] = raw ? JSON.parse(raw) : [];
-
-    if (isEditing) {
-      const idx = list.findIndex(t => t.id === id);
-      if (idx >= 0) {
-        list[idx] = {
-          ...list[idx],
-          name: title.trim(),
-          elements,
-          preview: previewBase64 ?? list[idx].preview,
-        };
-      }
-    } else {
-      list.push({ id: uid(), name: title.trim(), elements, preview: previewBase64 });
-    }
-
-    await AsyncStorage.setItem(TACTICS_KEY, JSON.stringify(list));
+    const tacticId = isEditing ? id! : uid();
+    await saveTactic({ id: tacticId, name: title.trim(), elements }, previewBase64);
     router.replace('/squadra/tattiche' as Href);
   };
 

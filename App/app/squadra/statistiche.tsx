@@ -1,7 +1,7 @@
 // app/squadra/statistiche.tsx
 import { CalendarEvent, loadEvents } from '@/app/data/events';
+import { loadLineup } from '@/app/data/matchLive';
 import { loadPhotoMap } from '@/app/data/playerMedia';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePlayers } from '@/app/hooks/usePlayers';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Print from 'expo-print';
@@ -25,8 +25,6 @@ import {
 // Dimension constants
 const LEFT_COL_WIDTH = 280;
 const CELL_W = 70;
-// STORAGE keys come in PlayerDetail
-const LINEUP_KEY = (matchId: string) => `match/${matchId}/lineup`;
 
 type TeamSide = 'HOME' | 'AWAY';
 type SavedGoal = {
@@ -166,10 +164,8 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       // precarico lineup
       const lineupMap: Record<string, { field?: (string|null)[]; bench?: string[] } | null> = {};
       for (const ev of finished) {
-        const key = LINEUP_KEY(`${ev.id}`);
         try {
-          const rawLu = await AsyncStorage.getItem(key);
-          lineupMap[`${ev.id}`] = rawLu ? JSON.parse(rawLu) : null;
+          lineupMap[`${ev.id}`] = await loadLineup(`${ev.id}`);
         } catch {
           lineupMap[`${ev.id}`] = null;
         }
