@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Player } from '../data/players';
 import { CalendarEvent, loadEvents, saveEvents } from '../data/events';
+import { loadPhotoMap } from '../data/playerMedia';
 import {
   ARCHIVE_INDEX_KEY,
   ArchivedCard,
@@ -25,7 +26,6 @@ const LINEUP_KEY = (id: string) => `match/${id}/lineup`;
 const LIVE_KEY = (id: string) => `live/formation/${id}`;
 const TIMER_KEY = (id: string) => `live/timerState/${id}`;
 const LIVE_STARTED_KEY = (id: string) => `live/started/${id}`;
-const PHOTO_KEY = 'players/photos';
 
 function parseOrNull<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -231,9 +231,7 @@ export async function buildSeasonArchive(label: string, allPlayers: Player[]): P
   const matchEvents = events.filter(e => e.type === 'PARTITA');
   const trainingEvents = events.filter(e => e.type === 'ALLENAMENTO');
 
-  const photos: Record<string, string | null> = parseOrNull<Record<string, string | null>>(
-    await AsyncStorage.getItem(PHOTO_KEY)
-  ) ?? {};
+  const photos: Record<string, string | null> = await loadPhotoMap();
 
   // Carica tutti i dati di ogni partita in parallelo
   const matchDataBatch = await Promise.all(

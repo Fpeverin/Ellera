@@ -19,11 +19,18 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarEvent, loadEvents } from '../data/events';
 import { Player } from '../data/players';
+import {
+  addAttachment as addAttachmentRemote,
+  loadAttachments,
+  loadInjuryTypes,
+  loadPhotoMap,
+  PlayerAttachment,
+  removeAttachment as removeAttachmentRemote,
+  setInjuryType as setInjuryTypeRemote,
+  uploadPlayerPhoto,
+} from '../data/playerMedia';
 import { usePlayers } from '../hooks/usePlayers';
 
-const PHOTO_KEY = 'players/photos';
-const ATTACH_KEY_PREFIX = 'players/attachments/';
-const INJURY_KEY_PREFIX = 'players/injuries/';
 const LINEUP_KEY = (matchId: string) => `match/${matchId}/lineup`;
 
 const GOALS_KEY = (matchId: string) => `matches/goals/${matchId}`;
@@ -97,7 +104,7 @@ export default function PlayerDetail() {
   const [tab, setTab] = useState<TabKey>('PARTITE');
 
   const [photo, setPhoto] = useState<string | null>(null);
-  const [attachments, setAttachments] = useState<{ name: string; uri: string }[]>([]);
+  const [attachments, setAttachments] = useState<PlayerAttachment[]>([]);
 
   const [matches, setMatches] = useState<MatchRow[]>([]);
 
@@ -150,16 +157,16 @@ export default function PlayerDetail() {
   // FOTO, ALLEGATI, TIPI INFORTUNIO
   useEffect(() => {
     (async () => {
+      if (!id) return;
       try {
-        const photosRaw = await AsyncStorage.getItem(PHOTO_KEY);
-        if (photosRaw) {
-          const map = JSON.parse(photosRaw);
-          if (map[id!]) setPhoto(map[id!]);
-        }
-        const attRaw = await AsyncStorage.getItem(ATTACH_KEY_PREFIX + id);
-        if (attRaw) setAttachments(JSON.parse(attRaw));
-        const injRaw = await AsyncStorage.getItem(INJURY_KEY_PREFIX + id);
-        if (injRaw) setInjuryTypesMap(JSON.parse(injRaw));
+        const [photoMap, atts, injTypes] = await Promise.all([
+          loadPhotoMap(),
+          loadAttachments(id),
+          loadInjuryTypes(id),
+        ]);
+        if (photoMap[id]) setPhoto(photoMap[id]);
+        setAttachments(atts);
+        setInjuryTypesMap(injTypes);
       } catch (e) {
         console.warn('Errore caricamento dati giocatore', e);
       }
@@ -368,29 +375,30 @@ export default function PlayerDetail() {
     if (!res.canceled) savePhoto(res.assets[0].uri);
   };
   const savePhoto = async (uri: string | null) => {
+    if (!id || !uri) return;
     try {
-      const photosRaw = await AsyncStorage.getItem(PHOTO_KEY);
-      const map = photosRaw ? JSON.parse(photosRaw) : {};
-      map[id!] = uri;
-      await AsyncStorage.setItem(PHOTO_KEY, JSON.stringify(map));
-      setPhoto(uri);
+      const publicUrl = await uploadPlayerPhoto(id, uri);
+      setPhoto(publicUrl);
     } catch {
       Alert.alert('Errore', 'Impossibile salvare la foto');
     }
   };
   const addAttachment = async () => {
+    if (!id) return;
     const res = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, multiple: false });
     if (!res.canceled && res.assets?.length) {
       const file = res.assets[0];
-      const newAtts = [...attachments, { name: file.name ?? 'Senza nome', uri: file.uri }];
-      setAttachments(newAtts);
-      await AsyncStorage.setItem(ATTACH_KEY_PREFIX + id, JSON.stringify(newAtts));
+      try {
+        const newAtt = await addAttachmentRemote(id, file.uri, file.name ?? 'Senza nome');
+        setAttachments((prev) => [...prev, newAtt]);
+      } catch {
+        Alert.alert('Errore', "Impossibile caricare l'allegato");
+      }
     }
   };
-  const removeAttachment = async (uri: string) => {
-    const newAtts = attachments.filter(a => a.uri !== uri);
-    setAttachments(newAtts);
-    await AsyncStorage.setItem(ATTACH_KEY_PREFIX + id, JSON.stringify(newAtts));
+  const removeAttachment = async (attachment: PlayerAttachment) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== attachment.id));
+    await removeAttachmentRemote(attachment);
   };
   const openAttachment = async (uri: string) => {
     if (/^https?:\/\//i.test(uri)) await WebBrowser.openBrowserAsync(uri);
@@ -398,9 +406,9 @@ export default function PlayerDetail() {
   };
 
   const setInjuryType = async (key: string, type: string) => {
-    const next = { ...injuryTypesMap, [key]: { type } };
-    setInjuryTypesMap(next);
-    await AsyncStorage.setItem(INJURY_KEY_PREFIX + id, JSON.stringify(next));
+    if (!id) return;
+    setInjuryTypesMap((prev) => ({ ...prev, [key]: { type } }));
+    await setInjuryTypeRemote(id, key, type);
   };
 
   /* =============================== RENDER =============================== */
@@ -655,13 +663,13 @@ export default function PlayerDetail() {
             ) : (
               <View style={styles.attachmentsList}>
                 {attachments.map((item) => (
-                  <Pressable key={item.uri} style={styles.attachmentCard} onPress={() => openAttachment(item.uri)}>
+                  <Pressable key={item.id} style={styles.attachmentCard} onPress={() => openAttachment(item.uri)}>
                     <Text style={styles.attachmentIcon}>📄</Text>
                     <View style={styles.attachmentInfo}>
                       <Text style={styles.attachmentName} numberOfLines={1}>{item.name}</Text>
                       <Text style={styles.attachmentPath} numberOfLines={1}>{item.uri}</Text>
                     </View>
-                    <Pressable style={styles.removeAttachmentBtn} onPress={() => removeAttachment(item.uri)}>
+                    <Pressable style={styles.removeAttachmentBtn} onPress={() => removeAttachment(item)}>
                       <Text style={styles.removeAttachmentText}>🗑️</Text>
                     </Pressable>
                   </Pressable>

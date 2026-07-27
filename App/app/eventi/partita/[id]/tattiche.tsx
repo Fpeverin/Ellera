@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CalendarEvent, loadEvents, saveEvents } from '../../../data/events';
-import { players } from '../../../data/players';
+import { usePlayers } from '../../../hooks/usePlayers';
 
 /* ------------------------- TYPES & CONSTANTS ------------------------- */
 
@@ -85,6 +85,7 @@ function RedShirt({ number }: { number?: number }) {
 export default function TattichePartita() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { allPlayers } = usePlayers();
 
   const [event, setEvent] = useState<CalendarEvent | null>(null);
   const [assigned, setAssigned] = useState<string[]>([]);
@@ -142,7 +143,7 @@ export default function TattichePartita() {
     setNumbersMap(nums);
 
     if (saved?.field?.length) {
-      const idToName = new Map(players.map(p => [p.id, p.name]));
+      const idToName = new Map(allPlayers.map(p => [p.id, p.name]));
       const starters = (saved.field as (string | null)[])
         .filter(Boolean)
         .map(pid => ({ id: pid as string, name: idToName.get(pid as string) || 'Senza nome' }));
@@ -154,7 +155,7 @@ export default function TattichePartita() {
     // Assegnazioni tattiche
     const assignRaw = await AsyncStorage.getItem(TACTICS_ASSIGN_KEY(id));
     setAssignments(assignRaw ? JSON.parse(assignRaw) : {});
-  }, [id]);
+  }, [id, allPlayers]);
 
   useFocusEffect(
     useCallback(() => {

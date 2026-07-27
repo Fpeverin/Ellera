@@ -20,25 +20,71 @@ che potranno usare l'app in futuro con ruoli diversi (admin vs utente normale).
 
 ## Backlog
 
-1. **Migrare a Supabase i domini rimasti** (stesso pattern usato per Eventi/Calendario, vedi
-   "Completato" sotto — una tabella + `org_id` + RLS, JSONB per i campi complessi):
-   - Giocatori (rosa, ex giocatori) + foto/allegati/infortuni — le foto vanno su Supabase Storage
-     invece di URI locali.
-   - Dati live-partita (gol, sostituzioni, cartellini, formazione, timer, tattiche assegnate — oggi
-     9 chiavi AsyncStorage per partita, diventano una riga per partita in una tabella `match_live`).
-   - Moduli personalizzati e tattiche/lavagna tattica.
-   - Archivio stagioni.
-2. **Gestione staff (lato admin)**: schermata per l'admin per vedere chi è nella squadra, cambiare
-   ruoli, rimuovere una persona, rigenerare l'invite code.
-3. **Rimuovere i dati "di default" scritti nel codice** (rosa giocatori in `app/data/players.ts`,
-   moduli/tattiche predefiniti) — una volta che tutti i domini vivono davvero nel backend, non ha più
-   senso avere una rosa hardcoded nei sorgenti. *Dipende dal punto 1.*
+### 1. Migrare a Supabase gli ultimi domini rimasti
+Stesso pattern già validato con Eventi e Giocatori: una tabella + `org_id` + Row Level Security,
+funzioni di data-access con la stessa firma di prima così le schermate cambiano il meno possibile.
+
+- **Dati live-partita** (il più complesso dei tre — merita una sessione dedicata tutta sua). Oggi sono
+  9 chiavi AsyncStorage separate per partita: `matches/goals/{id}`, `matches/subs/{id}`,
+  `matches/cards/{id}`, `match/{id}/lineup`, `match/{id}/positions`, `live/formation/{id}`,
+  `live/started/{id}`, `live/timerState/{id}`, `match/{id}/tacticsAssignments`. Diventano **una riga
+  per partita** in una tabella `match_live` (`event_id` = id dell'evento partita, `org_id`, e una
+  colonna jsonb per ciascuno dei gruppi sopra: `goals`, `subs`, `cards`, `lineup`, `positions`,
+  `live_formation`, `timer_state`, `tactics_assignments`, più `started boolean`). Un nuovo modulo
+  `app/data/matchLive.ts` espone le stesse funzioni granulari usate oggi (goals/subs/cards/lineup/
+  timer) ma come update mirati di singole colonne della riga, invece di 9 chiavi separate. Tocca
+  soprattutto `live.tsx`, `formazione.tsx`, `tattiche.tsx` (partita), `player/[id].tsx` (statistiche).
+- **Moduli personalizzati e tattiche/lavagna tattica**: `modules/custom` → tabella `modules` (id, org_id,
+  name, slots jsonb); `tactics/custom` → tabella `tactics` (id, org_id, name, elements jsonb, preview
+  testo/immagine). Tocca `app/moduli/*`, `app/squadra/tattiche/*`.
+- **Archivio stagioni**: `seasons/archive/index` + `seasons/archive/{id}` → un'unica tabella
+  `season_archives` (id, org_id, label, archived_at, `data` jsonb con l'intero snapshot stagione —
+  è già un blob unico oggi, la migrazione è la più semplice delle tre). Tocca `app/squadra/archivio*`.
+
+### 2. Gestione staff (lato admin)
+Schermata per l'admin per vedere chi è nella squadra, cambiare ruoli, rimuovere una persona, rigenerare
+l'invite code.
+
+### 3. Rimuovere i dati "di default" scritti nel codice
+Rosa giocatori in `app/data/players.ts`, moduli/tattiche predefiniti — una volta che tutti i domini
+vivono davvero nel backend, non ha più senso avere una rosa hardcoded nei sorgenti. *Dipende dal
+punto 1 (in particolare dalla migrazione Giocatori, già fatta, e da quella dei Moduli).*
+
+### 4. Import/Export massivo CSV/XLSX per la Rosa
+Esportare l'intera rosa (attivi + ex) in CSV/XLSX, e poterla reimportare **lavorando per differenze**:
+i giocatori nuovi nel file vengono aggiunti, quelli già esistenti (stesso id o stesso nome?) vengono
+aggiornati sui campi cambiati, non un "cancella tutto e ricrea". Da definire nel dettaglio quando ci
+arriviamo: come si riconosce "lo stesso giocatore" tra rosa attuale e file importato, e cosa succede ai
+giocatori presenti in rosa ma assenti dal file (restano, vengono spostati ex, o segnalati per conferma).
+
+### 5. Import/Export massivo CSV/XLSX per il Calendario
+Stessa idea per il calendario, **diviso per competizione** (un export/import per competizione, non
+uno unico per tutto il calendario). Deve coprire anche gli **allenamenti**, che oggi sono già visibili
+nel calendario insieme alle partite (`app/calendario.tsx`) e già creabili manualmente dall'utente
+(`EventEditorModal`) — l'obiettivo è aggiungere la possibilità di crearli/aggiornarli anche in massa via
+file, non sostituire la creazione manuale che resta com'è.
 
 ## In corso
 
 *(vuoto — si popola quando iniziamo davvero il prossimo punto del backlog)*
 
 ## Completato
+
+### 2026-07-27 — Dati condivisi su Supabase: Giocatori/Rosa + foto/allegati/infortuni (Fase 2)
+- Migrata la rosa (giocatori aggiunti manualmente + ex giocatori) da `AsyncStorage` a una tabella
+  `players` su Supabase (colonna `is_ex` invece di due chiavi separate) — il roster di base scritto nel
+  codice (`app/data/players.ts`) resta com'è per ora, si somma a quello custom come prima.
+  `usePlayers()` ha la stessa identica interfaccia pubblica di prima.
+- Foto profilo e allegati (documenti/certificati) ora vanno su **Supabase Storage** (bucket pubblici,
+  URL stabili non elencati pubblicamente) invece che come file locali sul device — sincronizzati tra
+  tablet e telefono come tutto il resto.
+- Nuovo modulo condiviso `app/data/playerMedia.ts` per foto/allegati/tipologia infortuni, usato da
+  `player/[id].tsx`, `rosa.tsx`, `statistiche.tsx`, `archiveBuilder.ts`.
+- **Bug corretto**: la lavagna tattiche di una singola partita (`eventi/partita/[id]/tattiche.tsx`)
+  leggeva il roster statico invece dei giocatori reali della squadra — i giocatori aggiunti a mano non
+  comparivano mai lì. Ora usa `usePlayers()` come le altre schermate.
+- Dettagli tecnici: schema aggiuntivo in `App/supabase/schema_players.sql` (da eseguire una volta in
+  più, dopo `schema.sql`).
 
 ### 2026-07-27 — Dati condivisi su Supabase: autenticazione + squadre + Eventi/Calendario (Fase 1)
 - Aggiunto un vero backend (Supabase: Postgres + Auth + Row Level Security), **piano gratuito** —

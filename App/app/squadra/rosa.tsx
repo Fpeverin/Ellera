@@ -1,5 +1,4 @@
 // app/squadra/rosa.tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Link, useFocusEffect } from 'expo-router';
 import React from 'react';
 import {
@@ -17,11 +16,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AddPlayerModal from '../components/AddPlayerModal';
-import { usePlayers } from '../hooks/usePlayers';
 import { Player } from '../data/players';
+import { loadPhotoMap } from '../data/playerMedia';
+import { usePlayers } from '../hooks/usePlayers';
 
 const AVATAR_DEFAULT = require('../../assets/avatar.png');
-const PHOTO_KEY = 'players/photos';
 
 type Section = { title: string; data: Player[] };
 
@@ -108,8 +107,7 @@ export default function Rosa() {
     React.useCallback(() => {
       (async () => {
         try {
-          const raw = await AsyncStorage.getItem(PHOTO_KEY);
-          setPhotoMap(raw ? JSON.parse(raw) : {});
+          setPhotoMap(await loadPhotoMap());
         } catch {
           setPhotoMap({});
         }

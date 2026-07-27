@@ -12,9 +12,9 @@ App Expo/React Native (gestionale stagione calcistica per allenatore), build APK
 
 Dal 2026-07-27 l'app ha un backend (**Supabase**: Postgres + Auth + Row Level Security, piano gratuito)
 con login/registrazione e dati legati a un account, non più al singolo dispositivo — vedi sezione
-"Autenticazione e squadre" più sotto. **Solo il dominio Eventi/Calendario è già su Supabase**; tutti gli
-altri domini (rosa/foto, dati live-partita, moduli, tattiche, archivio stagioni) restano ancora locali
-via `@react-native-async-storage/async-storage`, in attesa delle fasi successive (vedi
+"Autenticazione e squadre" più sotto. **Eventi/Calendario e Giocatori/Rosa (+ foto/allegati) sono già su
+Supabase**; i domini rimasti (dati live-partita, moduli, tattiche, archivio stagioni) restano ancora
+locali via `@react-native-async-storage/async-storage`, in attesa delle fasi successive (vedi
 [PIANO_LAVORO.md](PIANO_LAVORO.md)). Backup/ripristino manuale via export/import di un file JSON (copre
 solo i dati ancora locali).
 
@@ -70,11 +70,9 @@ progetto Expo: su [expo.dev](https://expo.dev) → progetto → tab **GitHub** �
 | Dove | Contenuto |
 |---|---|
 | **Supabase** — tabella `events` | Tutti gli eventi (partite + allenamenti), tipo `CalendarEvent` ([events.ts](app/data/events.ts)); colonne dirette per i campi filtrabili (type/date/time/location/opponent), il resto in una colonna `data` jsonb |
+| **Supabase** — tabella `players` | Giocatori aggiunti manualmente (colonna `is_ex` invece di due liste separate) — il roster di base resta hardcoded in [players.ts](app/data/players.ts) |
+| **Supabase** — tabelle `player_photos`, `player_attachments`, `player_injury_types` + bucket Storage `player-photos`/`player-attachments` | Foto profilo, allegati e tipologia infortuni per QUALSIASI giocatore (anche quelli statici) — vedi [playerMedia.ts](app/data/playerMedia.ts) |
 | *(sotto: ancora `AsyncStorage` locale, in attesa di migrazione — vedi PIANO_LAVORO.md)* | |
-| `players/custom`, `players/custom/ex` | Giocatori aggiunti manualmente (attivi / ex), oltre a quelli statici in [players.ts](app/data/players.ts) |
-| `players/photos` | Foto profilo giocatori |
-| `players/attachments/{playerId}` | Allegati documenti per giocatore |
-| `players/injuries/{playerId}` | Storico infortuni/status presenza |
 | `modules/custom` | Moduli di gioco personalizzati (oltre ai predefiniti in [modules-layout.tsx](app/utils/modules-layout.tsx)) |
 | `tactics/custom` | Tattiche/schemi salvati dalla lavagna tattica |
 | `matches/goals/{id}`, `matches/subs/{id}`, `matches/cards/{id}` | Eventi live di una partita (gol, sostituzioni, cartellini) |
@@ -196,3 +194,19 @@ Vedi anche [PIANO_LAVORO.md](PIANO_LAVORO.md) per il contesto/motivazione comple
   `EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_ANON_KEY` — senza questo file l'app non si avvia.
 - **Avviso piano gratuito**: i progetti Supabase gratuiti vanno in pausa dopo ~1 settimana di
   inattività; si riattivano con un click dalla dashboard Supabase.
+
+## Dati condivisi su Supabase — Fase 2: Giocatori/Rosa (2026-07-27)
+
+- Schema aggiuntivo `App/supabase/schema_players.sql` (da eseguire una volta in più, dopo
+  `schema.sql`): tabella `players` (giocatori custom, con `is_ex` invece di due liste separate),
+  tabelle `player_photos`/`player_attachments`/`player_injury_types` (si applicano anche ai giocatori
+  statici, per questo non hanno foreign key verso `players.id`), due bucket Supabase Storage pubblici
+  (`player-photos`, `player-attachments`).
+- Aggiunta `base64-arraybuffer` (conversione file locale → upload Storage, nessun codice nativo).
+- Nuovo modulo `app/data/playerMedia.ts`: `loadPhotoMap`, `uploadPlayerPhoto`, `loadAttachments`,
+  `addAttachment`, `removeAttachment`, `loadInjuryTypes`, `setInjuryType` — usato da
+  `app/player/[id].tsx`, `app/squadra/rosa.tsx`, `app/squadra/statistiche.tsx`,
+  `app/utils/archiveBuilder.ts`.
+- `app/hooks/usePlayers.ts` riscritto per usare Supabase mantenendo la stessa interfaccia pubblica.
+- Bug corretto: `app/eventi/partita/[id]/tattiche.tsx` usava il roster statico invece di
+  `usePlayers()`, quindi i giocatori aggiunti a mano non comparivano nella lavagna tattiche di partita.

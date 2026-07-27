@@ -1,5 +1,6 @@
 // app/squadra/statistiche.tsx
 import { CalendarEvent, loadEvents } from '@/app/data/events';
+import { loadPhotoMap } from '@/app/data/playerMedia';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePlayers } from '@/app/hooks/usePlayers';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -25,7 +26,6 @@ import {
 const LEFT_COL_WIDTH = 280;
 const CELL_W = 70;
 // STORAGE keys come in PlayerDetail
-const PHOTO_KEY = 'players/photos';
 const LINEUP_KEY = (matchId: string) => `match/${matchId}/lineup`;
 
 type TeamSide = 'HOME' | 'AWAY';
@@ -148,12 +148,12 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
   const recompute = useCallback(async () => {
     setLoading(true);
     try {
-      const [list, rawPhotos] = await Promise.all([
+      const [list, photoMap] = await Promise.all([
         loadEvents() as Promise<MatchLike[]>,
-        AsyncStorage.getItem(PHOTO_KEY),
+        loadPhotoMap(),
       ]);
 
-      setPhotos(rawPhotos ? JSON.parse(rawPhotos) : {});
+      setPhotos(photoMap);
 
       // === PARTITE ===
       const finished = list
