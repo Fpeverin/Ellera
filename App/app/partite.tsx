@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -7,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import CompetitionModal from './components/partite/CompetitionModal';
 import ConfirmDeleteModal from './components/partite/ConfirmDeleteModal';
 import MatchEventCard from './components/partite/MatchEventCard';
-import { CalendarEvent, STORAGE_KEY } from './data/events';
+import { CalendarEvent, loadEvents, saveEvents } from './data/events';
 
 /* -------------------------------------------------------------------------- */
 /*                                Tipi locali                                 */
@@ -55,9 +54,8 @@ export default function Partite() {
 
   const [busy, setBusy] = useState(false);
 
-  const loadEvents = async () => {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const list: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+  const refreshEvents = async () => {
+    const list = await loadEvents();
 
     const normalized: MatchEventRow[] = list
       .filter((e) => e.type === 'PARTITA')
@@ -71,7 +69,7 @@ export default function Partite() {
     setEvents(normalized);
   };
 
-  useFocusEffect(useCallback(() => { loadEvents(); }, []));
+  useFocusEffect(useCallback(() => { refreshEvents(); }, []));
 
   const openPartita = (ev: MatchEventRow) => {
     router.push({ pathname: '/eventi/partita/[id]/live', params: { id: ev.id } });
@@ -135,39 +133,36 @@ export default function Partite() {
   const actuallyDeleteOne = async () => {
     if (!confirmDeleteId) return;
     setBusy(true);
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const all: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+    const all: CalendarEvent[] = await loadEvents();
     const updated = all.filter((ev) => ev.id !== confirmDeleteId);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    await saveEvents(updated);
     setBusy(false);
     setConfirmDeleteId(null);
-    loadEvents();
+    refreshEvents();
   };
 
   // elimina tutte
   const actuallyDeleteAllMatches = async () => {
     setBusy(true);
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const all: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+    const all: CalendarEvent[] = await loadEvents();
     const keep = all.filter((ev) => ev.type !== 'PARTITA');
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(keep));
+    await saveEvents(keep);
     setBusy(false);
     setConfirmDeleteAll(false);
-    loadEvents();
+    refreshEvents();
   };
 
   // elimina competizione
   const actuallyDeleteCompetition = async () => {
     setBusy(true);
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const all: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+    const all: CalendarEvent[] = await loadEvents();
     const keep = all.filter(
       (ev: any) => ev.type !== 'PARTITA' || (ev.type === 'PARTITA' && (ev.competition || '—') !== compToDelete)
     );
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(keep));
+    await saveEvents(keep);
     setBusy(false);
     setConfirmDeleteComp(false);
-    loadEvents();
+    refreshEvents();
   };
 
   // crea partita singola
@@ -179,8 +174,7 @@ export default function Partite() {
     homeAway: 'CASA' | 'TRASFERTA';
     location: string;
   }) => {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const all: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+    const all: CalendarEvent[] = await loadEvents();
 
     const exists = all.some(
       (ev: any) =>
@@ -207,9 +201,9 @@ export default function Partite() {
     } as any;
 
     const updated = [...all, newMatch];
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    await saveEvents(updated);
     setShowSingleModal(false);
-    loadEvents();
+    refreshEvents();
   };
 
   // crea calendario competizione
@@ -217,8 +211,7 @@ export default function Partite() {
     name: string;
     rounds: NewRound[];
   }) => {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const all: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+    const all: CalendarEvent[] = await loadEvents();
 
     const validRound = (r: NewRound) => !!r.opponent && !!r.location && !!r.date && TIME_RE.test(r.time);
 
@@ -253,9 +246,9 @@ export default function Partite() {
     if (toAdd.length === 0) { setShowCompModal(false); return; }
 
     const updated = [...all, ...toAdd];
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    await saveEvents(updated);
     setShowCompModal(false);
-    loadEvents();
+    refreshEvents();
   };
 
   const renderItem = ({ item }: { item: MatchEventRow }) => {

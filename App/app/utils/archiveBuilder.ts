@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Player } from '../data/players';
-import { CalendarEvent, STORAGE_KEY } from '../data/events';
+import { CalendarEvent, loadEvents, saveEvents } from '../data/events';
 import {
   ARCHIVE_INDEX_KEY,
   ArchivedCard,
@@ -226,8 +226,7 @@ function computeSummary(matches: ArchivedMatch[], trainings: ArchivedTraining[])
 }
 
 export async function buildSeasonArchive(label: string, allPlayers: Player[]): Promise<SeasonArchive> {
-  const rawEvents = await AsyncStorage.getItem(STORAGE_KEY);
-  const events: CalendarEvent[] = rawEvents ? JSON.parse(rawEvents) : [];
+  const events: CalendarEvent[] = await loadEvents();
 
   const matchEvents = events.filter(e => e.type === 'PARTITA');
   const trainingEvents = events.filter(e => e.type === 'ALLENAMENTO');
@@ -319,8 +318,8 @@ export async function saveArchive(archive: SeasonArchive): Promise<void> {
 }
 
 export async function clearCurrentSeasonData(matches: ArchivedMatch[]): Promise<void> {
-  // Elimina tutte le partite e gli allenamenti correnti
-  await AsyncStorage.removeItem(STORAGE_KEY);
+  // Elimina tutte le partite e gli allenamenti correnti (ora su Supabase)
+  await saveEvents([]);
 
   // Elimina i dati dettaglio di ogni partita
   const keysToDelete: string[] = [];

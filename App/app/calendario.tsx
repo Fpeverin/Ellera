@@ -1,11 +1,10 @@
 // app/calendario.tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EventEditorModal from './components/EventEditorModal';
-import { CalendarEvent, STORAGE_KEY } from './data/events';
+import { CalendarEvent, loadEvents } from './data/events';
 
 export default function Calendario() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -13,13 +12,12 @@ export default function Calendario() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const loadEvents = async () => {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const list: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+  const refreshEvents = async () => {
+    const list = await loadEvents();
     setEvents(list);
   };
 
-  useFocusEffect(useCallback(() => { loadEvents(); }, []));
+  useFocusEffect(useCallback(() => { refreshEvents(); }, []));
 
   return (
     <SafeAreaView style={styles.container} edges={['top','bottom']}>
@@ -57,7 +55,7 @@ export default function Calendario() {
       <EventEditorModal
         visible={showModal}
         onClose={() => setShowModal(false)}
-        onSaved={loadEvents}
+        onSaved={refreshEvents}
       />
     </SafeAreaView>
   );

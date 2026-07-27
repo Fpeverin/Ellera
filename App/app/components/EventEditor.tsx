@@ -1,8 +1,7 @@
 // app/components/EventEditor.tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { CalendarEvent, EventType, STORAGE_KEY } from '../data/events';
+import { CalendarEvent, EventType, loadEvents, saveEvents } from '../data/events';
 
 type Props = {
   initialType: EventType;       // 'PARTITA' | 'ALLENAMENTO'
@@ -37,8 +36,7 @@ export default function EventEditor({
   }, [date, time, location, opponent, isPartita]);
 
   const save = async () => {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const list: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+    const list = await loadEvents();
 
     const id = `${Date.now()}`;
     const newEvent: CalendarEvent = {
@@ -58,7 +56,7 @@ export default function EventEditor({
     };
 
     const updated = [...list, newEvent];
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    await saveEvents(updated);
     onSaved?.(newEvent);
   };
 

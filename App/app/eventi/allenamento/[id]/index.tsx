@@ -1,10 +1,9 @@
 // app/eventi/allenamento/[id].tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CalendarEvent, STORAGE_KEY } from '../../../data/events';
+import { CalendarEvent, loadEvents, saveEvents } from '../../../data/events';
 import { usePlayers } from '../../../hooks/usePlayers';
 
 // Tipi di presenza per gli allenamenti
@@ -27,9 +26,7 @@ export default function AllenamentoDettaglio() {
   const [showPlayerModal, setShowPlayerModal] = useState<string | null>(null);
 
   const loadAndSetEvent = async () => {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const list: CalendarEvent[] = JSON.parse(raw);
+    const list: CalendarEvent[] = await loadEvents();
     const found = list.find(ev => ev.id === id);
     if (!found) return;
 
@@ -63,13 +60,11 @@ export default function AllenamentoDettaglio() {
 
   const save = async (newPresenze: Record<string, PresenceStatus>, newTema: string) => {
     if (!event) return;
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const list: CalendarEvent[] = JSON.parse(raw);
+    const list: CalendarEvent[] = await loadEvents();
     const updatedList = list.map(ev =>
       ev.id === event.id ? { ...ev, presenze: newPresenze, temaAllenamento: newTema } : ev
     );
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
+    await saveEvents(updatedList);
     // Non aggiorniamo lo stato event qui per evitare problemi di tipo
     loadAndSetEvent();
   };

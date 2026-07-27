@@ -12,7 +12,7 @@ import { AppState, AppStateStatus, Modal, Pressable, ScrollView, StyleSheet, Tex
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTimer } from '../../../context/TimerContext';
-import { STORAGE_KEY } from '../../../data/events';
+import { loadEvents, saveEvents } from '../../../data/events';
 import { usePlayers } from '../../../hooks/usePlayers';
 
 type TeamSide = 'HOME' | 'AWAY';
@@ -196,8 +196,7 @@ const setSecondHalfBaseline = async () => {
   useEffect(() => {
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        const events = raw ? JSON.parse(raw) as any[] : [];
+        const events = await loadEvents();
         const ev = events.find((e) => `${e.id}` === `${matchId}`);
 
         const opponent: string = (ev?.opponent ?? ev?.avversario ?? '').toString().trim();
@@ -318,8 +317,7 @@ const setSecondHalfBaseline = async () => {
     try {
       setFinishBusy(true);
       setFinishError('');
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      const events = raw ? JSON.parse(raw) as any[] : [];
+      const events = await loadEvents();
       const idx = events.findIndex((e) => `${e.id}` === `${matchId}`);
       if (idx >= 0) {
         const current = events[idx] ?? {};
@@ -332,7 +330,7 @@ const setSecondHalfBaseline = async () => {
           subs,
           cards,
         };
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+        await saveEvents(events);
       }
       await AsyncStorage.setItem(LIVE_STARTED_KEY(matchId!), '1');
       await touchApp();

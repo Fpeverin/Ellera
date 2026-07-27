@@ -1,12 +1,11 @@
 // app/allenamenti.tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import EventEditorModal from './components/EventEditorModal';
-import { CalendarEvent, STORAGE_KEY } from './data/events';
+import { CalendarEvent, loadEvents, saveEvents } from './data/events';
 
 interface CalendarDay {
   dateString: string;
@@ -66,13 +65,12 @@ export default function Allenamenti() {
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const loadEvents = async () => {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const list: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+  const refreshEvents = async () => {
+    const list = await loadEvents();
     setEvents(list.filter((e) => e.type === 'ALLENAMENTO'));
   };
 
-  useFocusEffect(useCallback(() => { loadEvents(); }, []));
+  useFocusEffect(useCallback(() => { refreshEvents(); }, []));
 
   // Categorizzazione degli eventi per data
   const categorizedEvents = useMemo(() => {
@@ -199,8 +197,7 @@ export default function Allenamenti() {
   const createTrainingsFromWeek = async () => {
     if (!canCreateBulk) return;
 
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const all: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+    const all: CalendarEvent[] = await loadEvents();
 
     const days = eachDay(startDate, endDate);
     const toAdd: CalendarEvent[] = [];
@@ -239,35 +236,33 @@ export default function Allenamenti() {
     }
 
     const updatedAll = [...all, ...toAdd];
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedAll));
+    await saveEvents(updatedAll);
 
     setShowWeekModal(false);
-    loadEvents();
+    refreshEvents();
   };
 
   // Eliminazione singolo ALLENAMENTO (conferma via modal custom)
   const actuallyDeleteOne = async () => {
     if (!confirmDeleteId) return;
     setBusy(true);
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const all: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+    const all: CalendarEvent[] = await loadEvents();
     const updated = all.filter((ev) => ev.id !== confirmDeleteId);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    await saveEvents(updated);
     setBusy(false);
     setConfirmDeleteId(null);
-    loadEvents();
+    refreshEvents();
   };
 
   // Eliminazione di TUTTI gli ALLENAMENTI
   const actuallyDeleteAllTrainings = async () => {
     setBusy(true);
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const all: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+    const all: CalendarEvent[] = await loadEvents();
     const keep = all.filter((ev) => ev.type !== 'ALLENAMENTO'); // mantieni solo NON-allenamenti
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(keep));
+    await saveEvents(keep);
     setBusy(false);
     setConfirmDeleteAll(false);
-    loadEvents();
+    refreshEvents();
   };
 
   // --- gestione mini calendario (range picker) ---
@@ -387,7 +382,7 @@ export default function Allenamenti() {
         visible={showModal}
         initialType="ALLENAMENTO"
         onClose={() => setShowModal(false)}
-        onSaved={loadEvents}
+        onSaved={refreshEvents}
       />
 
       {/* Modale "Settimana ideale" */}

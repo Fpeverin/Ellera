@@ -36,7 +36,8 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files (contiene le chiavi Supabase del progetto locale)
+.env
 .env*.local
 
 # typescript

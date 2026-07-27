@@ -17,7 +17,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CalendarEvent, STORAGE_KEY } from '../data/events';
+import { CalendarEvent, loadEvents } from '../data/events';
 import { Player } from '../data/players';
 import { usePlayers } from '../hooks/usePlayers';
 
@@ -185,7 +185,6 @@ export default function PlayerDetail() {
     (async () => {
       if (!id || !playerName) { setMatches([]); return; }
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
         const list: (CalendarEvent & {
           status?: string;
           goals?: SavedGoal[];
@@ -197,7 +196,7 @@ export default function PlayerDetail() {
           resultText?: string;
           cards?: SavedCard[];
           competition?: string; competizione?: string; torneo?: string; league?: string; categoria?: string;
-        })[] = raw ? JSON.parse(raw) : [];
+        })[] = await loadEvents();
 
         const finished = list
           .filter(ev => ev.type === 'PARTITA' && ev.status === 'FINISHED')
@@ -300,8 +299,7 @@ export default function PlayerDetail() {
   useEffect(() => {
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        const list: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+        const list: CalendarEvent[] = await loadEvents();
         const allenamenti = list
           .filter(ev => ev.type === 'ALLENAMENTO')
           .sort((a, b) => `${a.date} ${a.time || '00:00'}`.localeCompare(`${b.date} ${b.time || '00:00'}`));

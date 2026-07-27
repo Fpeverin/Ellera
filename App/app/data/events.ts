@@ -1,5 +1,6 @@
 // app/data/events.ts
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getCurrentOrgId } from '../lib/currentOrg';
+import { supabase } from '../lib/supabase';
 
 export type EventType = 'PARTITA' | 'ALLENAMENTO';
 
@@ -25,40 +26,81 @@ export interface CalendarEvent {
   tacticsIds?: string[];                   // array di ID tattiche salvate in Gestione Squadra
 
   tattiche?: string;                        // note/testo
-  presenze?: Record<string, boolean>;       // allenamento: playerId -> presente
+  // allenamento: playerId -> presente (legacy: boolean) o stato presenza (stringa, es. PresenceStatus)
+  presenze?: Record<string, boolean | string>;
   temaAllenamento?: string;                 // allenamento: tema della seduta
+
+  // altri campi runtime usati da alcune schermate (competition, homeAway,
+  // status, score, resultText...) — restano dinamici, salvati tutti nella
+  // colonna "data" jsonb della riga Supabase.
+  [extra: string]: any;
 }
 
-export const STORAGE_KEY = 'calendar/events';
+/**
+ * Chiave storica AsyncStorage (pre-Supabase). Non viene più usata per
+ * leggere/scrivere i dati correnti: resta solo come riferimento per il tool
+ * di importazione dati locali (vedi app/onboarding/importLocalData.ts).
+ */
+export const LEGACY_STORAGE_KEY = 'calendar/events';
+
+const CORE_COLUMNS = ['id', 'type', 'date', 'time', 'location', 'opponent'] as const;
+
+function rowToEvent(row: any): CalendarEvent {
+  return {
+    id: row.id,
+    type: row.type,
+    date: row.date,
+    time: row.time ?? '00:00',
+    location: row.location ?? '',
+    opponent: row.opponent ?? undefined,
+    ...(row.data ?? {}),
+  };
+}
+
+function eventToRow(ev: CalendarEvent, orgId: string) {
+  const rest: Record<string, any> = {};
+  for (const key of Object.keys(ev)) {
+    if (!(CORE_COLUMNS as readonly string[]).includes(key)) rest[key] = (ev as any)[key];
+  }
+  return {
+    id: ev.id,
+    org_id: orgId,
+    type: ev.type,
+    date: ev.date,
+    time: ev.time ?? '00:00',
+    location: ev.location ?? '',
+    opponent: ev.opponent ?? null,
+    data: rest,
+  };
+}
 
 export async function loadEvents(): Promise<CalendarEvent[]> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  if (!raw) return [];
-  const list: any[] = JSON.parse(raw);
-
-  // Migrazione soft: garantisco campi minimi
-  return list.map((e) => ({
-    id: String(e.id),
-    type:
-      e.type === 'Partita' || e.type === 'PARTITA'
-        ? 'PARTITA'
-        : e.type === 'Allenamento' || e.type === 'ALLENAMENTO'
-        ? 'ALLENAMENTO'
-        : 'ALLENAMENTO', // default prudente
-    date: e.date ?? '',
-    time: e.time ?? '00:00',
-    location: e.location ?? '',
-    opponent: e.opponent ?? undefined,
-    module: e.module ?? undefined,
-    formationSlots: e.formationSlots ?? undefined,
-    benchIds: e.benchIds ?? [],
-    tacticsIds: e.tacticsIds ?? [],
-    tattiche: e.tattiche ?? undefined,
-    presenze: e.presenze ?? undefined,
-    temaAllenamento: e.temaAllenamento ?? undefined,
-  }));
+  const orgId = getCurrentOrgId();
+  const { data, error } = await supabase.from('events').select('*').eq('org_id', orgId);
+  if (error) throw error;
+  return (data ?? []).map(rowToEvent);
 }
 
-export async function saveEvents(events: CalendarEvent[]) {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+/**
+ * Sostituisce l'intero elenco eventi con quello passato: aggiorna/crea le
+ * righe presenti (upsert per id) e cancella quelle che non ci sono più —
+ * stesso comportamento di "riscrivi tutto" che aveva AsyncStorage, ma senza
+ * perdere/duplicare righe quando due dispositivi salvano in momenti diversi.
+ */
+export async function saveEvents(events: CalendarEvent[]): Promise<void> {
+  const orgId = getCurrentOrgId();
+
+  if (events.length > 0) {
+    const rows = events.map((ev) => eventToRow(ev, orgId));
+    const { error } = await supabase.from('events').upsert(rows, { onConflict: 'id' });
+    if (error) throw error;
+  }
+
+  const keepIds = events.map((e) => e.id);
+  let deleteQuery = supabase.from('events').delete().eq('org_id', orgId);
+  if (keepIds.length > 0) {
+    deleteQuery = deleteQuery.not('id', 'in', `(${keepIds.join(',')})`);
+  }
+  const { error: deleteError } = await deleteQuery;
+  if (deleteError) throw deleteError;
 }

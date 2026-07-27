@@ -1,5 +1,5 @@
 // app/squadra/statistiche.tsx
-import { CalendarEvent, STORAGE_KEY } from '@/app/data/events';
+import { CalendarEvent, loadEvents } from '@/app/data/events';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePlayers } from '@/app/hooks/usePlayers';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -148,14 +148,12 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
   const recompute = useCallback(async () => {
     setLoading(true);
     try {
-      const [raw, rawPhotos] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEY),
+      const [list, rawPhotos] = await Promise.all([
+        loadEvents() as Promise<MatchLike[]>,
         AsyncStorage.getItem(PHOTO_KEY),
       ]);
 
       setPhotos(rawPhotos ? JSON.parse(rawPhotos) : {});
-
-      const list: MatchLike[] = raw ? JSON.parse(raw) : [];
 
       // === PARTITE ===
       const finished = list

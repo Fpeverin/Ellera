@@ -4,7 +4,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CalendarEvent, STORAGE_KEY } from '../../../data/events';
+import { CalendarEvent, loadEvents, saveEvents } from '../../../data/events';
 import { players } from '../../../data/players';
 
 /* ------------------------- TYPES & CONSTANTS ------------------------- */
@@ -120,8 +120,7 @@ export default function TattichePartita() {
     if (!id) return;
 
     // Evento
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const list: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+    const list: CalendarEvent[] = await loadEvents();
     const ev = list.find(e => e.id === id) ?? null;
     setEvent(ev);
     setAssigned(ev?.tacticsIds ?? []);
@@ -237,11 +236,9 @@ export default function TattichePartita() {
 
   const saveEventTactics = async (nextIds: string[]) => {
     if (!event) return;
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const list: CalendarEvent[] = JSON.parse(raw);
+    const list: CalendarEvent[] = await loadEvents();
     const updated = list.map(ev => ev.id === event.id ? { ...ev, tacticsIds: nextIds } : ev);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    await saveEvents(updated);
     setAssigned(nextIds);
   };
 

@@ -1,9 +1,8 @@
 // app/components/EventEditorModal.tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { STORAGE_KEY, type CalendarEvent } from '../data/events';
+import { loadEvents, saveEvents, type CalendarEvent } from '../data/events';
 
 export type EventType = 'PARTITA' | 'ALLENAMENTO';
 
@@ -73,8 +72,7 @@ export default function EventEditorModal({
 
   const actuallySave = async () => {
     if (!canSave) return;
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const all: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+    const all: CalendarEvent[] = await loadEvents();
 
     if (tab === 'PARTITA') {
       // dedupe minima su data/ora/avversario/competizione
@@ -103,7 +101,7 @@ export default function EventEditorModal({
         benchIds: [],
         tacticsIds: [],
       } as any;
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([...all, item]));
+      await saveEvents([...all, item]);
     } else {
       // ALLENAMENTO
       const exists = all.some(
@@ -125,7 +123,7 @@ export default function EventEditorModal({
         benchIds: [],
         tacticsIds: [],
       } as any;
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([...all, item]));
+      await saveEvents([...all, item]);
     }
 
     onClose();

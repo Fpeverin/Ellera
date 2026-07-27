@@ -8,9 +8,15 @@
 ## Cos'è
 
 App Expo/React Native (gestionale stagione calcistica per allenatore), build APK Android via **EAS**
-(`eas build -p android --profile preview`, vedi [Build APP.txt](Build%20APP.txt)). Nessun backend: tutti
-i dati vivono in locale sul dispositivo tramite `@react-native-async-storage/async-storage`. Backup/ripristino
-manuale via export/import di un file JSON.
+(`eas build -p android --profile preview`, vedi [Build APP.txt](Build%20APP.txt)).
+
+Dal 2026-07-27 l'app ha un backend (**Supabase**: Postgres + Auth + Row Level Security, piano gratuito)
+con login/registrazione e dati legati a un account, non più al singolo dispositivo — vedi sezione
+"Autenticazione e squadre" più sotto. **Solo il dominio Eventi/Calendario è già su Supabase**; tutti gli
+altri domini (rosa/foto, dati live-partita, moduli, tattiche, archivio stagioni) restano ancora locali
+via `@react-native-async-storage/async-storage`, in attesa delle fasi successive (vedi
+[PIANO_LAVORO.md](PIANO_LAVORO.md)). Backup/ripristino manuale via export/import di un file JSON (copre
+solo i dati ancora locali).
 
 Stack: Expo SDK 57, expo-router 5 (file-based routing, typed routes), React Native 0.86 / React 19,
 `react-native-reanimated` 4 + `react-native-gesture-handler` per le lavagne tattiche drag&drop,
@@ -43,11 +49,28 @@ Perché l'aggiornamento automatico al push funzioni, il repository GitHub deve e
 progetto Expo: su [expo.dev](https://expo.dev) → progetto → tab **GitHub** → "Install & Authorize"
 (un click, richiede l'autorizzazione GitHub del proprietario del repo).
 
-## Modello dati (AsyncStorage)
+## Autenticazione e squadre (Supabase)
 
-| Chiave | Contenuto |
+- Login/registrazione email+password (`app/login.tsx`, `app/register.tsx`), gestiti da
+  `app/context/AuthContext.tsx`.
+- Dopo la registrazione, se non si ha ancora una squadra: `app/onboarding/team.tsx` propone di
+  **creare una nuova squadra** (si diventa admin) o **entrare in una esistente** con un invite code
+  condiviso dall'admin. Il gating (redirect a login/onboarding/app) è in `app/_layout.tsx`.
+- Multi-tenant: tabelle `organizations` (squadre) e `memberships` (utente↔squadra + ruolo admin/staff),
+  con Row Level Security — vedi `App/supabase/schema.sql`. Un utente vede solo i dati della propria
+  squadra.
+- `app/lib/currentOrg.ts` tiene traccia dell'org corrente per le funzioni di data-access (es.
+  `saveEvents`), così non va passata a mano in ogni schermata.
+- **Import dati locali una tantum**: se un device ha ancora eventi salvati alla vecchia maniera
+  (pre-Supabase) e la squadra su Supabase non ha ancora eventi, la Dashboard chiede esplicitamente se
+  caricarli (`app/utils/importLocalEvents.ts`) — mai in automatico.
+
+## Modello dati
+
+| Dove | Contenuto |
 |---|---|
-| `calendar/events` | Tutti gli eventi (partite + allenamenti), tipo `CalendarEvent` ([events.ts](app/data/events.ts)) |
+| **Supabase** — tabella `events` | Tutti gli eventi (partite + allenamenti), tipo `CalendarEvent` ([events.ts](app/data/events.ts)); colonne dirette per i campi filtrabili (type/date/time/location/opponent), il resto in una colonna `data` jsonb |
+| *(sotto: ancora `AsyncStorage` locale, in attesa di migrazione — vedi PIANO_LAVORO.md)* | |
 | `players/custom`, `players/custom/ex` | Giocatori aggiunti manualmente (attivi / ex), oltre a quelli statici in [players.ts](app/data/players.ts) |
 | `players/photos` | Foto profilo giocatori |
 | `players/attachments/{playerId}` | Allegati documenti per giocatore |
@@ -151,3 +174,25 @@ foto profilo di default in `rosa.tsx`.
   ciascun profilo di build in `eas.json`.
 - Aggiunte le EAS Workflows in `.eas/workflows/` descritte nella sezione "Come rilascio una modifica"
   sopra.
+
+## Dati condivisi su Supabase — Fase 1 (2026-07-27)
+
+Vedi anche [PIANO_LAVORO.md](PIANO_LAVORO.md) per il contesto/motivazione completa.
+
+- Aggiunto Supabase (Postgres + Auth + RLS, piano gratuito): `App/supabase/schema.sql` contiene tabelle,
+  funzioni RPC (`create_organization`, `join_organization`) e le policy di sicurezza.
+- Aggiunte `@supabase/supabase-js` e `react-native-url-polyfill` (import obbligatorio
+  `'react-native-url-polyfill/auto'` in cima a `app/_layout.tsx`, altrimenti crash all'avvio).
+- Nuovi file: `app/lib/supabase.ts` (client), `app/lib/currentOrg.ts` (org corrente), 
+  `app/context/AuthContext.tsx`, `app/login.tsx`, `app/register.tsx`, `app/onboarding/team.tsx`,
+  `app/utils/importLocalEvents.ts`.
+- `app/_layout.tsx` ora fa gating: nessuna sessione → login, sessione senza squadra → onboarding,
+  altrimenti l'app normale.
+- `app/data/events.ts` riscritto per usare Supabase mantenendo le stesse firme `loadEvents()`/
+  `saveEvents()`: tutte le schermate che leggevano/scrivevano `calendar/events` direttamente via
+  AsyncStorage (index, calendario, allenamenti, partite, EventEditor/EventEditorModal, live, tattiche
+  partita, dettaglio allenamento, archiveBuilder) sono state ricondotte a queste due funzioni.
+- **Configurazione richiesta**: `App/.env` (non committato, vedi `App/.env.example`) con
+  `EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_ANON_KEY` — senza questo file l'app non si avvia.
+- **Avviso piano gratuito**: i progetti Supabase gratuiti vanno in pausa dopo ~1 settimana di
+  inattività; si riattivano con un click dalla dashboard Supabase.

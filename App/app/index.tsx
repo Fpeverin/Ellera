@@ -4,11 +4,12 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import { useCallback, useMemo, useState } from 'react';
-import { Dimensions, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Dimensions, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import EventEditorModal from './components/EventEditorModal';
-import { CalendarEvent, STORAGE_KEY } from './data/events';
+import { CalendarEvent, loadEvents } from './data/events';
+import { checkLocalImportNeeded, importLocalEvents, skipLocalImport } from './utils/importLocalEvents';
 
 /* ------------------ Helpers date in fuso locale (no UTC) ------------------ */
 function pad2(n: number) {
@@ -32,12 +33,41 @@ export default function Dashboard() {
   const [showModal, setShowModal] = useState(false);
   const [initialDateForModal, setInitialDateForModal] = useState<string | undefined>(undefined);
 
+  // Import una tantum dei dati locali (pre-Supabase) trovati su questo device
+  const [importCandidate, setImportCandidate] = useState<CalendarEvent[] | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
+
+  useEffect(() => {
+    checkLocalImportNeeded().then(setImportCandidate);
+  }, []);
+
+  const confirmImport = async () => {
+    if (!importCandidate) return;
+    setImportBusy(true);
+    try {
+      await importLocalEvents(importCandidate);
+      await refreshEvents();
+    } finally {
+      setImportBusy(false);
+      setImportCandidate(null);
+    }
+  };
+
+  const declineImport = async () => {
+    setImportBusy(true);
+    try {
+      await skipLocalImport();
+    } finally {
+      setImportBusy(false);
+      setImportCandidate(null);
+    }
+  };
+
   // Calcola se c'è spazio per mostrare gli eventi futuri
   const hasSpaceForEvents = screenHeight > 700;
 
-  const loadEvents = async () => {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const list: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+  const refreshEvents = async () => {
+    const list = await loadEvents();
     // ordina per data/ora
     list.sort(
       (a, b) =>
@@ -49,7 +79,7 @@ export default function Dashboard() {
 
   useFocusEffect(
     useCallback(() => {
-      loadEvents();
+      refreshEvents();
     }, [])
   );
 
@@ -106,7 +136,7 @@ const exportData = async () => {
         await AsyncStorage.setItem(key, JSON.stringify(value));
       }
       alert('Dati importati con successo!');
-      loadEvents(); // ricarico calendario
+      refreshEvents(); // ricarico calendario
     } catch (e) {
       console.error('Errore import', e);
     }
@@ -315,12 +345,56 @@ const exportData = async () => {
       <EventEditorModal
         visible={showModal}
         onClose={() => setShowModal(false)}
-        onSaved={loadEvents}
+        onSaved={refreshEvents}
         initialDate={initialDateForModal}
       />
+
+      {/* Import una tantum dati locali (pre-Supabase) */}
+      <Modal visible={!!importCandidate} transparent animationType="fade">
+        <View style={importStyles.overlay}>
+          <View style={importStyles.card}>
+            <Text style={importStyles.title}>Dati trovati su questo dispositivo</Text>
+            <Text style={importStyles.body}>
+              Abbiamo trovato {importCandidate?.length ?? 0} eventi salvati su questo dispositivo
+              (dalla vecchia versione dell'app). Vuoi caricarli nella squadra? Conferma solo se questi
+              sono i dati corretti da tenere.
+            </Text>
+            <View style={importStyles.row}>
+              <Pressable
+                style={[importStyles.btn, importStyles.btnNo, importBusy && importStyles.btnDisabled]}
+                onPress={declineImport}
+                disabled={importBusy}
+              >
+                <Text style={importStyles.btnNoText}>No, ignora</Text>
+              </Pressable>
+              <Pressable
+                style={[importStyles.btn, importStyles.btnYes, importBusy && importStyles.btnDisabled]}
+                onPress={confirmImport}
+                disabled={importBusy}
+              >
+                <Text style={importStyles.btnYesText}>{importBusy ? 'Caricamento…' : 'Sì, carica'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+const importStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 420 },
+  title: { fontSize: 18, fontWeight: '800', color: '#1a202c', marginBottom: 12, textAlign: 'center' },
+  body: { fontSize: 15, color: '#374151', lineHeight: 22, marginBottom: 20, textAlign: 'center' },
+  row: { flexDirection: 'row', gap: 12 },
+  btn: { flex: 1, borderRadius: 12, padding: 14, alignItems: 'center' },
+  btnNo: { backgroundColor: '#f1f5f9' },
+  btnYes: { backgroundColor: '#1b7f3b' },
+  btnDisabled: { opacity: 0.6 },
+  btnNoText: { color: '#475569', fontWeight: '700' },
+  btnYesText: { color: '#fff', fontWeight: '700' },
+});
 
 /* --------------------------------- Stili --------------------------------- */
 const styles = StyleSheet.create({
