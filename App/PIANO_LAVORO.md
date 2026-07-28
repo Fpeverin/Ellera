@@ -21,26 +21,46 @@ prossima idea non appena viene in mente.
 
 ## Backlog
 
-- **Notifiche push**: promemoria automatici sul device in base al ruolo, a partire da un promemoria
-  alle 09:00 del giorno stesso per ogni evento (partita, allenamento, scadenza). Richiede
-  `expo-notifications` + un push token per utente/device salvato su Supabase, e capire come inviarle
-  (scheduled locali vs. invio da un job/edge function).
-
 - **Sondaggi staff → giocatori**: uno dello staff invia un sondaggio ai giocatori (stato di salute,
   livello di allenamento, quanto si sentono stanchi, infortuni, assenze); le risposte devono generare
-  una notifica push allo staff. Richiede uno schema per domande/risposte e si appoggia alle notifiche
-  push del punto precedente.
+  una notifica push allo staff. **Nota tecnica**: è una notifica *tra utenti diversi* (il giocatore che
+  risponde deve avvisare lo staff, su un altro dispositivo), quindi non basta il meccanismo dei
+  promemoria eventi già fatto (quello è solo locale, ogni dispositivo avvisa se stesso) — serve
+  registrare e salvare su Supabase il push token Expo di ciascun account (`expo-notifications` è già
+  installato) e inviare da client all'API pubblica di Expo (`exp.host/--/api/v2/push/send`) verso i
+  token dello staff, senza bisogno di un server dedicato.
 
 - **Convocazione partita da app**: portare la gestione dei convocati fuori dalla sezione Live (oggi è
   dentro `formazione.tsx`), come sezione autonoma visibile allo staff che poi *alimenta* la Live
   (non viceversa). Deve riprodurre un modello di convocazione in PDF che Francesco fornirà come
-  esempio. All'invio della convocazione, notifica push ai giocatori convocati.
+  esempio. All'invio della convocazione, notifica push ai giocatori convocati. **Stessa nota tecnica
+  del punto sopra**: serve il push token per-utente (notifica verso *altri* dispositivi), non i
+  promemoria locali già implementati.
+
+- **Notifica proposte Live all'admin/staff** (richiesta precedente di Francesco, ancora da fare):
+  quando un giocatore propone un gol/cartellino da Live, notifica push allo staff/admin di quella
+  squadra. Stessa nota tecnica: serve il push token per-utente.
 
 ## In corso
 
 *(vuoto — si popola quando iniziamo davvero il prossimo punto del backlog)*
 
 ## Completato
+
+### 2026-07-28 — Promemoria push per allenamenti/partite (solo Giocatore)
+Ogni account con ruolo **Giocatore** riceve un avviso sul telefono alle **09:00 del giorno stesso** di
+ogni allenamento o partita in calendario (non per altri tipi di evento, e non per Staff/Admin — su
+loro richiesta esplicita). Sono promemoria **locali**: ogni dispositivo li pianifica da solo in base
+al calendario che legge da Supabase (`app/utils/eventReminders.ts`), senza bisogno di un server o di
+un push token — costo zero, nessuna nuova infrastruttura. Si ripianificano automaticamente ogni volta
+che si apre la Dashboard (così un evento spostato/cancellato aggiorna anche il promemoria) e vengono
+cancellati al logout. Aggiunta la dipendenza nativa `expo-notifications` — **richiede una nuova build**
+(non arriva via OTA).
+
+**Da tenere presente**: questo meccanismo copre solo i promemoria che un utente manda "a se stesso".
+Le prossime richieste in Backlog (notifica allo staff per un sondaggio/una proposta Live, notifica ai
+convocati) sono notifiche *verso altri utenti* e servono un pezzo in più (push token salvato per
+account) — vedi note tecniche nel Backlog qui sopra.
 
 ### 2026-07-28 — Rebranding: nome app "TeamBoard" e nuova icona
 Il nome che compare sotto l'icona sul telefono/tablet è cambiato da "ElleraApp" a "TeamBoard" — un

@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { setCurrentOrgId } from '../lib/currentOrg';
 import { supabase } from '../lib/supabase';
+import { clearEventReminders } from '../utils/eventReminders';
 
 export type Membership = {
   orgId: string;
@@ -91,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    await clearEventReminders();
     await supabase.auth.signOut();
     setCurrentOrgId(null);
   };

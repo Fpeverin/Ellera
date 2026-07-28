@@ -8,7 +8,9 @@ import { useCallback, useMemo, useState } from 'react';
 import { Dimensions, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import EventEditorModal from './components/EventEditorModal';
+import { useAuth } from './context/AuthContext';
 import { CalendarEvent, loadEvents } from './data/events';
+import { scheduleEventReminders } from './utils/eventReminders';
 
 /* ------------------ Helpers date in fuso locale (no UTC) ------------------ */
 function pad2(n: number) {
@@ -27,6 +29,7 @@ function parseYMDTimeLocal(ymd: string, hhmm = '00:00') {
 export default function Dashboard() {
   const router = useRouter();
   const { height: screenHeight } = Dimensions.get('window');
+  const { membership } = useAuth();
 
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -44,6 +47,11 @@ export default function Dashboard() {
         parseYMDTimeLocal(b.date, b.time || '00:00').getTime()
     );
     setEvents(list);
+    // Promemoria push (locali, solo giocatori): un avviso alle 09:00 del
+    // giorno stesso per ogni allenamento/partita in calendario.
+    if (membership?.role === 'giocatore') {
+      scheduleEventReminders(list).catch((e) => console.error('Errore pianificazione promemoria', e));
+    }
   };
 
   useFocusEffect(

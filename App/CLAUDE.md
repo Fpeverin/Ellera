@@ -387,3 +387,21 @@ eseguire una volta ciascuno dopo quelli delle fasi precedenti.
 - **Importante**: sia il nome che l'icona sono impostazioni native (non JS), quindi — come già scritto
   sopra in "Come rilascio una modifica", scenario 2 — questa modifica **non arriva via OTA**: serve una
   nuova build (`build-internal.yml`) e reinstallare manualmente il nuovo APK sul dispositivo.
+
+## Promemoria push eventi calendario (2026-07-28)
+
+- Nuova dipendenza nativa `expo-notifications` (plugin aggiunto in `app.json`, colore `#1b7f3b`) —
+  come per icona/nome, **serve una nuova build nativa**, non arriva via OTA.
+- `app/utils/eventReminders.ts`: `scheduleEventReminders(events)` pianifica una notifica **locale**
+  (nessun server, nessun push token) alle 09:00 del giorno stesso per ogni evento `PARTITA`/
+  `ALLENAMENTO` futuro. A ogni chiamata cancella e ripianifica tutto da zero (identificatore
+  `event-{id}`), così eventi spostati/cancellati restano coerenti. `clearEventReminders()` cancella
+  tutto (chiamata al logout).
+- Attivo **solo per il ruolo Giocatore** (richiesta esplicita di Francesco: niente promemoria per
+  Staff/Admin) — agganciato in `app/index.tsx` (`refreshEvents`, dopo il caricamento del calendario,
+  solo se `membership.role === 'giocatore'`).
+- **Limite noto**: essendo notifiche locali, funzionano solo per avvisare l'utente stesso del proprio
+  calendario. Non coprono il caso "notifica verso un altro utente" (es. avvisare lo staff quando un
+  giocatore invia una proposta o risponde a un sondaggio, o avvisare i convocati quando lo staff invia
+  una convocazione) — quei casi restano in Backlog e richiederanno di salvare un push token Expo per
+  account su Supabase.
