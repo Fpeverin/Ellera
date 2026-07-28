@@ -42,6 +42,17 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
+### 2026-07-28 — Import archivio stagioni locale + blocco eliminazione giocatori in partita
+- **Import una tantum archivio stagioni**: l'Archivio Stagioni esisteva già in locale (AsyncStorage)
+  prima di Supabase — quello storico non era mai stato portato sul database condiviso. Aggiunto lo
+  stesso pattern già usato per il calendario: se un dispositivo ha ancora archivi salvati localmente e
+  la squadra su Supabase non ne ha nessuno, la schermata Archivio Stagioni propone di caricarli (mai
+  in automatico).
+- **Rosa**: un giocatore che ha già preso parte a una partita della stagione corrente (gol, cartellino,
+  sostituzione o solo convocazione) non può più essere eliminato del tutto dalla Rosa — solo spostato
+  tra gli ex. Le stagioni già archiviate non contano ai fini del controllo. Aggiunta anche una conferma
+  esplicita prima di un'eliminazione definitiva (prima non c'era).
+
 ### 2026-07-28 — Ruoli utente a 3 livelli (Admin/Staff/Giocatore) + inviti personali
 - Terzo ruolo **Giocatore**: sola lettura su Rosa/Calendario/Allenamenti/Partite/Live; in una Live
   può **proporre** un gol o un cartellino (stessa modale di sempre, bottone "Proponi" al posto di

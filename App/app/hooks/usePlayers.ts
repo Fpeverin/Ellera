@@ -1,7 +1,17 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
+import { loadEvents } from '../data/events';
+import { isPlayerInMatches } from '../data/matchLive';
 import { Player, Role } from '../data/players';
 import { supabase } from '../lib/supabase';
+
+/** Lanciata da removePlayer quando il giocatore ha gia' preso parte a una partita della stagione corrente. */
+export class PlayerInMatchError extends Error {
+  constructor() {
+    super('Questo giocatore ha gia\' preso parte a una partita di questa stagione: non puo\' essere eliminato del tutto, solo spostato tra gli ex.');
+    this.name = 'PlayerInMatchError';
+  }
+}
 
 export type { Player, Role };
 
@@ -95,6 +105,12 @@ export function usePlayers(): UsePlayersResult {
   };
 
   const removePlayer = async (id: string): Promise<void> => {
+    const events = await loadEvents();
+    const matchIds = events.filter((e) => e.type === 'PARTITA').map((e) => e.id);
+    if (await isPlayerInMatches(id, matchIds)) {
+      throw new PlayerInMatchError();
+    }
+
     const { error } = await supabase.from('players').delete().eq('id', id);
     if (error) throw error;
     setActive((prev) => prev.filter((p) => p.id !== id));

@@ -27,7 +27,7 @@ import {
   planRosterImport,
   type RosterImportPlan,
 } from '../data/rosterFile';
-import { usePlayers } from '../hooks/usePlayers';
+import { PlayerInMatchError, usePlayers } from '../hooks/usePlayers';
 
 const AVATAR_DEFAULT = require('../../assets/avatar.png');
 
@@ -186,10 +186,32 @@ export default function Rosa() {
     setCustomMenuPlayer(null);
   };
 
-  const handleRemove = async () => {
+  const handleRemove = () => {
     if (!customMenuPlayer) return;
-    await removePlayer(customMenuPlayer.id);
+    const player = customMenuPlayer;
     setCustomMenuPlayer(null);
+    Alert.alert(
+      'Eliminare definitivamente?',
+      `${player.name} verrà rimosso per sempre dalla rosa (non finisce tra gli ex giocatori). L'azione non si può annullare.`,
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Elimina',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removePlayer(player.id);
+            } catch (e) {
+              if (e instanceof PlayerInMatchError) {
+                Alert.alert('Impossibile eliminare', `${e.message} Usa "Sposta tra ex giocatori" invece.`);
+              } else {
+                Alert.alert('Errore', 'Impossibile eliminare il giocatore.');
+              }
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleExportRoster = async () => {

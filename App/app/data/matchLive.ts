@@ -102,3 +102,30 @@ export async function deleteMatchLive(eventId: string): Promise<void> {
   const { error } = await supabase.from('match_live').delete().eq('event_id', eventId);
   if (error) throw error;
 }
+
+/**
+ * true se il giocatore compare in gol/cartellini/sostituzioni/formazione di
+ * una delle partite indicate (usato per impedire l'eliminazione definitiva
+ * di un giocatore coinvolto in una partita della stagione corrente).
+ */
+export async function isPlayerInMatches(playerId: string, eventIds: string[]): Promise<boolean> {
+  if (eventIds.length === 0) return false;
+  const { data, error } = await supabase
+    .from('match_live')
+    .select('goals, subs, cards, lineup')
+    .in('event_id', eventIds);
+  if (error) throw error;
+
+  for (const row of data ?? []) {
+    const goals = (row.goals ?? []) as GoalItem[];
+    const subs = (row.subs ?? []) as SubItem[];
+    const cards = (row.cards ?? []) as CardItem[];
+    const lineup = row.lineup as SavedLineup | null;
+
+    if (goals.some((g) => g.playerId === playerId)) return true;
+    if (cards.some((c) => c.playerId === playerId)) return true;
+    if (subs.some((s) => s.outId === playerId || s.inId === playerId)) return true;
+    if (lineup && (lineup.field?.includes(playerId) || lineup.bench?.includes(playerId))) return true;
+  }
+  return false;
+}

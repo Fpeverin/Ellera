@@ -169,11 +169,16 @@ precisa.
 
 ### Gestione Squadra (`app/squadra/*`)
 - **Panoramica**: conteggi per ruolo ed età media squadra.
-- **Rosa** (`rosa.tsx`): elenco giocatori raggruppati per ruolo, aggiunta/spostamento a "ex giocatori",
-  foto profilo, età calcolata da data di nascita se presente. **Export/Import Excel** (
-  `app/data/rosterFile.ts`): riconoscimento per nome, aggiunge i nuovi e aggiorna i campi cambiati
-  (incluso lo stato attivo/ex); prima di applicare l'import mostra un riepilogo con conferma esplicita
-  per ogni giocatore attivo assente dal file (`RosterImportReviewModal`).
+- **Rosa** (`rosa.tsx`): elenco giocatori raggruppati per ruolo, con tenuto premuto su un giocatore per
+  "Sposta tra ex giocatori" o "Elimina giocatore" (con conferma), foto profilo, età calcolata da data
+  di nascita se presente. **Un giocatore che ha già preso parte a una partita della stagione corrente
+  (gol, cartellino, sostituzione o convocazione) non può essere eliminato del tutto** — solo spostato
+  tra gli ex (`isPlayerInMatches` in `app/data/matchLive.ts`, usata da `removePlayer` in
+  `app/hooks/usePlayers.ts`); le stagioni già archiviate non contano (il controllo guarda solo gli
+  eventi correnti). **Export/Import Excel** (`app/data/rosterFile.ts`): riconoscimento per nome,
+  aggiunge i nuovi e aggiorna i campi cambiati (incluso lo stato attivo/ex); prima di applicare
+  l'import mostra un riepilogo con conferma esplicita per ogni giocatore attivo assente dal file
+  (`RosterImportReviewModal`).
 - **Moduli** (`app/moduli/*`): moduli predefiniti (es. 3-1-4-2, 3-4-2-1, ecc. — sola lettura) e moduli
   personalizzati creabili/editabili con editor drag&drop delle posizioni in campo.
 - **Tattiche** (`squadra/tattiche/*`): editor lavagna tattica generale (maglie HOME/AWAY + palla,
