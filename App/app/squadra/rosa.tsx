@@ -16,8 +16,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AddPlayerModal from '../components/AddPlayerModal';
+import RosterImportReviewModal from '../components/RosterImportReviewModal';
 import { Player } from '../data/players';
 import { loadPhotoMap } from '../data/playerMedia';
+import {
+  applyRosterImport,
+  exportRosterToXlsx,
+  pickAndParseRosterXlsx,
+  planRosterImport,
+  type RosterImportPlan,
+} from '../data/rosterFile';
 import { usePlayers } from '../hooks/usePlayers';
 
 const AVATAR_DEFAULT = require('../../assets/avatar.png');
@@ -90,13 +98,15 @@ function MiniStat({
 }
 
 export default function Rosa() {
-  const { players, exPlayers, customPlayers, addPlayer, moveToEx, removeCustomPlayer } = usePlayers();
+  const { players, exPlayers, addPlayer, moveToEx, removePlayer, refresh } = usePlayers();
   const [photoMap, setPhotoMap] = React.useState<Record<string, string | null>>({});
   const [search, setSearch] = React.useState('');
   const [roleFilter, setRoleFilter] = React.useState<string | 'ALL'>('ALL');
   const [yearFilter, setYearFilter] = React.useState<number | null>(null);
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [customMenuPlayer, setCustomMenuPlayer] = React.useState<Player | null>(null);
+  const [importPlan, setImportPlan] = React.useState<RosterImportPlan | null>(null);
+  const [importBusy, setImportBusy] = React.useState(false);
 
   // height dinamica dell'header fisso (search + filtri + stats)
   const [stickyH, setStickyH] = React.useState(0);
@@ -115,7 +125,6 @@ export default function Rosa() {
     }, [])
   );
 
-  const isCustom = (p: Player) => customPlayers.some(c => c.id === p.id);
 
   // players filtrati (riuso in più punti)
   const filteredPlayers = React.useMemo(() => {
@@ -165,7 +174,6 @@ export default function Rosa() {
   }, [players, exPlayers]);
 
   const handleLongPress = (item: Player) => {
-    if (!isCustom(item)) return;
     setCustomMenuPlayer(item);
   };
 
@@ -177,17 +185,52 @@ export default function Rosa() {
 
   const handleRemove = async () => {
     if (!customMenuPlayer) return;
-    await removeCustomPlayer(customMenuPlayer.id);
+    await removePlayer(customMenuPlayer.id);
     setCustomMenuPlayer(null);
+  };
+
+  const handleExportRoster = async () => {
+    try {
+      await exportRosterToXlsx(players, exPlayers);
+    } catch {
+      Alert.alert('Errore', "Impossibile esportare la rosa.");
+    }
+  };
+
+  const handleImportRoster = async () => {
+    try {
+      const rows = await pickAndParseRosterXlsx();
+      if (!rows) return; // annullato
+      if (rows.length === 0) {
+        Alert.alert('File vuoto', 'Non ho trovato righe da importare in questo file.');
+        return;
+      }
+      setImportPlan(planRosterImport(rows, players, exPlayers));
+    } catch {
+      Alert.alert('Errore', 'Impossibile leggere il file selezionato.');
+    }
+  };
+
+  const handleConfirmImport = async (moveToExIds: string[]) => {
+    if (!importPlan) return;
+    setImportBusy(true);
+    try {
+      await applyRosterImport(importPlan, moveToExIds);
+      await refresh();
+      setImportPlan(null);
+    } catch {
+      Alert.alert('Errore', "Impossibile completare l'importazione.");
+    } finally {
+      setImportBusy(false);
+    }
   };
 
   const renderPlayerCard = (item: Player) => {
     const uri = (photoMap as any)[item.id];
     const age = getPlayerAge(item);
-    const custom = isCustom(item);
     return (
       <Pressable
-        style={[styles.playerCard, custom && styles.playerCardCustom]}
+        style={styles.playerCard}
         onPress={() => {}}
         onLongPress={() => handleLongPress(item)}
         delayLongPress={500}
@@ -198,7 +241,6 @@ export default function Rosa() {
             <View style={styles.playerInfo}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={styles.playerName} numberOfLines={1}>{item.name}</Text>
-                {custom && <Text style={styles.customBadge}>NUOVO</Text>}
               </View>
               <View style={styles.playerMeta}>
                 <View style={styles.metaItem}>
@@ -233,6 +275,15 @@ export default function Rosa() {
           <MiniStat icon="📊" label="Età media" value={averageAge ? `${averageAge}` : '—'} />
           <Pressable style={styles.addBtn} onPress={() => setShowAddModal(true)}>
             <Text style={styles.addBtnText}>+ Aggiungi</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.xlsxRow}>
+          <Pressable style={styles.xlsxBtn} onPress={handleExportRoster}>
+            <Text style={styles.xlsxBtnText}>📤 Esporta Excel</Text>
+          </Pressable>
+          <Pressable style={styles.xlsxBtn} onPress={handleImportRoster}>
+            <Text style={styles.xlsxBtnText}>📥 Importa Excel</Text>
           </Pressable>
         </View>
 
@@ -341,7 +392,7 @@ export default function Rosa() {
         addPlayer={addPlayer}
       />
 
-      {/* Menu azioni giocatore custom */}
+      {/* Menu azioni giocatore (tenuto premuto) */}
       <Modal
         visible={!!customMenuPlayer}
         transparent
@@ -365,6 +416,14 @@ export default function Rosa() {
           </View>
         </Pressable>
       </Modal>
+
+      <RosterImportReviewModal
+        visible={!!importPlan}
+        plan={importPlan}
+        busy={importBusy}
+        onCancel={() => setImportPlan(null)}
+        onConfirm={handleConfirmImport}
+      />
     </SafeAreaView>
   );
 }
@@ -433,6 +492,24 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '700',
     fontSize: 14,
+  },
+
+  xlsxRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  xlsxBtn: {
+    flex: 1,
+    backgroundColor: '#eef2f7',
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  xlsxBtnText: {
+    color: '#1a202c',
+    fontWeight: '700',
+    fontSize: 13,
   },
 
   search: {
@@ -521,19 +598,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
-  },
-  playerCardCustom: {
-    borderLeftWidth: 3,
-    borderLeftColor: '#1b7f3b',
-  },
-  customBadge: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#1b7f3b',
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
   },
   avatar: {
     width: 56,

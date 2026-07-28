@@ -69,7 +69,7 @@ progetto Expo: su [expo.dev](https://expo.dev) → progetto → tab **GitHub** �
 | Tabella/bucket | Contenuto |
 |---|---|
 | `events` | Tutti gli eventi (partite + allenamenti), tipo `CalendarEvent` ([events.ts](app/data/events.ts)); colonne dirette per i campi filtrabili (type/date/time/location/opponent), il resto in una colonna `data` jsonb |
-| `players` | Giocatori aggiunti manualmente (colonna `is_ex` invece di due liste separate) — il roster di base resta hardcoded in [players.ts](app/data/players.ts) |
+| `players` | Tutta la rosa (attivi ed ex, colonna `is_ex`) — dal 2026-07-28 non c'è più nessun giocatore hardcoded nel codice, [players.ts](app/data/players.ts) contiene solo i tipi `Player`/`Role` |
 | `player_photos`, `player_attachments`, `player_injury_types` + bucket Storage `player-photos`/`player-attachments` | Foto profilo, allegati e tipologia infortuni per QUALSIASI giocatore (anche quelli statici) — vedi [playerMedia.ts](app/data/playerMedia.ts) |
 | `modules` | Moduli di gioco personalizzati (chiave naturale = nome), oltre ai predefiniti hardcoded in [modules-layout.tsx](app/utils/modules-layout.tsx) — vedi [modules.ts](app/data/modules.ts) |
 | `tactics` + bucket Storage `tactic-previews` | Tattiche/schemi salvati dalla lavagna tattica, con preview immagine su Storage — vedi [tactics.ts](app/data/tactics.ts) |
@@ -96,12 +96,18 @@ progetto Expo: su [expo.dev](https://expo.dev) → progetto → tab **GitHub** �
 - **Generazione "settimana ideale"**: selezione periodo su calendario + giorni/orari ricorrenti →
   crea in blocco gli allenamenti nel range, con deduplica su data/ora esistenti.
 - Sezioni Oggi / Prossimi / Passati con eliminazione singola o totale (con conferma).
+- **Export/Import Excel** (`app/data/calendarFile.ts`): esporta tutti gli allenamenti in un file XLSX
+  e li reimporta lavorando per differenze (match per data+ora) — aggiorna solo luogo/tema, mai le
+  presenze già registrate.
 - Dettaglio allenamento (`eventi/allenamento/[id]/index.tsx`): gestione presenze per giocatore con stato
   `presente / assente / infortunato / differenziato`, tema della seduta.
 
 ### Partite (`app/partite.tsx` + `eventi/partita/[id]/*`)
 - Creazione partita singola o per competizione/girone (`CompetitionModal`), filtro per competizione.
 - Eliminazione singola partita, per competizione, o totale (con conferme dedicate).
+- **Export/Import Excel per competizione** (`app/data/calendarFile.ts`, visibile solo con una
+  competizione specifica selezionata nel filtro): match per avversario+casa/trasferta — importando
+  aggiorna solo data/ora/luogo, mai punteggio/formazione/cartellini di una partita già giocata.
 - **Formazione** (`formazione.tsx`): scelta modulo, convocati (max 20), disposizione titolari/panchina,
   assegnazione numero di maglia, drag&drop sul campo.
 - **Tattiche di partita** (`tattiche.tsx`): lavagna tattica per la singola partita, assegnazione di
@@ -115,7 +121,10 @@ progetto Expo: su [expo.dev](https://expo.dev) → progetto → tab **GitHub** �
 ### Gestione Squadra (`app/squadra/*`)
 - **Panoramica**: conteggi per ruolo ed età media squadra.
 - **Rosa** (`rosa.tsx`): elenco giocatori raggruppati per ruolo, aggiunta/spostamento a "ex giocatori",
-  foto profilo, età calcolata da data di nascita se presente.
+  foto profilo, età calcolata da data di nascita se presente. **Export/Import Excel** (
+  `app/data/rosterFile.ts`): riconoscimento per nome, aggiunge i nuovi e aggiorna i campi cambiati
+  (incluso lo stato attivo/ex); prima di applicare l'import mostra un riepilogo con conferma esplicita
+  per ogni giocatore attivo assente dal file (`RosterImportReviewModal`).
 - **Moduli** (`app/moduli/*`): moduli predefiniti (es. 3-1-4-2, 3-4-2-1, ecc. — sola lettura) e moduli
   personalizzati creabili/editabili con editor drag&drop delle posizioni in campo.
 - **Tattiche** (`squadra/tattiche/*`): editor lavagna tattica generale (maglie HOME/AWAY + palla,
@@ -229,3 +238,19 @@ eseguire una volta ciascuno dopo quelli delle fasi precedenti.
 - **Corretto un bug di pulizia dati**: `clearCurrentSeasonData` (chiamata quando si archivia una
   stagione) prima lasciava orfane le chiavi `match/{id}/positions` e `match/{id}/tacticsAssignments`
   (mai cancellate). Ora cancella l'intera riga `match_live` della partita, quindi sparisce tutto.
+
+## Rosa non hardcoded + import/export XLSX (2026-07-28)
+
+- **Rosa rimossa dal codice**: `app/data/players.ts` conteneva 29 giocatori attivi + 4 ex reali
+  dell'Ellera — spostati una tantum su Supabase (`App/supabase/seed_ellera_roster.sql`, da eseguire
+  prima di aggiornare l'app) e tolti dai sorgenti (restano solo i tipi). `app/hooks/usePlayers.ts`
+  semplificato: non c'è più merge statici+custom, `removeCustomPlayer` → `removePlayer`, il campo
+  `customPlayers` è sparito (non serve più distinguere). `app/squadra/rosa.tsx` ha perso la logica
+  `isCustom()`: ora ogni giocatore è modificabile/cancellabile allo stesso modo.
+- **Import/Export Excel Rosa** (`app/data/rosterFile.ts` + `RosterImportReviewModal.tsx`): vedi
+  dettagli nella sezione "Gestione Squadra" sopra.
+- **Import/Export Excel Calendario** (`app/data/calendarFile.ts`): vedi dettagli nelle sezioni
+  "Allenamenti" e "Partite" sopra.
+- Nuova dipendenza `xlsx` (SheetJS, pura JS, nessun codice nativo — non serve una build nuova).
+- `usePlayers()` ha ora anche `refresh()` nell'interfaccia pubblica, per ricaricare dopo modifiche
+  fatte fuori dall'hook stesso (es. l'import massivo).

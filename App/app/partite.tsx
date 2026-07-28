@@ -1,11 +1,12 @@
 import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CompetitionModal from './components/partite/CompetitionModal';
 import ConfirmDeleteModal from './components/partite/ConfirmDeleteModal';
 import MatchEventCard from './components/partite/MatchEventCard';
+import { exportMatchesToXlsx, pickAndParseMatchesXlsx, planMatchesImport } from './data/calendarFile';
 import { CalendarEvent, loadEvents, saveEvents } from './data/events';
 
 /* -------------------------------------------------------------------------- */
@@ -251,6 +252,32 @@ export default function Partite() {
     refreshEvents();
   };
 
+  const handleExportMatches = async () => {
+    try {
+      await exportMatchesToXlsx(compFilter, filteredEvents);
+    } catch {
+      Alert.alert('Errore', 'Impossibile esportare le partite.');
+    }
+  };
+
+  const handleImportMatches = async () => {
+    try {
+      const rows = await pickAndParseMatchesXlsx();
+      if (!rows) return; // annullato
+      if (rows.length === 0) {
+        Alert.alert('File vuoto', 'Non ho trovato righe da importare in questo file.');
+        return;
+      }
+      const all = await loadEvents();
+      const plan = planMatchesImport(rows, all, compFilter);
+      await plan.apply();
+      await refreshEvents();
+      Alert.alert('Import completato', `${plan.toInsertCount} nuove partite, ${plan.toUpdateCount} aggiornate.`);
+    } catch {
+      Alert.alert('Errore', "Impossibile completare l'importazione.");
+    }
+  };
+
   const renderItem = ({ item }: { item: MatchEventRow }) => {
     const hasScore = !!item?.score && Number.isFinite(item.score?.home) && Number.isFinite(item.score?.away);
     const result = item?.resultText || (hasScore ? `Risultato: ${item.score!.home} - ${item.score!.away}` : null);
@@ -341,6 +368,17 @@ export default function Partite() {
           </Pressable>
         </View>
       </View>
+
+      {compFilter !== ALL_COMP && (
+        <View style={styles.xlsxRow}>
+          <Pressable style={styles.xlsxBtn} onPress={handleExportMatches}>
+            <Text style={styles.xlsxBtnText}>📤 Esporta Excel</Text>
+          </Pressable>
+          <Pressable style={styles.xlsxBtn} onPress={handleImportMatches}>
+            <Text style={styles.xlsxBtnText}>📥 Importa Excel</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Liste: oggi / future / passate */}
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
@@ -555,6 +593,10 @@ const styles = StyleSheet.create({
   topActions: { flexDirection: 'row', gap: 8 },
   outlineBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, backgroundColor: '#fff' },
   outlineText: { fontWeight: '800' },
+
+  xlsxRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  xlsxBtn: { flex: 1, backgroundColor: '#eef2f7', borderRadius: 10, paddingVertical: 8, alignItems: 'center' },
+  xlsxBtnText: { color: '#1a202c', fontWeight: '700', fontSize: 13 },
 
   bottomActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
   cta: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center' },

@@ -24,29 +24,33 @@ che potranno usare l'app in futuro con ruoli diversi (admin vs utente normale).
 Schermata per l'admin per vedere chi è nella squadra, cambiare ruoli, rimuovere una persona, rigenerare
 l'invite code.
 
-### 2. Rimuovere i dati "di default" scritti nel codice
-Rosa giocatori in `app/data/players.ts`, moduli/tattiche predefiniti — ora che tutti i domini vivono
-davvero nel backend, non ha più senso avere una rosa/moduli hardcoded nei sorgenti.
-
-### 3. Import/Export massivo CSV/XLSX per la Rosa
-Esportare l'intera rosa (attivi + ex) in CSV/XLSX, e poterla reimportare **lavorando per differenze**:
-i giocatori nuovi nel file vengono aggiunti, quelli già esistenti (stesso id o stesso nome?) vengono
-aggiornati sui campi cambiati, non un "cancella tutto e ricrea". Da definire nel dettaglio quando ci
-arriviamo: come si riconosce "lo stesso giocatore" tra rosa attuale e file importato, e cosa succede ai
-giocatori presenti in rosa ma assenti dal file (restano, vengono spostati ex, o segnalati per conferma).
-
-### 4. Import/Export massivo CSV/XLSX per il Calendario
-Stessa idea per il calendario, **diviso per competizione** (un export/import per competizione, non
-uno unico per tutto il calendario). Deve coprire anche gli **allenamenti**, che oggi sono già visibili
-nel calendario insieme alle partite (`app/calendario.tsx`) e già creabili manualmente dall'utente
-(`EventEditorModal`) — l'obiettivo è aggiungere la possibilità di crearli/aggiornarli anche in massa via
-file, non sostituire la creazione manuale che resta com'è.
-
 ## In corso
 
 *(vuoto — si popola quando iniziamo davvero il prossimo punto del backlog)*
 
 ## Completato
+
+### 2026-07-28 — Rosa non più hardcoded + import/export XLSX (rosa e calendario)
+- **Rosa non più scritta nel codice**: i 29 giocatori attivi + 4 ex che vivevano in
+  `app/data/players.ts` sono stati spostati (una tantum, script `seed_ellera_roster.sql`) dentro la
+  tabella `players` su Supabase e rimossi dai sorgenti — restano solo i tipi `Player`/`Role`. Effetto
+  collaterale positivo: prima solo i giocatori aggiunti a mano erano modificabili/cancellabili dalla
+  Rosa, ora lo sono tutti allo stesso modo (`app/hooks/usePlayers.ts` semplificato,
+  `removeCustomPlayer` rinominato `removePlayer`).
+- **Import/Export Excel (XLSX) della Rosa** (`app/data/rosterFile.ts`, azioni in `rosa.tsx`):
+  esporta tutta la rosa (attivi+ex) con Nome/Ruolo/Anno/Altezza/Peso/Stato; l'import riconosce lo
+  stesso giocatore **per nome**, aggiunge i nuovi e aggiorna i campi cambiati (compreso lo Stato
+  attivo/ex, letto dal file). I giocatori attivi **assenti dal file** non vengono mai toccati in
+  automatico: prima di applicare l'import viene mostrata una schermata di riepilogo dove si sceglie,
+  uno per uno, chi spostare tra gli ex.
+- **Import/Export Excel del Calendario** (`app/data/calendarFile.ts`): partite esportabili/importabili
+  **per competizione** (da `partite.tsx`, richiede una competizione specifica selezionata, non
+  "tutte"); allenamenti in un file separato (da `allenamenti.tsx`). Il riconoscimento di "stessa
+  partita" è per avversario+casa/trasferta dentro la competizione (l'avversario di solito non cambia,
+  mentre data/ora/luogo sì); per gli allenamenti è data+ora. Su un evento già esistente l'import
+  aggiorna **solo** i campi di calendario, mai punteggio/formazione/cartellini/eventi live già
+  registrati.
+- Nuova dipendenza `xlsx` (SheetJS, pura JS).
 
 ### 2026-07-27 — Dati condivisi su Supabase: ultimi 3 domini (Fase 3) — TUTTO ora su Supabase
 Con questa fase **tutti** i dati dell'app vivono su Supabase: non resta più nulla di importante solo

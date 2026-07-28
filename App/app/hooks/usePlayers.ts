@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { exPlayers as staticExPlayers, players as staticPlayers, Player, Role } from '../data/players';
+import { Player, Role } from '../data/players';
 import { supabase } from '../lib/supabase';
 
 export type { Player, Role };
@@ -17,10 +17,11 @@ export interface UsePlayersResult {
   players: Player[];
   exPlayers: Player[];
   allPlayers: Player[];
-  customPlayers: Player[];
   addPlayer: (input: NewPlayerInput) => Promise<Player>;
   moveToEx: (id: string) => Promise<void>;
-  removeCustomPlayer: (id: string) => Promise<void>;
+  removePlayer: (id: string) => Promise<void>;
+  /** Ricarica dalla base dati — utile dopo modifiche fatte fuori da questo hook (es. import massivo). */
+  refresh: () => Promise<void>;
   loading: boolean;
 }
 
@@ -37,21 +38,20 @@ function rowToPlayer(row: any): Player {
 }
 
 export function usePlayers(): UsePlayersResult {
-  const [customActive, setCustomActive] = useState<Player[]>([]);
-  const [customEx, setCustomEx] = useState<Player[]>([]);
+  const [active, setActive] = useState<Player[]>([]);
+  const [ex, setEx] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('players').select('*').order('name');
       if (error) throw error;
-      const all = (data ?? []).map(rowToPlayer);
       const rows = data ?? [];
-      setCustomActive(all.filter((_, i) => !rows[i].is_ex));
-      setCustomEx(all.filter((_, i) => rows[i].is_ex));
+      setActive(rows.filter((r) => !r.is_ex).map(rowToPlayer));
+      setEx(rows.filter((r) => r.is_ex).map(rowToPlayer));
     } catch {
-      setCustomActive([]);
-      setCustomEx([]);
+      setActive([]);
+      setEx([]);
     } finally {
       setLoading(false);
     }
@@ -59,9 +59,7 @@ export function usePlayers(): UsePlayersResult {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const players = [...staticPlayers, ...customActive];
-  const exPlayers = [...staticExPlayers, ...customEx];
-  const allPlayers = [...players, ...exPlayers];
+  const allPlayers = [...active, ...ex];
 
   const addPlayer = async (input: NewPlayerInput): Promise<Player> => {
     const newPlayer: Player = {
@@ -83,25 +81,25 @@ export function usePlayers(): UsePlayersResult {
       is_ex: false,
     });
     if (error) throw error;
-    setCustomActive((prev) => [...prev, newPlayer]);
+    setActive((prev) => [...prev, newPlayer]);
     return newPlayer;
   };
 
   const moveToEx = async (id: string): Promise<void> => {
-    const player = customActive.find((p) => p.id === id);
+    const player = active.find((p) => p.id === id);
     if (!player) return;
     const { error } = await supabase.from('players').update({ is_ex: true }).eq('id', id);
     if (error) throw error;
-    setCustomActive((prev) => prev.filter((p) => p.id !== id));
-    setCustomEx((prev) => [...prev, player]);
+    setActive((prev) => prev.filter((p) => p.id !== id));
+    setEx((prev) => [...prev, player]);
   };
 
-  const removeCustomPlayer = async (id: string): Promise<void> => {
+  const removePlayer = async (id: string): Promise<void> => {
     const { error } = await supabase.from('players').delete().eq('id', id);
     if (error) throw error;
-    setCustomActive((prev) => prev.filter((p) => p.id !== id));
-    setCustomEx((prev) => prev.filter((p) => p.id !== id));
+    setActive((prev) => prev.filter((p) => p.id !== id));
+    setEx((prev) => prev.filter((p) => p.id !== id));
   };
 
-  return { players, exPlayers, allPlayers, customPlayers: customActive, addPlayer, moveToEx, removeCustomPlayer, loading };
+  return { players: active, exPlayers: ex, allPlayers, addPlayer, moveToEx, removePlayer, refresh: load, loading };
 }

@@ -1,10 +1,11 @@
 // app/allenamenti.tsx
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
-import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import EventEditorModal from './components/EventEditorModal';
+import { exportTrainingsToXlsx, pickAndParseTrainingsXlsx, planTrainingsImport } from './data/calendarFile';
 import { CalendarEvent, loadEvents, saveEvents } from './data/events';
 
 interface CalendarDay {
@@ -265,6 +266,32 @@ export default function Allenamenti() {
     refreshEvents();
   };
 
+  const handleExportTrainings = async () => {
+    try {
+      await exportTrainingsToXlsx(events);
+    } catch {
+      Alert.alert('Errore', 'Impossibile esportare gli allenamenti.');
+    }
+  };
+
+  const handleImportTrainings = async () => {
+    try {
+      const rows = await pickAndParseTrainingsXlsx();
+      if (!rows) return; // annullato
+      if (rows.length === 0) {
+        Alert.alert('File vuoto', 'Non ho trovato righe da importare in questo file.');
+        return;
+      }
+      const all = await loadEvents();
+      const plan = planTrainingsImport(rows, all);
+      await plan.apply();
+      await refreshEvents();
+      Alert.alert('Import completato', `${plan.toInsertCount} nuovi, ${plan.toUpdateCount} aggiornati.`);
+    } catch {
+      Alert.alert('Errore', "Impossibile completare l'importazione.");
+    }
+  };
+
   // --- gestione mini calendario (range picker) ---
   const onDayPress = (day: CalendarDay) => {
     const d = day.dateString; // YYYY-MM-DD
@@ -350,6 +377,15 @@ export default function Allenamenti() {
         >
           <Text style={styles.quickActionIcon}>🗑️</Text>
           <Text style={styles.quickActionText}>Elimina</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.xlsxRow}>
+        <Pressable style={styles.xlsxBtn} onPress={handleExportTrainings}>
+          <Text style={styles.xlsxBtnText}>📤 Esporta Excel</Text>
+        </Pressable>
+        <Pressable style={styles.xlsxBtn} onPress={handleImportTrainings}>
+          <Text style={styles.xlsxBtnText}>📥 Importa Excel</Text>
         </Pressable>
       </View>
 
@@ -596,6 +632,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: 'white',
   },
+
+  xlsxRow: { flexDirection: 'row', gap: 8, marginBottom: 24 },
+  xlsxBtn: { flex: 1, backgroundColor: '#eef2f7', borderRadius: 10, paddingVertical: 8, alignItems: 'center' },
+  xlsxBtnText: { color: '#1a202c', fontWeight: '700', fontSize: 13 },
 
   scrollContainer: {
     flex: 1,
