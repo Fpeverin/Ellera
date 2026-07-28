@@ -117,6 +117,7 @@ precisa.
 | `season_archives` | Archivio stagioni: un `data` jsonb con l'intero snapshot (`SeasonArchive` — vedi [archive.ts](app/data/archive.ts) / [archiveBuilder.ts](app/utils/archiveBuilder.ts)) |
 | `invites` | Codici di accesso personali (Giocatore collegato a un `player_id`, o Staff con un nome libero), riscattabili una sola volta — vedi [invites.ts](app/data/invites.ts) |
 | `match_event_proposals` | Gol/cartellini proposti da un Giocatore in una partita Live, in attesa di conferma/rifiuto da Staff/Admin — vedi [proposals.ts](app/data/proposals.ts) |
+| `player_edit_requests` | Modifiche a ruolo/anno/altezza/peso proposte da un Giocatore per il proprio giocatore collegato, in attesa di conferma/rifiuto da Staff/Admin — vedi [playerEdits.ts](app/data/playerEdits.ts) |
 
 ## Funzionalità attive per area
 
@@ -206,6 +207,14 @@ se raggiunte con un link diretto.
 - Tab: **Partite** (presenze/statistiche), **Allenamenti** (presenze), **Infortuni** (storico status),
   **Allegati** (documenti).
 - Foto profilo (galleria o fotocamera), allegati (document picker), link esterni (browser in-app).
+- **Dati anagrafici** (Ruolo/Anno di nascita/Altezza/Peso): Admin e Staff li modificano su
+  **qualunque** giocatore, in scrittura diretta (`updatePlayer` in `app/hooks/usePlayers.ts`). Un
+  **Giocatore** vede questa sezione solo sulla scheda del giocatore a cui è collegato
+  (`membership.playerId`) e può solo **proporre** una modifica (`proposePlayerEdit` in
+  `app/data/playerEdits.ts`) — resta `pending` in `player_edit_requests` finché Staff/Admin non la
+  conferma (applica i cambiamenti a `players`) o rifiuta, mostrato direttamente in questa stessa
+  sezione quando Staff/Admin aprono quella scheda. Un giocatore non può proporre una seconda modifica
+  finché quella in corso non è stata decisa. Schema: `App/supabase/9_schema_player_edits.sql`.
 
 ## File rimossi (pulizia del 2026-07-26)
 

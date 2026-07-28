@@ -1,4 +1,5 @@
 // app/player/[id].tsx
+import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -27,7 +28,7 @@ import {
   loadLineup as loadLineupRemote,
   loadSubs as loadSubsRemote,
 } from '../data/matchLive';
-import { Player } from '../data/players';
+import { Player, Role } from '../data/players';
 import {
   addAttachment as addAttachmentRemote,
   loadAttachments,
@@ -38,7 +39,30 @@ import {
   setInjuryType as setInjuryTypeRemote,
   uploadPlayerPhoto,
 } from '../data/playerMedia';
+import {
+  decidePlayerEdit,
+  loadPlayerEditRequests,
+  PlayerEditChanges,
+  PlayerEditRequest,
+  proposePlayerEdit,
+} from '../data/playerEdits';
 import { usePlayers } from '../hooks/usePlayers';
+
+const ROLE_LABELS: Record<Role, string> = {
+  PORTIERE: 'Portiere',
+  DIFENSORE: 'Difensore',
+  CENTROCAMPISTA: 'Centrocampista',
+  ATTACCANTE: 'Attaccante',
+};
+
+function describeChanges(changes: PlayerEditChanges): string {
+  const parts: string[] = [];
+  if (changes.role) parts.push(`Ruolo: ${ROLE_LABELS[changes.role]}`);
+  if (changes.year != null) parts.push(`Anno: ${changes.year}`);
+  if (changes.height) parts.push(`Altezza: ${changes.height}cm`);
+  if (changes.weight) parts.push(`Peso: ${changes.weight}kg`);
+  return parts.join(' · ') || '—';
+}
 const LAST_TOUCH_KEY = 'app/lastUpdate/touch';
 
 type TabKey = 'PARTITE' | 'ALLENAMENTI' | 'INFORTUNI' | 'ALLEGATI';
@@ -100,14 +124,94 @@ export default function PlayerDetail() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const navigation = useNavigation();
-  const { allPlayers } = usePlayers();
+  const { allPlayers, updatePlayer } = usePlayers();
   const base = allPlayers.find(p => p.id === id) as Player | undefined;
   const playerName = base?.name || '';
   const { membership } = useAuth();
   const isAdmin = membership?.role === 'admin';
   const readOnly = membership?.role === 'giocatore';
+  const canEditDirectly = membership?.role === 'admin' || membership?.role === 'staff';
+  const isOwnPlayer = membership?.role === 'giocatore' && membership.playerId === id;
 
   const [tab, setTab] = useState<TabKey>('PARTITE');
+
+  // Dati anagrafici (ruolo/anno/altezza/peso): Admin/Staff modificano diretto,
+  // Giocatore propone solo per il proprio giocatore collegato.
+  const [editRole, setEditRole] = useState<Role>('CENTROCAMPISTA');
+  const [editYear, setEditYear] = useState('');
+  const [editHeight, setEditHeight] = useState('');
+  const [editWeight, setEditWeight] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+  const [pendingEdit, setPendingEdit] = useState<PlayerEditRequest | null>(null);
+
+  useEffect(() => {
+    if (!base) return;
+    setEditRole(base.role);
+    setEditYear(String(base.year ?? ''));
+    setEditHeight(base.height ?? '');
+    setEditWeight(base.weight ?? '');
+  }, [base?.id, base?.role, base?.year, base?.height, base?.weight]);
+
+  const loadPendingEdit = async () => {
+    if (!id || !(canEditDirectly || isOwnPlayer)) return;
+    try {
+      const list = await loadPlayerEditRequests(id);
+      setPendingEdit(list.find((r) => r.status === 'pending') ?? null);
+    } catch {}
+  };
+
+  useEffect(() => { loadPendingEdit(); }, [id, canEditDirectly, isOwnPlayer]);
+
+  const handleSaveEdit = async () => {
+    if (!id) return;
+    const yearNum = parseInt(editYear, 10);
+    if (!editHeight.trim() || !editWeight.trim() || isNaN(yearNum)) {
+      Alert.alert('Dati mancanti', 'Compila ruolo, anno di nascita, altezza e peso.');
+      return;
+    }
+    const changes: PlayerEditChanges = {
+      role: editRole,
+      year: yearNum,
+      height: editHeight.trim(),
+      weight: editWeight.trim(),
+    };
+    setEditSaving(true);
+    try {
+      if (canEditDirectly) {
+        await updatePlayer(id, changes);
+        Alert.alert('Salvato', 'Dati aggiornati.');
+      } else {
+        await proposePlayerEdit(id, changes);
+        await loadPendingEdit();
+        Alert.alert('Proposta inviata', 'In attesa di conferma dello staff.');
+      }
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare le modifiche.');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleApproveEdit = async () => {
+    if (!pendingEdit || !id) return;
+    try {
+      await updatePlayer(id, pendingEdit.changes);
+      await decidePlayerEdit(pendingEdit.id, 'approved');
+      setPendingEdit(null);
+    } catch {
+      Alert.alert('Errore', 'Impossibile confermare la modifica.');
+    }
+  };
+
+  const handleRejectEdit = async () => {
+    if (!pendingEdit) return;
+    try {
+      await decidePlayerEdit(pendingEdit.id, 'rejected');
+      setPendingEdit(null);
+    } catch {
+      Alert.alert('Errore', 'Impossibile rifiutare la modifica.');
+    }
+  };
 
   // Codice di accesso (solo admin): collega questo giocatore a un account.
   const [inviteStatus, setInviteStatus] = useState<{ pendingCode: string | null; claimedEmail: string | null } | null>(null);
@@ -511,6 +615,83 @@ export default function PlayerDetail() {
 
       {/* CONTENUTO SCROLLABILE SOTTO L’HEADER */}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 248 + insets.top, paddingBottom: 24 }}>
+        {/* ====== DATI ANAGRAFICI (Admin/Staff diretto, Giocatore solo il proprio - proposta) ====== */}
+        {(canEditDirectly || isOwnPlayer) && (
+          <View style={[styles.tabContent, { paddingBottom: 0 }]}>
+            <View style={styles.editCard}>
+              <Text style={styles.editCardTitle}>Dati anagrafici</Text>
+
+              {pendingEdit && canEditDirectly && (
+                <View style={styles.pendingEditBox}>
+                  <Text style={styles.pendingEditText}>
+                    Modifica proposta in attesa: {describeChanges(pendingEdit.changes)}
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                    <Pressable style={[styles.actionBtn, { backgroundColor: '#1b7f3b' }]} onPress={handleApproveEdit}>
+                      <Text style={styles.actionText}>Conferma</Text>
+                    </Pressable>
+                    <Pressable style={[styles.actionBtn, { backgroundColor: '#9ca3af' }]} onPress={handleRejectEdit}>
+                      <Text style={styles.actionText}>Rifiuta</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
+              {pendingEdit && isOwnPlayer && !canEditDirectly && (
+                <View style={styles.pendingEditBox}>
+                  <Text style={styles.pendingEditText}>
+                    Hai una modifica in attesa di conferma dello staff: {describeChanges(pendingEdit.changes)}
+                  </Text>
+                </View>
+              )}
+
+              {(canEditDirectly || (isOwnPlayer && !pendingEdit)) && (
+                <>
+                  <Text style={styles.formLabel}>Ruolo</Text>
+                  <View style={styles.pickerWrap}>
+                    <Picker selectedValue={editRole} onValueChange={(v) => setEditRole(v as Role)}>
+                      <Picker.Item label="Portiere" value="PORTIERE" />
+                      <Picker.Item label="Difensore" value="DIFENSORE" />
+                      <Picker.Item label="Centrocampista" value="CENTROCAMPISTA" />
+                      <Picker.Item label="Attaccante" value="ATTACCANTE" />
+                    </Picker>
+                  </View>
+
+                  <Text style={styles.formLabel}>Anno di nascita</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={editYear}
+                    onChangeText={setEditYear}
+                    keyboardType="numeric"
+                    maxLength={4}
+                  />
+
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>Altezza (cm)</Text>
+                      <TextInput style={styles.formInput} value={editHeight} onChangeText={setEditHeight} keyboardType="numeric" maxLength={3} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>Peso (kg)</Text>
+                      <TextInput style={styles.formInput} value={editWeight} onChangeText={setEditWeight} keyboardType="numeric" maxLength={3} />
+                    </View>
+                  </View>
+
+                  <Pressable
+                    style={[styles.actionBtn, { marginTop: 12, alignSelf: 'flex-start' }]}
+                    onPress={handleSaveEdit}
+                    disabled={editSaving}
+                  >
+                    <Text style={styles.actionText}>
+                      {editSaving ? 'Salvataggio…' : canEditDirectly ? 'Salva modifiche' : 'Proponi modifica'}
+                    </Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* ====== ACCESSO ALL'APP (solo admin) ====== */}
         {isAdmin && (
           <View style={[styles.tabContent, { paddingBottom: 0 }]}>
@@ -905,6 +1086,19 @@ const styles = StyleSheet.create({
   },
   inviteText: { fontSize: 14, color: '#374151' },
   inviteCode: { fontSize: 24, fontWeight: '900', letterSpacing: 2, color: '#1b7f3b' },
+
+  editCard: {
+    backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 4,
+    borderWidth: 1, borderColor: '#e5e7eb',
+  },
+  editCardTitle: { fontSize: 16, fontWeight: '800', color: '#1e293b', marginBottom: 4 },
+  pickerWrap: {
+    backgroundColor: '#f9fafb', borderRadius: 8, borderWidth: 1, borderColor: '#d1d5db', overflow: 'hidden',
+  },
+  pendingEditBox: {
+    backgroundColor: '#fef3c7', borderRadius: 10, padding: 12, marginTop: 8, marginBottom: 4,
+  },
+  pendingEditText: { fontSize: 13, color: '#92400e', fontWeight: '600' },
 
   emptyState: { alignItems: 'center', paddingVertical: 20 },
   emptyIcon: { fontSize: 26 },

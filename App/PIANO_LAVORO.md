@@ -42,6 +42,16 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
+### 2026-07-28 — Modifica dati anagrafici giocatore (Ruolo/Anno/Altezza/Peso)
+- **Admin e Staff**: possono modificare ruolo, anno di nascita, altezza e peso di qualunque
+  giocatore, dalla sua scheda — salvataggio diretto, subito effettivo.
+- **Giocatore**: vede questa sezione solo sulla scheda del giocatore a cui è collegato (il proprio) e
+  può solo *proporre* una modifica — resta in attesa finché Staff o Admin non la conferma (applica i
+  cambiamenti) o rifiuta. La proposta compare direttamente in quella stessa scheda quando Staff/Admin
+  la aprono, con Conferma/Rifiuta. Non può proporne una seconda finché quella in corso non è stata
+  decisa. Schema `App/supabase/9_schema_player_edits.sql` (tabella `player_edit_requests`, stesso
+  pattern di `match_event_proposals`).
+
 ### 2026-07-28 — Selezione multipla nella Rosa (Staff/Admin) + eliminazione ex giocatori
 - Da Rosa, bottone "☑️ Seleziona": tocca più giocatori (attivi **o** ex) e poi "🔄 Sposta tra ex" o
   "🗑️ Elimina" dalla barra in basso — stessa distinzione ex/eliminazione definitiva del menu su

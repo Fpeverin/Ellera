@@ -30,6 +30,13 @@ export interface RemovePlayersResult {
   blocked: string[];
 }
 
+export type PlayerUpdateInput = Partial<{
+  role: Role;
+  year: number;
+  height: string;
+  weight: string;
+}>;
+
 export interface UsePlayersResult {
   players: Player[];
   exPlayers: Player[];
@@ -40,6 +47,8 @@ export interface UsePlayersResult {
   removePlayer: (id: string) => Promise<void>;
   /** Elimina piu' giocatori insieme; quelli gia' in una partita di questa stagione vengono saltati (mai un errore in blocco). */
   removePlayers: (ids: string[]) => Promise<RemovePlayersResult>;
+  /** Modifica ruolo/anno/altezza/peso (Staff/Admin, scrittura diretta). */
+  updatePlayer: (id: string, changes: PlayerUpdateInput) => Promise<void>;
   /** Ricarica dalla base dati — utile dopo modifiche fatte fuori da questo hook (es. import massivo). */
   refresh: () => Promise<void>;
   loading: boolean;
@@ -145,6 +154,14 @@ export function usePlayers(): UsePlayersResult {
     if (blocked.length > 0) throw new PlayerInMatchError();
   };
 
+  const updatePlayer = async (id: string, changes: PlayerUpdateInput): Promise<void> => {
+    const { error } = await supabase.from('players').update(changes).eq('id', id);
+    if (error) throw error;
+    const patch = (p: Player) => (p.id === id ? { ...p, ...changes } : p);
+    setActive((prev) => prev.map(patch));
+    setEx((prev) => prev.map(patch));
+  };
+
   return {
     players: active,
     exPlayers: ex,
@@ -154,6 +171,7 @@ export function usePlayers(): UsePlayersResult {
     moveToExMany,
     removePlayer,
     removePlayers,
+    updatePlayer,
     refresh: load,
     loading,
   };

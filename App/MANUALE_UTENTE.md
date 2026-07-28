@@ -176,6 +176,12 @@ Si apre toccando un giocatore da Rosa o da altre schermate. Quattro schede:
 Da qui si gestiscono anche **foto profilo** (da galleria o fotocamera) e **link esterni** (si aprono
 nel browser integrato dell'app, senza uscire da ElleraApp).
 
+**Dati anagrafici** (Ruolo, Anno di nascita, Altezza, Peso), in cima alla scheda:
+- **Admin e Staff** li modificano su qualunque giocatore, con salvataggio immediato.
+- Un **Giocatore** vede questa sezione solo sulla propria scheda (quella collegata al suo account) e
+  può solo *proporre* una modifica: resta "in attesa" finché uno dello Staff/Admin non la conferma o
+  rifiuta — quando Staff/Admin aprono quella scheda, la vedono lì con i bottoni Conferma/Rifiuta.
+
 Solo per l'Admin, in cima alla scheda: se il giocatore non ha ancora un account collegato, un
 bottone "Genera codice di accesso" (vedi [sezione 8](#8-ruoli-utente-e-permessi)); se è già
 collegato, mostra l'email dell'account.
