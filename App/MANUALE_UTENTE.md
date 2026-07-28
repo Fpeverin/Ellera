@@ -82,6 +82,13 @@ partita a seconda del tipo).
   specifica, non "Tutte"): riconosce la partita esistente per **avversario + casa/trasferta**
   (l'avversario di solito non cambia, cambiano data/ora/luogo) — l'import aggiorna solo quei campi,
   **mai** punteggio/formazione/cartellini/eventi già registrati di una partita già giocata.
+- **Regole di partecipazione** (bottone "⚙️ Regole", con una competizione specifica selezionata):
+  utile per tornei con vincoli di età (es. Eccellenza) — Under "servono almeno N giocatori in campo
+  nati nell'anno X o dopo", Over "...o prima". Puoi aggiungere più soglie (es. 2006→1, 2007→2,
+  2008→3: un giocatore giovanissimo soddisfa da solo più soglie). In **Formazione** vedi sempre lo
+  stato di ogni soglia; in **Live**, "Start" e le sostituzioni vengono **bloccati con un messaggio
+  chiaro** se il risultato non rispetta le regole attive per quella competizione. Un giocatore
+  espulso (cartellino rosso) continua a contare come se fosse ancora in campo.
 - Toccando una partita si entra nella sua gestione, con tre sotto-sezioni:
 
   ### Formazione

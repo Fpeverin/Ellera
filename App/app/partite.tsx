@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CompetitionModal from './components/partite/CompetitionModal';
+import CompetitionRulesModal from './components/partite/CompetitionRulesModal';
 import ConfirmDeleteModal from './components/partite/ConfirmDeleteModal';
 import MatchEventCard from './components/partite/MatchEventCard';
 import { useAuth } from './context/AuthContext';
@@ -57,6 +58,7 @@ export default function Partite() {
   const [compToDelete, setCompToDelete] = useState<string>('—');
 
   const [busy, setBusy] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
 
   const refreshEvents = async () => {
     const list = await loadEvents();
@@ -382,6 +384,9 @@ export default function Partite() {
           <Pressable style={styles.xlsxBtn} onPress={handleImportMatches}>
             <Text style={styles.xlsxBtnText}>📥 Importa Excel</Text>
           </Pressable>
+          <Pressable style={styles.xlsxBtn} onPress={() => setShowRulesModal(true)}>
+            <Text style={styles.xlsxBtnText}>⚙️ Regole</Text>
+          </Pressable>
         </View>
       )}
 
@@ -423,6 +428,13 @@ export default function Partite() {
         onClose={() => setShowCompModal(false)}
         onCreateCompetition={handleCreateCompetition}
       />
+      {compFilter !== ALL_COMP && (
+        <CompetitionRulesModal
+          visible={showRulesModal}
+          competition={compFilter}
+          onClose={() => setShowRulesModal(false)}
+        />
+      )}
 
       {/* Modale: scegli competizione da cancellare */}
       <Modal visible={showChooseCompModal} transparent animationType="fade" onRequestClose={() => setShowChooseCompModal(false)}>

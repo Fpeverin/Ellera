@@ -13,6 +13,12 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { useAuth } from '../../../context/AuthContext';
 import { useTimer } from '../../../context/TimerContext';
+import {
+  checkLineupAgainstRules,
+  describeViolations,
+  loadCompetitionRules,
+  type CompetitionRules,
+} from '../../../data/competitionRules';
 import { loadEvents, saveEvents } from '../../../data/events';
 import {
   CardItem,
@@ -191,6 +197,9 @@ const setSecondHalfBaseline = async () => {
   const [finishBusy, setFinishBusy] = useState(false);
   const [finishError, setFinishError] = useState<string>('');
 
+  // Regole di partecipazione (Under/Over) della competizione di questa partita
+  const [competitionRules, setCompetitionRules] = useState<CompetitionRules | null>(null);
+
   useEffect(() => {
     (async () => {
       try {
@@ -208,6 +217,11 @@ const setSecondHalfBaseline = async () => {
         }
 
         if (ev?.status === 'FINISHED') setIsFinished(true);
+
+        const competition = (ev as any)?.competition as string | undefined;
+        if (competition) {
+          try { setCompetitionRules(await loadCompetitionRules(competition)); } catch { setCompetitionRules(null); }
+        }
       } catch {
         setHomeName(CLUB_NAME); setAwayName('Ospiti'); setOurSide('HOME');
       }
@@ -227,10 +241,12 @@ const setSecondHalfBaseline = async () => {
    // 1) leggi la formazione live attuale
     let arr = await loadLiveFormationRemote(matchId!);
 
-    // 2) Fallback: se vuota/incoerente, rigenera dalla lineup salvata
+    // 2) Fallback: se vuota/incoerente, rigenera dalla lineup salvata (silenzioso:
+    //    se la formazione non rispetta le regole di partecipazione non mostriamo
+    //    un alert qui, ci pensa il bottone "Start" quando viene premuto davvero)
     if (!arr || arr.length === 0) {
-      const regenerated = await initializeLiveFormationFromLineup();
-      if (regenerated) {
+      const result = await initializeLiveFormationFromLineup({ silent: true });
+      if (result === 'done') {
         // ricarica la versione appena salvata per uniformità
         arr = await loadLiveFormationRemote(matchId!);
       }
@@ -256,16 +272,34 @@ const setSecondHalfBaseline = async () => {
     await saveLiveFormationRemote(matchId!, list);
   };
 
-  const initializeLiveFormationFromLineup = async () => {
+  type InitLiveFormationResult = 'done' | 'already_started' | 'no_lineup' | 'blocked';
+
+  const initializeLiveFormationFromLineup = async (opts?: { silent?: boolean }): Promise<InitLiveFormationResult> => {
     const already = await loadStartedRemote(matchId!);
-    if (already) return;
+    if (already) return 'already_started';
 
     const lineup = await loadLineupRemote(matchId!);
-    if (!lineup) return false;
+    if (!lineup) return 'no_lineup';
+
+    const inFieldIds = (lineup.field || []).filter(Boolean) as string[];
+
+    // Regole di partecipazione (Under/Over): l'11 titolare deve rispettarle.
+    if (competitionRules && (competitionRules.underEnabled || competitionRules.overEnabled)) {
+      const onField = inFieldIds
+        .map((id) => basePlayers.find((p) => p.id === id))
+        .filter((p): p is NonNullable<typeof p> => !!p)
+        .map((p) => ({ year: p.year }));
+      const check = checkLineupAgainstRules(onField, competitionRules);
+      if (!check.compliant) {
+        if (!opts?.silent) {
+          Alert.alert('Formazione non conforme', describeViolations(check));
+        }
+        return 'blocked';
+      }
+    }
 
     const idToName = new Map(basePlayers.map(p => [p.id, p.name]));
-    const inFieldIds = (lineup.field || []).filter(Boolean) as string[];
-    const benchIds   = lineup.bench || [];
+    const benchIds = lineup.bench || [];
 
     const list: InCampoPlayer[] = [
       ...inFieldIds.map((id) => ({ id, name: idToName.get(id) || id, inField: true, expelled: false })),
@@ -277,11 +311,14 @@ const setSecondHalfBaseline = async () => {
     setAllPlayers(list);
     setInCampo(list.filter(p => p.inField));
     setStartedOnce(true);
-    return true; // o false se non ha fatto nulla
+    return 'done';
   };
 
   const handleStart = async () => {
-    if (phase === 'PRE_MATCH') await initializeLiveFormationFromLineup();
+    if (phase === 'PRE_MATCH') {
+      const result = await initializeLiveFormationFromLineup();
+      if (result === 'blocked') return;
+    }
     start();
     await persistStart();
   };
@@ -504,6 +541,25 @@ const yellowCount = new Map<string, number>();
     if (isOur) {
       const outP = allPlayers.find((p) => p.id === subsOutId)!;
       const inP  = allPlayers.find((p) => p.id === subsInId)!;
+
+      // Regole di partecipazione: chi conta ai fini della regola in questo
+      // momento e' chi e' in campo O espulso (un'espulsione continua a
+      // contare); una sostituzione vera e propria invece toglie dal conteggio.
+      if (competitionRules && (competitionRules.underEnabled || competitionRules.overEnabled)) {
+        const afterSubIds = allPlayers
+          .filter((p) => (p.inField || p.expelled) && p.id !== outP.id)
+          .map((p) => p.id)
+          .concat([inP.id]);
+        const onField = afterSubIds
+          .map((id) => basePlayers.find((p) => p.id === id))
+          .filter((p): p is NonNullable<typeof p> => !!p)
+          .map((p) => ({ year: p.year }));
+        const check = checkLineupAgainstRules(onField, competitionRules);
+        if (!check.compliant) {
+          Alert.alert('Sostituzione non consentita', describeViolations(check));
+          return;
+        }
+      }
 
       const nextFormation = allPlayers.map((p) =>
         p.id === subsOutId ? { ...p, inField: false } :

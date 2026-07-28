@@ -118,6 +118,7 @@ precisa.
 | `invites` | Codici di accesso personali (Giocatore collegato a un `player_id`, o Staff con un nome libero), riscattabili una sola volta — vedi [invites.ts](app/data/invites.ts) |
 | `match_event_proposals` | Gol/cartellini proposti da un Giocatore in una partita Live, in attesa di conferma/rifiuto da Staff/Admin — vedi [proposals.ts](app/data/proposals.ts) |
 | `player_edit_requests` | Modifiche a ruolo/anno/altezza/peso proposte da un Giocatore per il proprio giocatore collegato, in attesa di conferma/rifiuto da Staff/Admin — vedi [playerEdits.ts](app/data/playerEdits.ts) |
+| `competition_rules` | Regole di partecipazione Under/Over per competizione (chiave org+nome competizione), soglie `{anno, minimo giocatori}` — vedi [competitionRules.ts](app/data/competitionRules.ts) |
 
 ## Funzionalità attive per area
 
@@ -151,6 +152,19 @@ precisa.
 - **Export/Import Excel per competizione** (`app/data/calendarFile.ts`, visibile solo con una
   competizione specifica selezionata nel filtro): match per avversario+casa/trasferta — importando
   aggiorna solo data/ora/luogo, mai punteggio/formazione/cartellini di una partita già giocata.
+- **Regole di partecipazione Under/Over** (bottone "⚙️ Regole" accanto al filtro competizione, solo
+  con una competizione specifica selezionata): per ciascuna, una o più soglie indipendenti `{anno,
+  minimo giocatori}` — Under richiede almeno "minimo" giocatori in campo con anno di nascita ≥ soglia,
+  Over con anno ≤ soglia (`app/data/competitionRules.ts`, tabella `competition_rules`, chiave
+  org+nome-competizione dato che le competizioni non sono un'entità a parte). Un giocatore giovane
+  soddisfa più soglie Under insieme (es. 3 giocatori 2008 rispettano anche le soglie 2006/2007). Le
+  regole sono **non bloccanti in Formazione** (pannello sempre visibile con conteggi ✅/❌, perché lì
+  non esiste un salvataggio esplicito — ogni assegnazione si autosalva) ma **bloccano** la pressione
+  di "Start" in Live (formazione titolare non conforme → non parte, `initializeLiveFormationFromLineup`
+  in `live.tsx`) e ogni sostituzione che porterebbe l'11 in campo fuori regola
+  (`executeSubstitution`). Un giocatore **espulso** (cartellino rosso) continua a contare ai fini
+  della regola anche se non più fisicamente in campo — solo una sostituzione vera lo toglie dal
+  conteggio.
 - **Formazione** (`formazione.tsx`): scelta modulo, convocati (max 20), disposizione titolari/panchina,
   assegnazione numero di maglia, drag&drop sul campo.
 - **Tattiche di partita** (`tattiche.tsx`): lavagna tattica per la singola partita, assegnazione di

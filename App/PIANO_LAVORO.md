@@ -42,6 +42,20 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
+### 2026-07-28 — Regole di partecipazione Under/Over per competizione
+Pensato per l'Eccellenza Umbra: si possono impostare, per una competizione (da Partite → filtro →
+"⚙️ Regole"), soglie del tipo "almeno N giocatori in campo nati nell'anno X o dopo" (Under) o "o
+prima" (Over) — un giocatore molto giovane soddisfa più soglie Under insieme (es. 3 giocatori classe
+2008 rispettano anche le soglie 2006/2007).
+- In **Formazione** compare un pannello sempre visibile con lo stato di ogni soglia (✅/❌ e conteggi)
+  — non blocca la composizione perché lì non esiste un salvataggio esplicito.
+- In **Live**, il bottone **"Start"** si blocca con un messaggio chiaro se l'11 titolare non rispetta
+  le regole, e ogni **sostituzione** che porterebbe l'11 in campo fuori regola viene rifiutata con lo
+  stesso tipo di messaggio.
+- Un giocatore **espulso** (cartellino rosso) continua a contare ai fini della regola per il resto
+  della partita anche se non più fisicamente in campo — solo una sostituzione vera lo toglie dal
+  conteggio. Schema `App/supabase/11_schema_competition_rules.sql`.
+
 ### 2026-07-28 — Data di nascita completa (al posto del solo anno)
 Nell'aggiunta di un nuovo giocatore e nella modifica dati anagrafici, "Anno di nascita" è diventato
 "Data di nascita" completa (giorno/mese/anno), scelta con un mini-calendario a comparsa. La vecchia

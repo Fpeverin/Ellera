@@ -8,6 +8,13 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../../context/AuthContext';
 import {
+  checkLineupAgainstRules,
+  loadCompetitionRules,
+  type CompetitionRules,
+  type RulesCheckResult,
+} from '../../../data/competitionRules';
+import { loadEvents } from '../../../data/events';
+import {
   loadLineup as loadLineupRemote,
   loadPositions as loadPositionsRemote,
   saveLineup as saveLineupRemote,
@@ -103,6 +110,42 @@ export default function Schieramento() {
 
   const [posOverrides, setPosOverrides] = useState<PosOverride[]>([]);
   const loadedRef = useRef(false);
+
+  // --- regole di partecipazione (Under/Over) della competizione ---
+  const [competition, setCompetition] = useState<string | undefined>(undefined);
+  const [competitionRules, setCompetitionRules] = useState<CompetitionRules | null>(null);
+
+  React.useEffect(() => {
+    (async () => {
+      if (!matchId) return;
+      try {
+        const events = await loadEvents();
+        const ev = events.find(e => e.id === matchId);
+        setCompetition((ev as any)?.competition || undefined);
+      } catch {}
+    })();
+  }, [matchId]);
+
+  React.useEffect(() => {
+    (async () => {
+      if (!competition) { setCompetitionRules(null); return; }
+      try {
+        setCompetitionRules(await loadCompetitionRules(competition));
+      } catch {
+        setCompetitionRules(null);
+      }
+    })();
+  }, [competition]);
+
+  const rulesCheck: RulesCheckResult | null = useMemo(() => {
+    if (!competitionRules || (!competitionRules.underEnabled && !competitionRules.overEnabled)) return null;
+    const onField = fieldAssignments
+      .filter((p): p is Player => !!p)
+      .map(p => basePlayers.find(bp => bp.id === p.id))
+      .filter((bp): bp is NonNullable<typeof bp> => !!bp)
+      .map(bp => ({ year: bp.year }));
+    return checkLineupAgainstRules(onField, competitionRules);
+  }, [fieldAssignments, basePlayers, competitionRules]);
 
   // --- carica moduli (default + custom) ---
   React.useEffect(() => {
@@ -524,6 +567,21 @@ export default function Schieramento() {
 
           {/* DESTRA */}
           <View style={styles.right}>
+            {rulesCheck && (rulesCheck.underChecks.length > 0 || rulesCheck.overChecks.length > 0) && (
+              <View style={styles.rulesPanel}>
+                <Text style={styles.rulesPanelTitle}>Regole {competition}</Text>
+                {rulesCheck.underChecks.map((c, i) => (
+                  <Text key={`u${i}`} style={[styles.rulesPanelLine, c.ok ? styles.ruleOk : styles.ruleBad]}>
+                    {c.ok ? '✅' : '❌'} Under {c.year}+: {c.actualCount}/{c.minCount}
+                  </Text>
+                ))}
+                {rulesCheck.overChecks.map((c, i) => (
+                  <Text key={`o${i}`} style={[styles.rulesPanelLine, c.ok ? styles.ruleOk : styles.ruleBad]}>
+                    {c.ok ? '✅' : '❌'} Over {c.year}-: {c.actualCount}/{c.minCount}
+                  </Text>
+                ))}
+              </View>
+            )}
             <Pressable disabled={liveMode || readOnly} style={[styles.convBtn, (liveMode || readOnly) && { opacity: 0.6 }]} onPress={() => setConvocatiOpen(true)}>
               <Text style={styles.convBtnText}>CONVOCATI</Text>
             </Pressable>
@@ -768,6 +826,15 @@ const styles = StyleSheet.create({
 
   convBtn: { backgroundColor: '#1b7f3b', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
   convBtnText: { color: 'white', fontWeight: '900' },
+
+  rulesPanel: {
+    backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10,
+    padding: 10, marginBottom: 10,
+  },
+  rulesPanelTitle: { fontSize: 12, fontWeight: '800', color: '#334155', marginBottom: 4 },
+  rulesPanelLine: { fontSize: 12, fontWeight: '700', marginTop: 2 },
+  ruleOk: { color: '#16a34a' },
+  ruleBad: { color: '#dc2626' },
 
   avRow: {
     padding: 10, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10,
