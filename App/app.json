@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "ElleraApp",
+    "name": "TeamBoard",
     "slug": "ElleraApp",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -17,7 +17,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#1b7f3b"
       },
       "package": "com.anonymous.ElleraApp"
     },

@@ -42,6 +42,13 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
+### 2026-07-28 — Rebranding: nome app "TeamBoard" e nuova icona
+Il nome che compare sotto l'icona sul telefono/tablet è cambiato da "ElleraApp" a "TeamBoard" — un
+nome legato al calcio/alla gestione squadra ma non al nome della società, per scelta di Francesco.
+Nuova icona: pallone da calcio su un campo, negli stessi colori verdi già usati nell'app. **Richiede
+una nuova build** (non arriva via aggiornamento automatico OTA, va reinstallato l'APK — vedi
+`App/CLAUDE.md`, sezione "Come rilascio una modifica").
+
 ### 2026-07-28 — Regole di partecipazione Under/Over per competizione
 Pensato per l'Eccellenza Umbra: si possono impostare, per una competizione (da Partite → filtro →
 "⚙️ Regole"), soglie del tipo "almeno N giocatori in campo nati nell'anno X o dopo" (Under) o "o

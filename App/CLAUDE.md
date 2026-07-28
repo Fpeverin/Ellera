@@ -371,3 +371,19 @@ eseguire una volta ciascuno dopo quelli delle fasi precedenti.
 - Nuovo modulo `app/data/staff.ts` e schermata `app/squadra/staff.tsx`, agganciata in
   `app/squadra/_layout.tsx` e con una card dedicata (solo admin) in `app/squadra/index.tsx`.
 - Condivisione del codice invito via `Share` di React Native (già incluso, nessuna nuova dipendenza).
+
+## Rebranding: nome app e icona (2026-07-28)
+
+- Nome app visibile sul dispositivo cambiato da "ElleraApp" a **"TeamBoard"** (`expo.name` in
+  `app.json`). Non è legato al nome della squadra (scelta esplicita di Francesco), per restare valido
+  anche se in futuro l'app venisse riusata da un'altra società. `expo.slug`, `ios.bundleIdentifier` e
+  `android.package` **non sono stati toccati** (restano `ElleraApp`/`com.anonymous.ElleraApp`): sono
+  legati al progetto EAS e agli store, cambiarli sarebbe un cambio di identità dell'app, non un
+  rebranding.
+- Nuova icona (pallone da calcio su un campo, colore verde brand `#1b7f3b` già usato in tutta l'app):
+  rigenerati `assets/images/icon.png`, `adaptive-icon.png`, `splash-icon.png`, `favicon.png`. L'icona
+  Android adattiva ora ha `backgroundColor: "#1b7f3b"` (era `#ffffff`) per abbinarsi al pallone in
+  primo piano su sfondo trasparente.
+- **Importante**: sia il nome che l'icona sono impostazioni native (non JS), quindi — come già scritto
+  sopra in "Come rilascio una modifica", scenario 2 — questa modifica **non arriva via OTA**: serve una
+  nuova build (`build-internal.yml`) e reinstallare manualmente il nuovo APK sul dispositivo.
