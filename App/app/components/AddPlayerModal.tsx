@@ -1,7 +1,13 @@
 import { Picker } from '@react-native-picker/picker';
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import DatePickerField from './DatePickerField';
 import { NewPlayerInput, Player, Role } from '../hooks/usePlayers';
+
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 interface Props {
   visible: boolean;
@@ -20,23 +26,22 @@ const ROLES: { label: string; value: Role }[] = [
 export default function AddPlayerModal({ visible, onClose, onSaved, addPlayer }: Props) {
   const [name, setName] = useState('');
   const [role, setRole] = useState<Role>('CENTROCAMPISTA');
-  const [year, setYear] = useState('');
+  const [dob, setDob] = useState<string | null>(null);
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const yearNum = parseInt(year, 10);
   const isValid =
     name.trim().length >= 2 &&
-    !isNaN(yearNum) && yearNum >= 1960 && yearNum <= 2015 &&
+    !!dob &&
     height.trim().length > 0 &&
     weight.trim().length > 0;
 
   const handleSave = async () => {
-    if (!isValid || saving) return;
+    if (!isValid || saving || !dob) return;
     setSaving(true);
     try {
-      const player = await addPlayer({ name, role, year: yearNum, height: height.trim(), weight: weight.trim() });
+      const player = await addPlayer({ name, role, dob, height: height.trim(), weight: weight.trim() });
       onSaved(player);
       resetForm();
       onClose();
@@ -48,7 +53,7 @@ export default function AddPlayerModal({ visible, onClose, onSaved, addPlayer }:
   const resetForm = () => {
     setName('');
     setRole('CENTROCAMPISTA');
-    setYear('');
+    setDob(null);
     setHeight('');
     setWeight('');
   };
@@ -83,14 +88,12 @@ export default function AddPlayerModal({ visible, onClose, onSaved, addPlayer }:
               </Picker>
             </View>
 
-            <Text style={styles.label}>Anno di nascita</Text>
-            <TextInput
-              style={styles.input}
-              value={year}
-              onChangeText={setYear}
-              placeholder="Es. 2000"
-              keyboardType="numeric"
-              maxLength={4}
+            <DatePickerField
+              label="Data di nascita"
+              value={dob}
+              onChange={setDob}
+              minDate="1950-01-01"
+              maxDate={todayStr()}
             />
 
             <View style={styles.row}>

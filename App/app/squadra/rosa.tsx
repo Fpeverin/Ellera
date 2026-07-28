@@ -56,9 +56,8 @@ const ROLE_ICONS: Record<string, string> = {
 
 function getPlayerAge(p: Player): number {
   const today = new Date();
-  const anyP = p as any;
-  if (anyP.dob && typeof anyP.dob === 'string') {
-    const m = anyP.dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (p.dob) {
+    const m = p.dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (m) {
       const [_, y, mo, d] = m;
       const birth = new Date(Number(y), Number(mo) - 1, Number(d));

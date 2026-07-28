@@ -109,7 +109,7 @@ precisa.
 | Tabella/bucket | Contenuto |
 |---|---|
 | `events` | Tutti gli eventi (partite + allenamenti), tipo `CalendarEvent` ([events.ts](app/data/events.ts)); colonne dirette per i campi filtrabili (type/date/time/location/opponent), il resto in una colonna `data` jsonb |
-| `players` | Tutta la rosa (attivi ed ex, colonna `is_ex`) — dal 2026-07-28 non c'è più nessun giocatore hardcoded nel codice, [players.ts](app/data/players.ts) contiene solo i tipi `Player`/`Role` |
+| `players` | Tutta la rosa (attivi ed ex, colonna `is_ex`) — dal 2026-07-28 non c'è più nessun giocatore hardcoded nel codice, [players.ts](app/data/players.ts) contiene solo i tipi `Player`/`Role`. `year` (anno) e `dob` (data completa, opzionale) convivono: `dob` è la fonte "vera" quando presente, `year` resta sincronizzato per i consumatori che non sono ancora stati aggiornati (filtri Rosa, export Excel, Archivio) |
 | `player_photos`, `player_attachments`, `player_injury_types` + bucket Storage `player-photos`/`player-attachments` | Foto profilo, allegati e tipologia infortuni per QUALSIASI giocatore (anche quelli statici) — vedi [playerMedia.ts](app/data/playerMedia.ts) |
 | `modules` | Moduli di gioco personalizzati (chiave naturale = nome), oltre ai predefiniti hardcoded in [modules-layout.tsx](app/utils/modules-layout.tsx) — vedi [modules.ts](app/data/modules.ts) |
 | `tactics` + bucket Storage `tactic-previews` | Tattiche/schemi salvati dalla lavagna tattica, con preview immagine su Storage — vedi [tactics.ts](app/data/tactics.ts) |
@@ -207,7 +207,7 @@ se raggiunte con un link diretto.
 - Tab: **Partite** (presenze/statistiche), **Allenamenti** (presenze), **Infortuni** (storico status),
   **Allegati** (documenti).
 - Foto profilo (galleria o fotocamera), allegati (document picker), link esterni (browser in-app).
-- **Dati anagrafici** (Ruolo/Anno di nascita/Altezza/Peso): Admin e Staff li modificano su
+- **Dati anagrafici** (Ruolo/Data di nascita/Altezza/Peso): Admin e Staff li modificano su
   **qualunque** giocatore, in scrittura diretta (`updatePlayer` in `app/hooks/usePlayers.ts`). Un
   **Giocatore** vede questa sezione solo sulla scheda del giocatore a cui è collegato
   (`membership.playerId`) e può solo **proporre** una modifica (`proposePlayerEdit` in
@@ -215,6 +215,14 @@ se raggiunte con un link diretto.
   conferma (applica i cambiamenti a `players`) o rifiuta, mostrato direttamente in questa stessa
   sezione quando Staff/Admin aprono quella scheda. Un giocatore non può proporre una seconda modifica
   finché quella in corso non è stata decisa. Schema: `App/supabase/9_schema_player_edits.sql`.
+- **Data di nascita completa** (`players.dob`, colonna `date` — `App/supabase/10_schema_player_dob.sql`):
+  scelta con un mini-calendario (`app/components/DatePickerField.tsx`, riusa `react-native-calendars`,
+  nessuna nuova dipendenza) sia in Aggiungi Giocatore sia nella modifica qui sopra. La vecchia colonna
+  `year` (solo anno) resta e viene **sincronizzata automaticamente** ogni volta che si imposta `dob`
+  (in `usePlayers.updatePlayer`/`addPlayer`), perché la usano ancora i filtri "anno" in Rosa,
+  l'export/import Excel (`rosterFile.ts`) e gli snapshot di Archivio Stagioni — nessuno di questi è
+  stato convertito a `dob` in questo passaggio. `getPlayerAge()` (in `rosa.tsx` e `squadra/index.tsx`)
+  preferisce `dob` quando presente, altrimenti calcola dal solo anno come faceva già prima.
 
 ## File rimossi (pulizia del 2026-07-26)
 

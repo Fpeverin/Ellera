@@ -47,6 +47,7 @@ import {
   proposePlayerEdit,
 } from '../data/playerEdits';
 import { usePlayers } from '../hooks/usePlayers';
+import DatePickerField from '../components/DatePickerField';
 
 const ROLE_LABELS: Record<Role, string> = {
   PORTIERE: 'Portiere',
@@ -55,10 +56,20 @@ const ROLE_LABELS: Record<Role, string> = {
   ATTACCANTE: 'Attaccante',
 };
 
+function formatItalianDate(date: string): string {
+  const [y, m, d] = date.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function describeChanges(changes: PlayerEditChanges): string {
   const parts: string[] = [];
   if (changes.role) parts.push(`Ruolo: ${ROLE_LABELS[changes.role]}`);
-  if (changes.year != null) parts.push(`Anno: ${changes.year}`);
+  if (changes.dob) parts.push(`Data di nascita: ${formatItalianDate(changes.dob)}`);
   if (changes.height) parts.push(`Altezza: ${changes.height}cm`);
   if (changes.weight) parts.push(`Peso: ${changes.weight}kg`);
   return parts.join(' · ') || '—';
@@ -135,10 +146,10 @@ export default function PlayerDetail() {
 
   const [tab, setTab] = useState<TabKey>('PARTITE');
 
-  // Dati anagrafici (ruolo/anno/altezza/peso): Admin/Staff modificano diretto,
+  // Dati anagrafici (ruolo/data di nascita/altezza/peso): Admin/Staff modificano diretto,
   // Giocatore propone solo per il proprio giocatore collegato.
   const [editRole, setEditRole] = useState<Role>('CENTROCAMPISTA');
-  const [editYear, setEditYear] = useState('');
+  const [editDob, setEditDob] = useState<string | null>(null);
   const [editHeight, setEditHeight] = useState('');
   const [editWeight, setEditWeight] = useState('');
   const [editSaving, setEditSaving] = useState(false);
@@ -147,10 +158,10 @@ export default function PlayerDetail() {
   useEffect(() => {
     if (!base) return;
     setEditRole(base.role);
-    setEditYear(String(base.year ?? ''));
+    setEditDob(base.dob ?? null);
     setEditHeight(base.height ?? '');
     setEditWeight(base.weight ?? '');
-  }, [base?.id, base?.role, base?.year, base?.height, base?.weight]);
+  }, [base?.id, base?.role, base?.dob, base?.height, base?.weight]);
 
   const loadPendingEdit = async () => {
     if (!id || !(canEditDirectly || isOwnPlayer)) return;
@@ -164,14 +175,13 @@ export default function PlayerDetail() {
 
   const handleSaveEdit = async () => {
     if (!id) return;
-    const yearNum = parseInt(editYear, 10);
-    if (!editHeight.trim() || !editWeight.trim() || isNaN(yearNum)) {
-      Alert.alert('Dati mancanti', 'Compila ruolo, anno di nascita, altezza e peso.');
+    if (!editHeight.trim() || !editWeight.trim() || !editDob) {
+      Alert.alert('Dati mancanti', 'Compila ruolo, data di nascita, altezza e peso.');
       return;
     }
     const changes: PlayerEditChanges = {
       role: editRole,
-      year: yearNum,
+      dob: editDob,
       height: editHeight.trim(),
       weight: editWeight.trim(),
     };
@@ -572,7 +582,7 @@ export default function PlayerDetail() {
           )}
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.name}>{base.name}</Text>
-            <Text>Anno: {base.year}</Text>
+            <Text>{base.dob ? `Nato il ${formatItalianDate(base.dob)}` : `Anno: ${base.year}`}</Text>
             {'height' in base && base.height ? <Text>Altezza: {base.height} cm</Text> : null}
             {'weight' in base && base.weight ? <Text>Peso: {base.weight} kg</Text> : null}
           </View>
@@ -657,13 +667,12 @@ export default function PlayerDetail() {
                     </Picker>
                   </View>
 
-                  <Text style={styles.formLabel}>Anno di nascita</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    value={editYear}
-                    onChangeText={setEditYear}
-                    keyboardType="numeric"
-                    maxLength={4}
+                  <DatePickerField
+                    label="Data di nascita"
+                    value={editDob}
+                    onChange={setEditDob}
+                    minDate="1950-01-01"
+                    maxDate={todayStr()}
                   />
 
                   <View style={{ flexDirection: 'row', gap: 12 }}>

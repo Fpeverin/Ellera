@@ -18,7 +18,7 @@ export type { Player, Role };
 export interface NewPlayerInput {
   name: string;
   role: Role;
-  year: number;
+  dob: string; // 'YYYY-MM-DD'
   height: string;
   weight: string;
 }
@@ -33,6 +33,7 @@ export interface RemovePlayersResult {
 export type PlayerUpdateInput = Partial<{
   role: Role;
   year: number;
+  dob: string; // 'YYYY-MM-DD'
   height: string;
   weight: string;
 }>;
@@ -60,6 +61,7 @@ function rowToPlayer(row: any): Player {
     name: row.name,
     role: row.role,
     year: row.year,
+    dob: row.dob ?? null,
     height: row.height,
     weight: row.weight,
     photo: null,
@@ -91,11 +93,13 @@ export function usePlayers(): UsePlayersResult {
   const allPlayers = [...active, ...ex];
 
   const addPlayer = async (input: NewPlayerInput): Promise<Player> => {
+    const year = parseInt(input.dob.slice(0, 4), 10);
     const newPlayer: Player = {
       id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       name: input.name.trim().toUpperCase(),
       role: input.role,
-      year: input.year,
+      year,
+      dob: input.dob,
       height: input.height,
       weight: input.weight,
       photo: null,
@@ -104,7 +108,8 @@ export function usePlayers(): UsePlayersResult {
       id: newPlayer.id,
       name: newPlayer.name,
       role: newPlayer.role,
-      year: newPlayer.year,
+      year,
+      dob: input.dob,
       height: newPlayer.height,
       weight: newPlayer.weight,
       is_ex: false,
@@ -155,9 +160,15 @@ export function usePlayers(): UsePlayersResult {
   };
 
   const updatePlayer = async (id: string, changes: PlayerUpdateInput): Promise<void> => {
-    const { error } = await supabase.from('players').update(changes).eq('id', id);
+    // "year" resta sincronizzato con "dob" (lo usano ancora filtri, export Excel e archivio).
+    const patchedChanges: PlayerUpdateInput =
+      changes.dob && changes.year == null
+        ? { ...changes, year: parseInt(changes.dob.slice(0, 4), 10) }
+        : changes;
+
+    const { error } = await supabase.from('players').update(patchedChanges).eq('id', id);
     if (error) throw error;
-    const patch = (p: Player) => (p.id === id ? { ...p, ...changes } : p);
+    const patch = (p: Player) => (p.id === id ? { ...p, ...patchedChanges } : p);
     setActive((prev) => prev.map(patch));
     setEx((prev) => prev.map(patch));
   };

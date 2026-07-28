@@ -11,7 +11,7 @@ import { Role } from './players';
 
 export type PlayerEditChanges = Partial<{
   role: Role;
-  year: number;
+  dob: string; // 'YYYY-MM-DD'
   height: string;
   weight: string;
 }>;

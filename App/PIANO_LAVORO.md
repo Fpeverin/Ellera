@@ -42,6 +42,14 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
+### 2026-07-28 — Data di nascita completa (al posto del solo anno)
+Nell'aggiunta di un nuovo giocatore e nella modifica dati anagrafici, "Anno di nascita" è diventato
+"Data di nascita" completa (giorno/mese/anno), scelta con un mini-calendario a comparsa. La vecchia
+colonna "anno" resta e viene calcolata da sola dalla nuova data ogni volta che si salva, quindi
+filtri Rosa/export Excel/Archivio continuano a funzionare come prima senza bisogno di toccarli — solo
+non hanno ancora la data completa disponibile (restano legati al solo anno). Schema
+`App/supabase/10_schema_player_dob.sql`.
+
 ### 2026-07-28 — Modifica dati anagrafici giocatore (Ruolo/Anno/Altezza/Peso)
 - **Admin e Staff**: possono modificare ruolo, anno di nascita, altezza e peso di qualunque
   giocatore, dalla sua scheda — salvataggio diretto, subito effettivo.

@@ -7,9 +7,8 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 
 function getPlayerAge(p: Player): number {
   const today = new Date();
-  if ((p as any).dob && typeof (p as any).dob === 'string') {
-    const dobStr = (p as any).dob as string;
-    const m = dobStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (p.dob) {
+    const m = p.dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (m) {
       const [_, y, mo, d] = m;
       const birth = new Date(Number(y), Number(mo) - 1, Number(d));
