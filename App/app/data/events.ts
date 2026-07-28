@@ -36,13 +36,6 @@ export interface CalendarEvent {
   [extra: string]: any;
 }
 
-/**
- * Chiave storica AsyncStorage (pre-Supabase). Non viene più usata per
- * leggere/scrivere i dati correnti: resta solo come riferimento per il tool
- * di importazione dati locali (vedi app/onboarding/importLocalData.ts).
- */
-export const LEGACY_STORAGE_KEY = 'calendar/events';
-
 const CORE_COLUMNS = ['id', 'type', 'date', 'time', 'location', 'opponent'] as const;
 
 function rowToEvent(row: any): CalendarEvent {

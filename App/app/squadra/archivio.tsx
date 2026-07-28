@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -22,11 +22,6 @@ import {
   loadAllArchives,
   saveArchive,
 } from '../utils/archiveBuilder';
-import {
-  checkLocalArchiveImportNeeded,
-  importLocalArchives,
-  skipLocalArchiveImport,
-} from '../utils/importLocalArchives';
 
 export default function Archivio() {
   const router = useRouter();
@@ -37,36 +32,6 @@ export default function Archivio() {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [seasonLabel, setSeasonLabel] = useState('');
   const [archiving, setArchiving] = useState(false);
-
-  // Import una tantum degli archivi salvati localmente (pre-Supabase)
-  const [importCandidate, setImportCandidate] = useState<SeasonArchive[] | null>(null);
-  const [importBusy, setImportBusy] = useState(false);
-
-  useEffect(() => {
-    checkLocalArchiveImportNeeded().then(setImportCandidate);
-  }, []);
-
-  const confirmImportArchives = async () => {
-    if (!importCandidate) return;
-    setImportBusy(true);
-    try {
-      await importLocalArchives(importCandidate);
-      await load();
-    } finally {
-      setImportBusy(false);
-      setImportCandidate(null);
-    }
-  };
-
-  const declineImportArchives = async () => {
-    setImportBusy(true);
-    try {
-      await skipLocalArchiveImport();
-    } finally {
-      setImportBusy(false);
-      setImportCandidate(null);
-    }
-  };
 
   const defaultLabel = () => {
     const now = new Date();
@@ -232,36 +197,6 @@ export default function Archivio() {
                 </Pressable>
                 <Pressable style={styles.cancelBtn} onPress={() => setShowArchiveModal(false)}>
                   <Text style={styles.cancelBtnText}>Annulla</Text>
-                </Pressable>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Import una tantum archivi locali (pre-Supabase) */}
-      <Modal visible={!!importCandidate} transparent animationType="fade">
-        <View style={styles.overlay}>
-          <View style={[styles.sheet, { borderRadius: 24 }]}>
-            <Text style={styles.modalTitle}>Archivi trovati su questo dispositivo</Text>
-            <Text style={styles.modalDesc}>
-              Ho trovato {importCandidate?.length ?? 0} stagion{importCandidate?.length === 1 ? 'e' : 'i'} archiviat{importCandidate?.length === 1 ? 'a' : 'e'} in locale su questo dispositivo, da prima che l'archivio fosse condiviso su Supabase
-              {importCandidate && importCandidate.length > 0
-                ? `: ${importCandidate.map((a) => a.label).join(', ')}`
-                : ''}
-              . Vuoi caricarle nella squadra? Conferma solo se questi sono i dati corretti da tenere.
-            </Text>
-            {importBusy ? (
-              <View style={styles.loadingBox}>
-                <ActivityIndicator size="large" color="#7c3aed" />
-              </View>
-            ) : (
-              <>
-                <Pressable style={styles.confirmBtn} onPress={confirmImportArchives}>
-                  <Text style={styles.confirmBtnText}>Sì, carica</Text>
-                </Pressable>
-                <Pressable style={styles.cancelBtn} onPress={declineImportArchives}>
-                  <Text style={styles.cancelBtnText}>No, ignora</Text>
                 </Pressable>
               </>
             )}

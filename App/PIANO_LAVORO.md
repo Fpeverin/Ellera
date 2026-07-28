@@ -42,12 +42,25 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
+### 2026-07-28 — Selezione multipla nella Rosa (Staff/Admin)
+Da Rosa, bottone "☑️ Seleziona": tocca più giocatori e poi "🔄 Sposta tra ex" o "🗑️ Elimina" dalla
+barra in basso — stessa distinzione ex/eliminazione definitiva del menu su singolo giocatore, solo
+applicata a un gruppo intero. Nell'eliminazione multipla i giocatori già in una partita di questa
+stagione vengono saltati automaticamente (mai un errore in blocco che ferma tutto) e segnalati a parte
+per nome, con lo stesso suggerimento di spostarli tra gli ex.
+
+### 2026-07-28 — Rimossi i tool di import dati locale (una tantum, ormai usati)
+Tutti i dati che esistevano solo sul tablet (calendario ed archivio stagioni) sono stati caricati su
+Supabase con successo. Rimossi `app/utils/importLocalEvents.ts` e `app/utils/importLocalArchives.ts`
+insieme ai relativi avvisi in Dashboard e Archivio Stagioni, e la costante `LEGACY_STORAGE_KEY` ormai
+inutilizzata in `app/data/events.ts` — non servono più.
+
 ### 2026-07-28 — Import archivio stagioni locale + blocco eliminazione giocatori in partita
 - **Import una tantum archivio stagioni**: l'Archivio Stagioni esisteva già in locale (AsyncStorage)
   prima di Supabase — quello storico non era mai stato portato sul database condiviso. Aggiunto lo
   stesso pattern già usato per il calendario: se un dispositivo ha ancora archivi salvati localmente e
   la squadra su Supabase non ne ha nessuno, la schermata Archivio Stagioni propone di caricarli (mai
-  in automatico).
+  in automatico). *(Rimosso poco dopo, vedi voce sopra, una volta completata l'importazione reale.)*
 - **Rosa**: un giocatore che ha già preso parte a una partita della stagione corrente (gol, cartellino,
   sostituzione o solo convocazione) non può più essere eliminato del tutto dalla Rosa — solo spostato
   tra gli ex. Le stagioni già archiviate non contano ai fini del controllo. Aggiunta anche una conferma

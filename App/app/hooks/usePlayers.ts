@@ -23,13 +23,23 @@ export interface NewPlayerInput {
   weight: string;
 }
 
+export interface RemovePlayersResult {
+  /** id dei giocatori eliminati con successo */
+  removed: string[];
+  /** id dei giocatori NON eliminati perche' gia' in una partita della stagione corrente */
+  blocked: string[];
+}
+
 export interface UsePlayersResult {
   players: Player[];
   exPlayers: Player[];
   allPlayers: Player[];
   addPlayer: (input: NewPlayerInput) => Promise<Player>;
   moveToEx: (id: string) => Promise<void>;
+  moveToExMany: (ids: string[]) => Promise<void>;
   removePlayer: (id: string) => Promise<void>;
+  /** Elimina piu' giocatori insieme; quelli gia' in una partita di questa stagione vengono saltati (mai un errore in blocco). */
+  removePlayers: (ids: string[]) => Promise<RemovePlayersResult>;
   /** Ricarica dalla base dati — utile dopo modifiche fatte fuori da questo hook (es. import massivo). */
   refresh: () => Promise<void>;
   loading: boolean;
@@ -95,27 +105,56 @@ export function usePlayers(): UsePlayersResult {
     return newPlayer;
   };
 
-  const moveToEx = async (id: string): Promise<void> => {
-    const player = active.find((p) => p.id === id);
-    if (!player) return;
-    const { error } = await supabase.from('players').update({ is_ex: true }).eq('id', id);
+  const moveToExMany = async (ids: string[]): Promise<void> => {
+    const toMove = active.filter((p) => ids.includes(p.id));
+    if (toMove.length === 0) return;
+    const { error } = await supabase.from('players').update({ is_ex: true }).in('id', ids);
     if (error) throw error;
-    setActive((prev) => prev.filter((p) => p.id !== id));
-    setEx((prev) => [...prev, player]);
+    setActive((prev) => prev.filter((p) => !ids.includes(p.id)));
+    setEx((prev) => [...prev, ...toMove]);
+  };
+
+  const moveToEx = (id: string) => moveToExMany([id]);
+
+  const removePlayers = async (ids: string[]): Promise<RemovePlayersResult> => {
+    const events = await loadEvents();
+    const matchIds = events.filter((e) => e.type === 'PARTITA').map((e) => e.id);
+
+    const removed: string[] = [];
+    const blocked: string[] = [];
+    for (const id of ids) {
+      if (await isPlayerInMatches(id, matchIds)) {
+        blocked.push(id);
+      } else {
+        removed.push(id);
+      }
+    }
+
+    if (removed.length > 0) {
+      const { error } = await supabase.from('players').delete().in('id', removed);
+      if (error) throw error;
+      setActive((prev) => prev.filter((p) => !removed.includes(p.id)));
+      setEx((prev) => prev.filter((p) => !removed.includes(p.id)));
+    }
+
+    return { removed, blocked };
   };
 
   const removePlayer = async (id: string): Promise<void> => {
-    const events = await loadEvents();
-    const matchIds = events.filter((e) => e.type === 'PARTITA').map((e) => e.id);
-    if (await isPlayerInMatches(id, matchIds)) {
-      throw new PlayerInMatchError();
-    }
-
-    const { error } = await supabase.from('players').delete().eq('id', id);
-    if (error) throw error;
-    setActive((prev) => prev.filter((p) => p.id !== id));
-    setEx((prev) => prev.filter((p) => p.id !== id));
+    const { blocked } = await removePlayers([id]);
+    if (blocked.length > 0) throw new PlayerInMatchError();
   };
 
-  return { players: active, exPlayers: ex, allPlayers, addPlayer, moveToEx, removePlayer, refresh: load, loading };
+  return {
+    players: active,
+    exPlayers: ex,
+    allPlayers,
+    addPlayer,
+    moveToEx,
+    moveToExMany,
+    removePlayer,
+    removePlayers,
+    refresh: load,
+    loading,
+  };
 }

@@ -47,11 +47,6 @@ La prima schermata che si vede aprendo l'app.
   impostazioni minori rimaste sul singolo dispositivo (non i dati veri della squadra, che ormai
   vivono tutti nel database condiviso — vedi [sezione 9](#9-domande-frequenti) sul backup).
 - **Azioni rapide**: scorciatoie dirette ad Allenamenti, Partite, Gestione Squadra.
-- **Avviso "Dati trovati su questo dispositivo"**: compare *una sola volta*, solo se il dispositivo
-  ha ancora eventi salvati alla vecchia maniera (prima dell'account condiviso) e la squadra su cui si
-  è appena entrati non ha ancora eventi propri. Chiede esplicitamente se caricarli — utile solo in
-  fase di primo popolamento, va sempre confermato consapevolmente (mai automatico, per non rischiare
-  di caricare dati di prova al posto di quelli buoni).
 
 ## 3. Calendario
 
@@ -124,7 +119,11 @@ centrocampisti, attaccanti).
   inserita).
 - Aggiunta nuovo giocatore, modifica dati, spostamento a "ex giocatori" (restano nello storico ma non
   contano più nella rosa attiva) — ogni giocatore è modificabile/cancellabile allo stesso modo, non
-  esiste più distinzione tra giocatori "di base" e aggiunti a mano.
+  esiste più distinzione tra giocatori "di base" e aggiunti a mano. Un giocatore che ha già preso
+  parte a una partita di questa stagione non può essere eliminato del tutto (solo spostato tra gli
+  ex) — l'app te lo segnala se ci provi.
+- **Selezione multipla** (bottone "☑️ Seleziona"): tocca più giocatori per selezionarli, poi scegli
+  "🔄 Sposta tra ex" o "🗑️ Elimina" dalla barra in basso per applicare l'azione a tutti insieme.
 - **Esporta/Importa Excel**: esporta tutta la rosa (attivi + ex) con nome, ruolo, anno, altezza, peso,
   stato. L'import riconosce lo stesso giocatore **per nome**: aggiunge chi è nuovo e aggiorna i campi
   cambiati (incluso lo stato attivo/ex letto dal file). Se un giocatore attivo manca dal file

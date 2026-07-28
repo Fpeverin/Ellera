@@ -101,7 +101,7 @@ function MiniStat({
 export default function Rosa() {
   const { membership } = useAuth();
   const readOnly = membership?.role === 'giocatore';
-  const { players, exPlayers, addPlayer, moveToEx, removePlayer, refresh } = usePlayers();
+  const { players, exPlayers, addPlayer, moveToEx, moveToExMany, removePlayer, removePlayers, refresh } = usePlayers();
   const [photoMap, setPhotoMap] = React.useState<Record<string, string | null>>({});
   const [search, setSearch] = React.useState('');
   const [roleFilter, setRoleFilter] = React.useState<string | 'ALL'>('ALL');
@@ -110,6 +110,24 @@ export default function Rosa() {
   const [customMenuPlayer, setCustomMenuPlayer] = React.useState<Player | null>(null);
   const [importPlan, setImportPlan] = React.useState<RosterImportPlan | null>(null);
   const [importBusy, setImportBusy] = React.useState(false);
+
+  // selezione multipla (solo Staff/Admin)
+  const [selectMode, setSelectMode] = React.useState(false);
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // height dinamica dell'header fisso (search + filtri + stats)
   const [stickyH, setStickyH] = React.useState(0);
@@ -214,6 +232,63 @@ export default function Rosa() {
     );
   };
 
+  const handleBulkMoveToEx = () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    Alert.alert(
+      'Spostare tra gli ex?',
+      `${ids.length} giocator${ids.length === 1 ? 'e' : 'i'} verr${ids.length === 1 ? 'à' : 'anno'} spostat${ids.length === 1 ? 'o' : 'i'} tra gli ex giocatori.`,
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Sposta',
+          onPress: async () => {
+            try {
+              await moveToExMany(ids);
+              exitSelectMode();
+            } catch {
+              Alert.alert('Errore', 'Impossibile spostare i giocatori selezionati.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleBulkRemove = () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    Alert.alert(
+      'Eliminare definitivamente?',
+      `${ids.length} giocator${ids.length === 1 ? 'e' : 'i'} verr${ids.length === 1 ? 'à' : 'anno'} rimost${ids.length === 1 ? 'o' : 'i'} per sempre dalla rosa (non finiscono tra gli ex). L'azione non si può annullare.`,
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Elimina',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { blocked } = await removePlayers(ids);
+              exitSelectMode();
+              if (blocked.length > 0) {
+                const names = players
+                  .filter((p) => blocked.includes(p.id))
+                  .map((p) => p.name)
+                  .join(', ');
+                Alert.alert(
+                  'Alcuni giocatori non sono stati eliminati',
+                  `${names || `${blocked.length} giocatori`} ${blocked.length === 1 ? 'ha' : 'hanno'} già preso parte a una partita di questa stagione: non ${blocked.length === 1 ? 'è stato eliminato' : 'sono stati eliminati'}. Usa "Sposta tra ex giocatori" per loro.`
+                );
+              }
+            } catch {
+              Alert.alert('Errore', 'Impossibile eliminare i giocatori selezionati.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleExportRoster = async () => {
     try {
       await exportRosterToXlsx(players, exPlayers);
@@ -253,6 +328,52 @@ export default function Rosa() {
   const renderPlayerCard = (item: Player) => {
     const uri = (photoMap as any)[item.id];
     const age = getPlayerAge(item);
+    const isSelected = selectedIds.has(item.id);
+
+    const inner = (
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+        {selectMode && (
+          <View style={[styles.checkbox, isSelected && styles.checkboxOn]}>
+            {isSelected ? <Text style={styles.checkboxMark}>✓</Text> : null}
+          </View>
+        )}
+        <Image source={uri ? { uri } : AVATAR_DEFAULT} style={styles.avatar} />
+        <View style={styles.playerInfo}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.playerName} numberOfLines={1}>{item.name}</Text>
+          </View>
+          <View style={styles.playerMeta}>
+            <View style={styles.metaItem}>
+              <Text style={styles.metaLabel}>Età:</Text>
+              <Text style={styles.metaValue}>{age} anni</Text>
+            </View>
+            <View style={styles.metaItem}>
+              <Text style={styles.metaLabel}>Anno:</Text>
+              <Text style={styles.metaValue}>{item.year}</Text>
+            </View>
+          </View>
+          <View style={styles.playerStats}>
+            <Text style={styles.statText}>H: {item.height}cm</Text>
+            <Text style={styles.statText}>P: {item.weight}kg</Text>
+          </View>
+        </View>
+        <View style={[styles.roleIndicator, { backgroundColor: ROLE_COLORS[item.role] }]}>
+          <Text style={styles.roleIcon}>{ROLE_ICONS[item.role]}</Text>
+        </View>
+      </View>
+    );
+
+    if (selectMode) {
+      return (
+        <Pressable
+          style={[styles.playerCard, isSelected && styles.playerCardSelected]}
+          onPress={() => toggleSelected(item.id)}
+        >
+          {inner}
+        </Pressable>
+      );
+    }
+
     return (
       <Pressable
         style={styles.playerCard}
@@ -262,29 +383,7 @@ export default function Rosa() {
       >
         <Link href={{ pathname: '/player/[id]', params: { id: item.id } }} asChild>
           <Pressable style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-            <Image source={uri ? { uri } : AVATAR_DEFAULT} style={styles.avatar} />
-            <View style={styles.playerInfo}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={styles.playerName} numberOfLines={1}>{item.name}</Text>
-              </View>
-              <View style={styles.playerMeta}>
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>Età:</Text>
-                  <Text style={styles.metaValue}>{age} anni</Text>
-                </View>
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>Anno:</Text>
-                  <Text style={styles.metaValue}>{item.year}</Text>
-                </View>
-              </View>
-              <View style={styles.playerStats}>
-                <Text style={styles.statText}>H: {item.height}cm</Text>
-                <Text style={styles.statText}>P: {item.weight}kg</Text>
-              </View>
-            </View>
-            <View style={[styles.roleIndicator, { backgroundColor: ROLE_COLORS[item.role] }]}>
-              <Text style={styles.roleIcon}>{ROLE_ICONS[item.role]}</Text>
-            </View>
+            {inner}
           </Pressable>
         </Link>
       </Pressable>
@@ -312,6 +411,12 @@ export default function Rosa() {
             </Pressable>
             <Pressable style={styles.xlsxBtn} onPress={handleImportRoster}>
               <Text style={styles.xlsxBtnText}>📥 Importa Excel</Text>
+            </Pressable>
+            <Pressable
+              style={styles.xlsxBtn}
+              onPress={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+            >
+              <Text style={styles.xlsxBtnText}>{selectMode ? '✕ Annulla' : '☑️ Seleziona'}</Text>
             </Pressable>
           </View>
         )}
@@ -412,6 +517,21 @@ export default function Rosa() {
          ) : null
        }
       />
+
+      {/* Barra azioni selezione multipla */}
+      {selectMode && selectedIds.size > 0 && (
+        <View style={styles.bulkBar}>
+          <Text style={styles.bulkBarCount}>{selectedIds.size} selezionat{selectedIds.size === 1 ? 'o' : 'i'}</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable style={[styles.bulkBtn, styles.bulkBtnEx]} onPress={handleBulkMoveToEx}>
+              <Text style={styles.bulkBtnText}>🔄 Sposta tra ex</Text>
+            </Pressable>
+            <Pressable style={[styles.bulkBtn, styles.bulkBtnDanger]} onPress={handleBulkRemove}>
+              <Text style={styles.bulkBtnText}>🗑️ Elimina</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
 
       {/* Modal aggiungi giocatore */}
       <AddPlayerModal
@@ -628,6 +748,26 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+  playerCardSelected: {
+    backgroundColor: '#eaf6ef',
+    borderWidth: 2,
+    borderColor: '#1b7f3b',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  checkboxOn: {
+    backgroundColor: '#1b7f3b',
+    borderColor: '#1b7f3b',
+  },
+  checkboxMark: { color: '#fff', fontWeight: '900', fontSize: 14 },
   avatar: {
     width: 56,
     height: 56,
@@ -703,4 +843,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   menuCancelText: { fontSize: 16, color: '#64748b', fontWeight: '600' },
+
+  // Barra azioni selezione multipla
+  bulkBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: 20,
+  },
+  bulkBarCount: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  bulkBtn: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  bulkBtnEx: { backgroundColor: '#2563eb' },
+  bulkBtnDanger: { backgroundColor: '#dc2626' },
+  bulkBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 });

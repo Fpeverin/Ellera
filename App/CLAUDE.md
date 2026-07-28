@@ -69,9 +69,6 @@ dover aprire ogni script per controllare le dipendenze.
   propria squadra.
 - `app/lib/currentOrg.ts` tiene traccia dell'org corrente per le funzioni di data-access (es.
   `saveEvents`), così non va passata a mano in ogni schermata.
-- **Import dati locali una tantum**: se un device ha ancora eventi salvati alla vecchia maniera
-  (pre-Supabase) e la squadra su Supabase non ha ancora eventi, la Dashboard chiede esplicitamente se
-  caricarli (`app/utils/importLocalEvents.ts`) — mai in automatico.
 - **Gestione staff** (`app/squadra/staff.tsx`, solo admin): vedi sezione "Gestione Squadra" più sotto.
 
 ## Ruoli utente e inviti personali (2026-07-28)
@@ -171,13 +168,17 @@ precisa.
 - **Panoramica**: conteggi per ruolo ed età media squadra.
 - **Rosa** (`rosa.tsx`): elenco giocatori raggruppati per ruolo, con tenuto premuto su un giocatore per
   "Sposta tra ex giocatori" o "Elimina giocatore" (con conferma), foto profilo, età calcolata da data
-  di nascita se presente. **Un giocatore che ha già preso parte a una partita della stagione corrente
-  (gol, cartellino, sostituzione o convocazione) non può essere eliminato del tutto** — solo spostato
-  tra gli ex (`isPlayerInMatches` in `app/data/matchLive.ts`, usata da `removePlayer` in
-  `app/hooks/usePlayers.ts`); le stagioni già archiviate non contano (il controllo guarda solo gli
-  eventi correnti). **Export/Import Excel** (`app/data/rosterFile.ts`): riconoscimento per nome,
-  aggiunge i nuovi e aggiorna i campi cambiati (incluso lo stato attivo/ex); prima di applicare
-  l'import mostra un riepilogo con conferma esplicita per ogni giocatore attivo assente dal file
+  di nascita se presente. **Selezione multipla** (Staff/Admin, bottone "☑️ Seleziona"): tocca più
+  giocatori per selezionarli, poi "🔄 Sposta tra ex" o "🗑️ Elimina" dalla barra in basso — stessa
+  distinzione ex/eliminazione definitiva del menu singolo, applicata a tutto il gruppo
+  (`moveToExMany`/`removePlayers` in `app/hooks/usePlayers.ts`). **Un giocatore che ha già preso parte
+  a una partita della stagione corrente (gol, cartellino, sostituzione o convocazione) non può essere
+  eliminato del tutto** — solo spostato tra gli ex (`isPlayerInMatches` in `app/data/matchLive.ts`);
+  nell'eliminazione multipla i giocatori bloccati vengono saltati (mai un errore in blocco) e elencati
+  in un avviso a parte. Le stagioni già archiviate non contano (il controllo guarda solo gli eventi
+  correnti). **Export/Import Excel** (`app/data/rosterFile.ts`): riconoscimento per nome, aggiunge i
+  nuovi e aggiorna i campi cambiati (incluso lo stato attivo/ex); prima di applicare l'import mostra un
+  riepilogo con conferma esplicita per ogni giocatore attivo assente dal file
   (`RosterImportReviewModal`).
 - **Moduli** (`app/moduli/*`): moduli predefiniti (es. 3-1-4-2, 3-4-2-1, ecc. — sola lettura) e moduli
   personalizzati creabili/editabili con editor drag&drop delle posizioni in campo.
@@ -217,6 +218,14 @@ inutilizzati — l'app usa quelli in `assets/images/`).
 Sono stati **mantenuti** `ThemedText`/`ThemedView`/`useThemeColor`/`useColorScheme`/`constants/Colors.ts`
 perché usati dalla schermata di fallback `+not-found.tsx`, e `assets/avatar.png` perché usato come
 foto profilo di default in `rosa.tsx`.
+
+## Rimozione tool di import dati locale (2026-07-28)
+
+I due tool di importazione una tantum (`app/utils/importLocalEvents.ts` per il calendario,
+`app/utils/importLocalArchives.ts` per l'archivio stagioni) sono stati rimossi insieme ai relativi
+avvisi in Dashboard e in Archivio Stagioni: tutti i dati che esistevano solo in locale sul tablet sono
+stati caricati su Supabase, quindi non servono più. Rimossa anche la costante ormai inutilizzata
+`LEGACY_STORAGE_KEY` in `app/data/events.ts`.
 
 ## Aggiornamento SDK e automazione rilasci (2026-07-26)
 
