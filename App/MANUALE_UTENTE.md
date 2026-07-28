@@ -122,8 +122,11 @@ centrocampisti, attaccanti).
   esiste più distinzione tra giocatori "di base" e aggiunti a mano. Un giocatore che ha già preso
   parte a una partita di questa stagione non può essere eliminato del tutto (solo spostato tra gli
   ex) — l'app te lo segnala se ci provi.
-- **Selezione multipla** (bottone "☑️ Seleziona"): tocca più giocatori per selezionarli, poi scegli
-  "🔄 Sposta tra ex" o "🗑️ Elimina" dalla barra in basso per applicare l'azione a tutti insieme.
+- **Ex giocatori** anche loro eliminabili del tutto (tenuto premuto → "Elimina giocatore"), con la
+  stessa protezione se hanno giocato questa stagione.
+- **Selezione multipla** (bottone "☑️ Seleziona", funziona sia su attivi che su ex): tocca più
+  giocatori per selezionarli, poi scegli "🔄 Sposta tra ex" o "🗑️ Elimina" dalla barra in basso per
+  applicare l'azione a tutti insieme.
 - **Esporta/Importa Excel**: esporta tutta la rosa (attivi + ex) con nome, ruolo, anno, altezza, peso,
   stato. L'import riconosce lo stesso giocatore **per nome**: aggiunge chi è nuovo e aggiorna i campi
   cambiati (incluso lo stato attivo/ex letto dal file). Se un giocatore attivo manca dal file

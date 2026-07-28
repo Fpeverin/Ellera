@@ -166,12 +166,16 @@ precisa.
 
 ### Gestione Squadra (`app/squadra/*`)
 - **Panoramica**: conteggi per ruolo ed età media squadra.
-- **Rosa** (`rosa.tsx`): elenco giocatori raggruppati per ruolo, con tenuto premuto su un giocatore per
-  "Sposta tra ex giocatori" o "Elimina giocatore" (con conferma), foto profilo, età calcolata da data
-  di nascita se presente. **Selezione multipla** (Staff/Admin, bottone "☑️ Seleziona"): tocca più
-  giocatori per selezionarli, poi "🔄 Sposta tra ex" o "🗑️ Elimina" dalla barra in basso — stessa
-  distinzione ex/eliminazione definitiva del menu singolo, applicata a tutto il gruppo
-  (`moveToExMany`/`removePlayers` in `app/hooks/usePlayers.ts`). **Un giocatore che ha già preso parte
+- **Rosa** (`rosa.tsx`): elenco giocatori raggruppati per ruolo (attivi) + sezione **Ex giocatori** in
+  fondo, con tenuto premuto su un giocatore per "Sposta tra ex giocatori" (solo se ancora attivo) o
+  "Elimina giocatore" (con conferma) — quest'ultima disponibile anche per un ex giocatore, per pulire
+  la rosa nel tempo. Foto profilo, età calcolata da data di nascita se presente. **Selezione multipla**
+  (Staff/Admin, bottone "☑️ Seleziona", funziona sia su attivi che su ex): tocca più giocatori per
+  selezionarli, poi "🔄 Sposta tra ex" o "🗑️ Elimina" dalla barra in basso (posizionata rispettando
+  l'inset di sicurezza inferiore del dispositivo — `useSafeAreaInsets`, importante sui tablet con barra
+  di navigazione di sistema) — stessa distinzione ex/eliminazione definitiva del menu singolo, applicata
+  a tutto il gruppo (`moveToExMany`/`removePlayers` in `app/hooks/usePlayers.ts`). **Un giocatore che ha
+  già preso parte
   a una partita della stagione corrente (gol, cartellino, sostituzione o convocazione) non può essere
   eliminato del tutto** — solo spostato tra gli ex (`isPlayerInMatches` in `app/data/matchLive.ts`);
   nell'eliminazione multipla i giocatori bloccati vengono saltati (mai un errore in blocco) e elencati

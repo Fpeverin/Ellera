@@ -42,12 +42,17 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
-### 2026-07-28 — Selezione multipla nella Rosa (Staff/Admin)
-Da Rosa, bottone "☑️ Seleziona": tocca più giocatori e poi "🔄 Sposta tra ex" o "🗑️ Elimina" dalla
-barra in basso — stessa distinzione ex/eliminazione definitiva del menu su singolo giocatore, solo
-applicata a un gruppo intero. Nell'eliminazione multipla i giocatori già in una partita di questa
-stagione vengono saltati automaticamente (mai un errore in blocco che ferma tutto) e segnalati a parte
-per nome, con lo stesso suggerimento di spostarli tra gli ex.
+### 2026-07-28 — Selezione multipla nella Rosa (Staff/Admin) + eliminazione ex giocatori
+- Da Rosa, bottone "☑️ Seleziona": tocca più giocatori (attivi **o** ex) e poi "🔄 Sposta tra ex" o
+  "🗑️ Elimina" dalla barra in basso — stessa distinzione ex/eliminazione definitiva del menu su
+  singolo giocatore, solo applicata a un gruppo intero. Nell'eliminazione multipla i giocatori già in
+  una partita di questa stagione vengono saltati automaticamente (mai un errore in blocco che ferma
+  tutto) e segnalati a parte per nome, con lo stesso suggerimento di spostarli tra gli ex.
+- **Ex giocatori ora gestibili**: prima non c'era alcun modo di eliminarli — tenendo premuto su un ex
+  giocatore compare "Elimina giocatore" (niente "Sposta tra ex", ovvio, ci è già).
+- **Fix grafico**: la barra di selezione multipla in basso ora rispetta l'inset di sicurezza inferiore
+  del dispositivo (`useSafeAreaInsets`) invece di un padding fisso — su alcuni tablet con barra di
+  navigazione di sistema più alta i pulsanti risultavano coperti.
 
 ### 2026-07-28 — Rimossi i tool di import dati locale (una tantum, ormai usati)
 Tutti i dati che esistevano solo sul tablet (calendario ed archivio stagioni) sono stati caricati su

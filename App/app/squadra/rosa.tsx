@@ -14,7 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AddPlayerModal from '../components/AddPlayerModal';
 import { useAuth } from '../context/AuthContext';
 import RosterImportReviewModal from '../components/RosterImportReviewModal';
@@ -101,6 +101,7 @@ function MiniStat({
 export default function Rosa() {
   const { membership } = useAuth();
   const readOnly = membership?.role === 'giocatore';
+  const insets = useSafeAreaInsets();
   const { players, exPlayers, addPlayer, moveToEx, moveToExMany, removePlayer, removePlayers, refresh } = usePlayers();
   const [photoMap, setPhotoMap] = React.useState<Record<string, string | null>>({});
   const [search, setSearch] = React.useState('');
@@ -233,8 +234,11 @@ export default function Rosa() {
   };
 
   const handleBulkMoveToEx = () => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
+    const ids = Array.from(selectedIds).filter((id) => players.some((p) => p.id === id));
+    if (ids.length === 0) {
+      Alert.alert('Nessuna azione', 'I giocatori selezionati sono già tra gli ex.');
+      return;
+    }
     Alert.alert(
       'Spostare tra gli ex?',
       `${ids.length} giocator${ids.length === 1 ? 'e' : 'i'} verr${ids.length === 1 ? 'à' : 'anno'} spostat${ids.length === 1 ? 'o' : 'i'} tra gli ex giocatori.`,
@@ -479,40 +483,12 @@ export default function Rosa() {
              <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 8 }}>
                Ex giocatori
              </Text>
-             {filteredExPlayers.map(item => {
-               const uri = (photoMap as any)[item.id];
-               const age = getPlayerAge(item);
-               return (
-                 <React.Fragment key={item.id}>
-                   <Link href={{ pathname: '/player/[id]', params: { id: item.id } }} asChild>
-                     <Pressable style={styles.playerCard}>
-                       <Image source={uri ? { uri } : AVATAR_DEFAULT} style={styles.avatar} />
-                       <View style={styles.playerInfo}>
-                         <Text style={styles.playerName} numberOfLines={1}>{item.name}</Text>
-                         <View style={styles.playerMeta}>
-                           <View style={styles.metaItem}>
-                             <Text style={styles.metaLabel}>Età:</Text>
-                             <Text style={styles.metaValue}>{age} anni</Text>
-                           </View>
-                           <View style={styles.metaItem}>
-                             <Text style={styles.metaLabel}>Anno:</Text>
-                             <Text style={styles.metaValue}>{item.year}</Text>
-                           </View>
-                         </View>
-                        <View style={styles.playerStats}>
-                           <Text style={styles.statText}>H: {item.height}cm</Text>
-                           <Text style={styles.statText}>P: {item.weight}kg</Text>
-                         </View>
-                       </View>
-                       <View style={[styles.roleIndicator, { backgroundColor: ROLE_COLORS[item.role] }]}>
-                         <Text style={styles.roleIcon}>{ROLE_ICONS[item.role]}</Text>
-                       </View>
-                     </Pressable>
-                   </Link>
-                   <View style={styles.separator} />
-                 </React.Fragment>
-              );
-             })}
+             {filteredExPlayers.map(item => (
+               <React.Fragment key={item.id}>
+                 {renderPlayerCard(item)}
+                 <View style={styles.separator} />
+               </React.Fragment>
+             ))}
            </View>
          ) : null
        }
@@ -520,7 +496,7 @@ export default function Rosa() {
 
       {/* Barra azioni selezione multipla */}
       {selectMode && selectedIds.size > 0 && (
-        <View style={styles.bulkBar}>
+        <View style={[styles.bulkBar, { paddingBottom: 12 + insets.bottom }]}>
           <Text style={styles.bulkBarCount}>{selectedIds.size} selezionat{selectedIds.size === 1 ? 'o' : 'i'}</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Pressable style={[styles.bulkBtn, styles.bulkBtnEx]} onPress={handleBulkMoveToEx}>
@@ -551,10 +527,12 @@ export default function Rosa() {
         <Pressable style={styles.menuOverlay} onPress={() => setCustomMenuPlayer(null)}>
           <View style={styles.menuCard}>
             <Text style={styles.menuTitle}>{customMenuPlayer?.name}</Text>
-            <Pressable style={styles.menuItem} onPress={handleMoveToEx}>
-              <Text style={styles.menuItemIcon}>🔄</Text>
-              <Text style={styles.menuItemText}>Sposta tra ex giocatori</Text>
-            </Pressable>
+            {customMenuPlayer && !exPlayers.some((p) => p.id === customMenuPlayer.id) && (
+              <Pressable style={styles.menuItem} onPress={handleMoveToEx}>
+                <Text style={styles.menuItemIcon}>🔄</Text>
+                <Text style={styles.menuItemText}>Sposta tra ex giocatori</Text>
+              </Pressable>
+            )}
             <Pressable style={[styles.menuItem, styles.menuItemDanger]} onPress={handleRemove}>
               <Text style={styles.menuItemIcon}>🗑️</Text>
               <Text style={[styles.menuItemText, { color: '#dc2626' }]}>Elimina giocatore</Text>
@@ -856,7 +834,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e293b',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingBottom: 20,
   },
   bulkBarCount: { color: '#fff', fontWeight: '700', fontSize: 14 },
   bulkBtn: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
