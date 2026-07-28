@@ -6,6 +6,7 @@ import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'r
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../../context/AuthContext';
 import {
   loadLineup as loadLineupRemote,
   loadPositions as loadPositionsRemote,
@@ -77,6 +78,8 @@ export default function Schieramento() {
   const { id: matchId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { players: basePlayers } = usePlayers();
+  const { membership } = useAuth();
+  const readOnly = membership?.role === 'giocatore';
   const params = useLocalSearchParams();
   const liveMode = (params as any)?.live === '1';
 
@@ -237,17 +240,18 @@ export default function Schieramento() {
   };
 
   const openPickerForField = (index: number) => {
-    if (liveMode) return;
+    if (liveMode || readOnly) return;
     setPickTarget({ kind: 'FIELD', index });
     setPickModalOpen(true);
   };
   const openPickerForBench = (index: number) => {
-    if (liveMode) return;
+    if (liveMode || readOnly) return;
     setPickTarget({ kind: 'BENCH', index });
     setPickModalOpen(true);
   };
 
   const openNumberForField = (index: number) => {
+    if (readOnly) return;
     const current = fieldAssignments[index];
     if (!current) return;
     setNumberTarget({ kind: 'FIELD', index });
@@ -255,6 +259,7 @@ export default function Schieramento() {
     setNumberModalOpen(true);
   };
   const openNumberForBench = (index: number) => {
+    if (readOnly) return;
     const current = benchAssignments[index];
     if (!current) return;
     setNumberTarget({ kind: 'BENCH', index });
@@ -285,7 +290,7 @@ export default function Schieramento() {
   };
 
   const removeFromField = (i: number) => {
-    if (liveMode) return;
+    if (liveMode || readOnly) return;
     setFieldAssignments(prev => {
       const next = [...prev];
       next[i] = null;
@@ -294,7 +299,7 @@ export default function Schieramento() {
   };
 
   const removeFromBench = (i: number) => {
-    if (liveMode) return;
+    if (liveMode || readOnly) return;
     setBenchAssignments(prev => prev.filter((_, idx) => idx !== i));
   };
 
@@ -380,9 +385,9 @@ export default function Schieramento() {
               <Text style={styles.sectionTitle}>Modulo</Text>
               {liveMode ? <Text style={{ color: '#b45309', fontWeight: '800' }}>LIVE: solo drag posizioni</Text> : null}
             </View>
-            <View style={[styles.moduleSelectRow, liveMode && { opacity: 0.6 }]}>
+            <View style={[styles.moduleSelectRow, (liveMode || readOnly) && { opacity: 0.6 }]}>
               <Picker
-                enabled={!liveMode}
+                enabled={!liveMode && !readOnly}
                 selectedValue={selectedModuleName ?? undefined}
                 onValueChange={(val) => setSelectedModuleName(val)}
                 style={styles.modulePicker}
@@ -427,11 +432,12 @@ export default function Schieramento() {
                       }
                     }}
                     onLongPress={() => assigned && removeFromField(i)}
+                    disabled={readOnly}
                   >
                     <BlueWhiteShirt empty={!assigned} number={assigned?.number} />
                   </Pressable>
                 );
-                if (liveMode) {
+                if (liveMode && !readOnly) {
                   return (
                     <View key={i} style={[styles.shirtWrap, { left: pos.left, top: pos.top }]}>
                       <Draggable
@@ -489,16 +495,16 @@ export default function Schieramento() {
 
             {/* Panchina */}
             <Text style={styles.sectionTitle}>Panchina (max 9)</Text>
-            <View style={[styles.bench, liveMode && { opacity: 0.7 }]}>
+            <View style={[styles.bench, (liveMode || readOnly) && { opacity: 0.7 }]}>
               {Array.from({ length: 9 }, (_, i) => {
                 const p = benchAssignments[i];
                 return (
                   <Pressable
                     key={i}
-                    disabled={liveMode}
+                    disabled={liveMode || readOnly}
                     style={[styles.benchItem, !p && styles.benchEmpty]}
                     onPress={() => {
-                      if (liveMode) return;
+                      if (liveMode || readOnly) return;
                       if (p) {
                         openNumberForBench(i);
                       } else {
@@ -518,7 +524,7 @@ export default function Schieramento() {
 
           {/* DESTRA */}
           <View style={styles.right}>
-            <Pressable disabled={liveMode} style={[styles.convBtn, liveMode && { opacity: 0.6 }]} onPress={() => setConvocatiOpen(true)}>
+            <Pressable disabled={liveMode || readOnly} style={[styles.convBtn, (liveMode || readOnly) && { opacity: 0.6 }]} onPress={() => setConvocatiOpen(true)}>
               <Text style={styles.convBtnText}>CONVOCATI</Text>
             </Pressable>
             <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Disponibili</Text>

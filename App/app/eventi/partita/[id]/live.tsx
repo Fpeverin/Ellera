@@ -8,9 +8,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, AppStateStatus, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, AppState, AppStateStatus, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAuth } from '../../../context/AuthContext';
 import { useTimer } from '../../../context/TimerContext';
 import { loadEvents, saveEvents } from '../../../data/events';
 import {
@@ -34,6 +35,15 @@ import {
   SubItem,
   TeamSide,
 } from '../../../data/matchLive';
+import {
+  CardProposalPayload,
+  decideProposal,
+  EventProposal,
+  GoalProposalPayload,
+  loadProposals,
+  proposeCard,
+  proposeGoal,
+} from '../../../data/proposals';
 import { usePlayers } from '../../../hooks/usePlayers';
 
 // Cartellini
@@ -73,6 +83,9 @@ export default function LivePartita() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { players: basePlayers } = usePlayers();
+  const { membership, session } = useAuth();
+  const readOnly = membership?.role === 'giocatore';
+  const canModerate = membership?.role === 'admin' || membership?.role === 'staff';
 
   // TIMER (context esistente)
   const {
@@ -590,6 +603,92 @@ const yellowCount = new Map<string, number>();
     setCardOpen(false);
   };
 
+  /* ---------------- PROPOSTE (ruolo Giocatore) ---------------- */
+  const [proposals, setProposals] = useState<EventProposal[]>([]);
+  const refreshProposals = async () => {
+    try { setProposals(await loadProposals(matchId!)); } catch {}
+  };
+  useEffect(() => { refreshProposals(); }, [matchId]);
+  useFocusEffect(useCallback(() => {
+    refreshProposals();
+    const t = setInterval(refreshProposals, 5000);
+    return () => clearInterval(t);
+  }, [matchId]));
+
+  const pendingProposals = useMemo(() => proposals.filter(p => p.status === 'pending'), [proposals]);
+  const myProposals = useMemo(
+    () => proposals.filter(p => p.proposedBy === session?.user?.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [proposals, session?.user?.id]
+  );
+
+  const proposeGoalNow = async () => {
+    if (!canSaveGoal) return;
+    const minute = currentMinutePlusOne();
+    const playerId = isOurTeam(goalTeam) ? selectedPlayerId : undefined;
+    const scorer = isOurTeam(goalTeam)
+      ? (basePlayers.find((p) => p.id === selectedPlayerId)?.name ?? '')
+      : goalScorerFree.trim();
+    const payload: GoalProposalPayload = { team: goalTeam, minute, scorer, playerId };
+    try {
+      await proposeGoal(matchId!, payload);
+      setGoalOpen(false);
+      await refreshProposals();
+      Alert.alert('Proposta inviata', 'In attesa di conferma dello staff.');
+    } catch {
+      Alert.alert('Errore', 'Impossibile inviare la proposta.');
+    }
+  };
+
+  const proposeCardNow = async () => {
+    if (!canSaveCard) return;
+    const minute = currentMinutePlusOne();
+    const playerName = isOurTeam(cardTeam)
+      ? (basePlayers.find(p => p.id === cardPlayerId)?.name ?? '')
+      : cardOpponentName.trim();
+    const payload: CardProposalPayload = {
+      minute,
+      team: cardTeam,
+      color: cardColor,
+      playerId: isOurTeam(cardTeam) ? cardPlayerId : undefined,
+      playerName,
+    };
+    try {
+      await proposeCard(matchId!, payload);
+      setCardOpen(false);
+      await refreshProposals();
+      Alert.alert('Proposta inviata', 'In attesa di conferma dello staff.');
+    } catch {
+      Alert.alert('Errore', 'Impossibile inviare la proposta.');
+    }
+  };
+
+  const approveProposal = async (p: EventProposal) => {
+    try {
+      if (p.type === 'GOAL') {
+        const payload = p.payload as GoalProposalPayload;
+        const item: GoalItem = { id: uid(), ...payload };
+        await saveGoals([...goals, item].sort((a, b) => a.minute - b.minute));
+      } else {
+        const payload = p.payload as CardProposalPayload;
+        const item: CardItem = { id: uid(), ...payload };
+        await saveCards([...cards, item].sort((a, b) => a.minute - b.minute));
+      }
+      await decideProposal(p.id, 'approved');
+      await refreshProposals();
+    } catch {
+      Alert.alert('Errore', 'Impossibile confermare la proposta.');
+    }
+  };
+
+  const rejectProposal = async (p: EventProposal) => {
+    try {
+      await decideProposal(p.id, 'rejected');
+      await refreshProposals();
+    } catch {
+      Alert.alert('Errore', 'Impossibile rifiutare la proposta.');
+    }
+  };
+
   /* ---------------- DELETE ---------------- */
   type DelState = { open: boolean; kind: 'GOAL' | 'SUB' | 'CARD' | null; id?: string; title?: string; detail?: string };
   const [del, setDel] = useState<DelState>({ open: false, kind: null });
@@ -951,6 +1050,7 @@ const yellowCount = new Map<string, number>();
         </View>
 
         {/* CONTROLLI TIMER */}
+        {!readOnly && (
         <View style={styles.timerControls}>
           {phase !== 'FULL_TIME' && (
             <Pressable
@@ -1000,6 +1100,7 @@ const yellowCount = new Map<string, number>();
             <Text style={styles.controlButtonText}>{phaseBtnText}</Text>
           </Pressable>
         </View>
+        )}
 
         {/* AZIONI PRINCIPALI */}
         <View style={styles.actionCards}>
@@ -1033,7 +1134,7 @@ const yellowCount = new Map<string, number>();
           </View>
 
           <View style={styles.managementActions}>
-            {!startedOnce ? (
+            {!readOnly && (!startedOnce ? (
               <Pressable
                 style={[styles.actionCard, styles.formationCard]}
                 onPress={() => router.push(`/eventi/partita/${matchId}/formazione`)}
@@ -1051,7 +1152,7 @@ const yellowCount = new Map<string, number>();
                 <Text style={styles.actionTitle}>SOSTITUZIONI</Text>
                 <Text style={styles.actionSubtitle}>Cambi in campo</Text>
               </Pressable>
-            )}
+            ))}
 
             <Pressable
               style={[styles.actionCard, styles.tacticsCard]}
@@ -1093,9 +1194,11 @@ const yellowCount = new Map<string, number>();
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={styles.eventsCount}>{events.length} eventi</Text>
               {/* Nuovo: pulsante solo icona per inserimento manuale, sempre attivo */}
-              <Pressable style={styles.iconOnlyBtn} onPress={openManual}>
-                <Text style={{ fontSize: 18 }}>➕</Text>
-              </Pressable>
+              {!readOnly && (
+                <Pressable style={styles.iconOnlyBtn} onPress={openManual}>
+                  <Text style={{ fontSize: 18 }}>➕</Text>
+                </Pressable>
+              )}
             </View>
           </View>
 
@@ -1127,15 +1230,19 @@ const yellowCount = new Map<string, number>();
                         </Text>
                       </View>
 
-                      {/* EDIT sempre attivo */}
-                      <Pressable style={styles.editEventBtn} onPress={() => openEditGoal(g)}>
-                        <Text style={styles.editEventIcon}>✏️</Text>
-                      </Pressable>
+                      {!readOnly && (
+                        <>
+                          {/* EDIT sempre attivo */}
+                          <Pressable style={styles.editEventBtn} onPress={() => openEditGoal(g)}>
+                            <Text style={styles.editEventIcon}>✏️</Text>
+                          </Pressable>
 
-                      {/* DELETE sempre attivo */}
-                      <Pressable style={styles.deleteEventBtn} onPress={() => askDeleteGoal(g)}>
-                        <Text style={styles.deleteEventIcon}>🗑️</Text>
-                      </Pressable>
+                          {/* DELETE sempre attivo */}
+                          <Pressable style={styles.deleteEventBtn} onPress={() => askDeleteGoal(g)}>
+                            <Text style={styles.deleteEventIcon}>🗑️</Text>
+                          </Pressable>
+                        </>
+                      )}
                     </View>
                   );
                 }
@@ -1160,13 +1267,17 @@ const yellowCount = new Map<string, number>();
                         <Text style={styles.eventTeam}>{teamLabel}</Text>
                       </View>
 
-                      <Pressable style={styles.editEventBtn} onPress={() => openEditSub(s)}>
-                        <Text style={styles.editEventIcon}>✏️</Text>
-                      </Pressable>
+                      {!readOnly && (
+                        <>
+                          <Pressable style={styles.editEventBtn} onPress={() => openEditSub(s)}>
+                            <Text style={styles.editEventIcon}>✏️</Text>
+                          </Pressable>
 
-                      <Pressable style={styles.deleteEventBtn} onPress={() => askDeleteSub(s)}>
-                        <Text style={styles.deleteEventIcon}>🗑️</Text>
-                      </Pressable>
+                          <Pressable style={styles.deleteEventBtn} onPress={() => askDeleteSub(s)}>
+                            <Text style={styles.deleteEventIcon}>🗑️</Text>
+                          </Pressable>
+                        </>
+                      )}
                     </View>
                   );
                 }
@@ -1189,19 +1300,78 @@ const yellowCount = new Map<string, number>();
                       <Text style={styles.eventTeam}>{c.team === 'HOME' ? homeName : awayName}{isRed && isOurCard ? ' — ESPULSO' : ''}</Text>
                     </View>
 
-                    <Pressable style={styles.editEventBtn} onPress={() => openEditCard(c)}>
-                      <Text style={styles.editEventIcon}>✏️</Text>
-                    </Pressable>
+                    {!readOnly && (
+                      <>
+                        <Pressable style={styles.editEventBtn} onPress={() => openEditCard(c)}>
+                          <Text style={styles.editEventIcon}>✏️</Text>
+                        </Pressable>
 
-                    <Pressable style={styles.deleteEventBtn} onPress={() => askDeleteCard(c)}>
-                      <Text style={styles.deleteEventIcon}>🗑️</Text>
-                    </Pressable>
+                        <Pressable style={styles.deleteEventBtn} onPress={() => askDeleteCard(c)}>
+                          <Text style={styles.deleteEventIcon}>🗑️</Text>
+                        </Pressable>
+                      </>
+                    )}
                   </View>
                 );
               })}
             </View>
           )}
         </View>
+
+        {/* PROPOSTE IN ATTESA (Staff/Admin) */}
+        {canModerate && pendingProposals.length > 0 && (
+          <View style={styles.eventsSection}>
+            <Text style={styles.eventsTitle}>🙋 Proposte in attesa ({pendingProposals.length})</Text>
+            <View style={styles.eventsList}>
+              {pendingProposals.map((p) => {
+                const isGoal = p.type === 'GOAL';
+                const payload = p.payload as any;
+                const label = isGoal
+                  ? `⚽ Gol — ${payload.scorer} · ${payload.minute}'`
+                  : `${payload.color === 'RED' ? '🟥' : '🟨'} Cartellino — ${payload.playerName} · ${payload.minute}'`;
+                return (
+                  <View key={p.id} style={styles.eventCard}>
+                    <View style={styles.eventContent}>
+                      <Text style={styles.eventTitle}>{label}</Text>
+                      <Text style={styles.eventTeam}>{payload.team === 'HOME' ? homeName : awayName}</Text>
+                    </View>
+                    <Pressable style={[styles.modalBtn, { backgroundColor: '#1b7f3b', paddingHorizontal: 12 }]} onPress={() => approveProposal(p)}>
+                      <Text style={styles.modalBtnText}>Conferma</Text>
+                    </Pressable>
+                    <Pressable style={[styles.modalBtn, { backgroundColor: '#9ca3af', paddingHorizontal: 12, marginLeft: 8 }]} onPress={() => rejectProposal(p)}>
+                      <Text style={styles.modalBtnText}>Rifiuta</Text>
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* LE TUE PROPOSTE (Giocatore) */}
+        {readOnly && myProposals.length > 0 && (
+          <View style={styles.eventsSection}>
+            <Text style={styles.eventsTitle}>Le tue proposte</Text>
+            <View style={styles.eventsList}>
+              {myProposals.map((p) => {
+                const isGoal = p.type === 'GOAL';
+                const payload = p.payload as any;
+                const label = isGoal
+                  ? `⚽ Gol — ${payload.scorer} · ${payload.minute}'`
+                  : `${payload.color === 'RED' ? '🟥' : '🟨'} Cartellino — ${payload.playerName} · ${payload.minute}'`;
+                const statusLabel = p.status === 'pending' ? '⏳ In attesa' : p.status === 'approved' ? '✅ Confermata' : '❌ Rifiutata';
+                return (
+                  <View key={p.id} style={styles.eventCard}>
+                    <View style={styles.eventContent}>
+                      <Text style={styles.eventTitle}>{label}</Text>
+                      <Text style={styles.eventTeam}>{statusLabel}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* MODALE: CREAZIONE GOL */}
         <Modal visible={goalOpen} transparent animationType="slide" onRequestClose={() => setGoalOpen(false)}>
@@ -1241,10 +1411,10 @@ const yellowCount = new Map<string, number>();
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
                 <Pressable
                   style={[styles.modalBtn, { backgroundColor: '#1b7f3b', flex: 1, opacity: canSaveGoal ? 1 : 0.5 }]}
-                  onPress={persistGoal}
+                  onPress={readOnly ? proposeGoalNow : persistGoal}
                   disabled={!canSaveGoal}
                 >
-                  <Text style={styles.modalBtnText}>Salva gol</Text>
+                  <Text style={styles.modalBtnText}>{readOnly ? 'Proponi gol' : 'Salva gol'}</Text>
                 </Pressable>
                 <Pressable style={[styles.modalBtn, { backgroundColor: '#9ca3af', flex: 1 }]} onPress={() => setGoalOpen(false)}>
                   <Text style={styles.modalBtnText}>Annulla</Text>
@@ -1365,10 +1535,10 @@ const yellowCount = new Map<string, number>();
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
                 <Pressable
                   style={[styles.modalBtn, { backgroundColor: cardColor === 'RED' ? '#b91c1c' : '#f59e0b', flex: 1, opacity: canSaveCard ? 1 : 0.5 }]}
-                  onPress={persistCard}
+                  onPress={readOnly ? proposeCardNow : persistCard}
                   disabled={!canSaveCard}
                 >
-                  <Text style={styles.modalBtnText}>Salva</Text>
+                  <Text style={styles.modalBtnText}>{readOnly ? 'Proponi' : 'Salva'}</Text>
                 </Pressable>
                 <Pressable style={[styles.modalBtn, { backgroundColor: '#9ca3af', flex: 1 }]} onPress={() => setCardOpen(false)}>
                   <Text style={styles.modalBtnText}>Annulla</Text>

@@ -1,4 +1,5 @@
 import { StatsCard } from '@/app/components/StatsCard';
+import { useAuth } from '@/app/context/AuthContext';
 import { Player } from '@/app/data/players';
 import { usePlayers } from '@/app/hooks/usePlayers';
 import { useRouter } from 'expo-router';
@@ -27,6 +28,9 @@ export default function GestioneSquadra() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { players } = usePlayers();
+  const { membership } = useAuth();
+  const isAdmin = membership?.role === 'admin';
+  const isGiocatore = membership?.role === 'giocatore';
 
   // === calcolo responsive: colonne e larghezza card ===
   const SECTION_SIDE_PADDING = 20;
@@ -88,30 +92,45 @@ export default function GestioneSquadra() {
             <Text style={styles.navSubtitle}>Gestisci i giocatori</Text>
           </Pressable>
 
-          <Pressable style={[styles.navCard, styles.secondaryCard]} onPress={() => router.push('/moduli')}>
-            <Text style={styles.navIcon}>📝</Text>
-            <Text style={styles.navTitle}>Moduli</Text>
-            <Text style={styles.navSubtitle}>Schemi di gioco</Text>
-          </Pressable>
+          {!isGiocatore && (
+            <Pressable style={[styles.navCard, styles.secondaryCard]} onPress={() => router.push('/moduli')}>
+              <Text style={styles.navIcon}>📝</Text>
+              <Text style={styles.navTitle}>Moduli</Text>
+              <Text style={styles.navSubtitle}>Schemi di gioco</Text>
+            </Pressable>
+          )}
 
-          <Pressable style={[styles.navCard, styles.tertiaryCard]} onPress={() => router.push('/squadra/tattiche')}>
-            <Text style={styles.navIcon}>📐</Text>
-            <Text style={styles.navTitle}>Tattiche</Text>
-            <Text style={styles.navSubtitle}>Strategie di gioco</Text>
-          </Pressable>
+          {!isGiocatore && (
+            <Pressable style={[styles.navCard, styles.tertiaryCard]} onPress={() => router.push('/squadra/tattiche')}>
+              <Text style={styles.navIcon}>📐</Text>
+              <Text style={styles.navTitle}>Tattiche</Text>
+              <Text style={styles.navSubtitle}>Strategie di gioco</Text>
+            </Pressable>
+          )}
 
-          {/* Nuova card: Statistiche */}
-          <Pressable style={[styles.navCard, styles.infoCard]} onPress={() => router.push('/squadra/statistiche')}>
-            <Text style={styles.navIcon}>📈</Text>
-            <Text style={styles.navTitle}>Statistiche</Text>
-            <Text style={styles.navSubtitle}>Dati stagionali e filtri</Text>
-          </Pressable>
+          {!isGiocatore && (
+            <Pressable style={[styles.navCard, styles.infoCard]} onPress={() => router.push('/squadra/statistiche')}>
+              <Text style={styles.navIcon}>📈</Text>
+              <Text style={styles.navTitle}>Statistiche</Text>
+              <Text style={styles.navSubtitle}>Dati stagionali e filtri</Text>
+            </Pressable>
+          )}
 
-          <Pressable style={[styles.navCard, styles.archiveCard]} onPress={() => router.push('/squadra/archivio')}>
-            <Text style={styles.navIcon}>🗄️</Text>
-            <Text style={styles.navTitle}>Archivio</Text>
-            <Text style={styles.navSubtitle}>Storico stagioni</Text>
-          </Pressable>
+          {!isGiocatore && (
+            <Pressable style={[styles.navCard, styles.archiveCard]} onPress={() => router.push('/squadra/archivio')}>
+              <Text style={styles.navIcon}>🗄️</Text>
+              <Text style={styles.navTitle}>Archivio</Text>
+              <Text style={styles.navSubtitle}>Storico stagioni</Text>
+            </Pressable>
+          )}
+
+          {isAdmin && (
+            <Pressable style={[styles.navCard, styles.staffCard]} onPress={() => router.push('/squadra/staff')}>
+              <Text style={styles.navIcon}>🛡️</Text>
+              <Text style={styles.navTitle}>Staff</Text>
+              <Text style={styles.navSubtitle}>Membri e codice invito</Text>
+            </Pressable>
+          )}
         </View>
       </View>
     </ScrollView>
@@ -151,6 +170,7 @@ const styles = StyleSheet.create({
   tertiaryCard: { borderLeftWidth: 4, borderLeftColor: '#dc2626' },
   infoCard: { borderLeftWidth: 4, borderLeftColor: '#0ea5e9' },
   archiveCard: { borderLeftWidth: 4, borderLeftColor: '#7c3aed' },
+  staffCard: { borderLeftWidth: 4, borderLeftColor: '#0f766e' },
 
   navIcon: { fontSize: 32, marginBottom: 8 },
   navTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 4 },

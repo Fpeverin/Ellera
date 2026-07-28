@@ -2,10 +2,12 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../context/AuthContext';
 import { deleteTactic, loadTactics, TacticItem } from '../../data/tactics';
 
 export default function TacticsIndex() {
   const router = useRouter();
+  const { membership } = useAuth();
   const [list, setList] = useState<TacticItem[]>([]);
   const [toDelete, setToDelete] = useState<TacticItem | null>(null);
 
@@ -19,6 +21,14 @@ export default function TacticsIndex() {
     await deleteTactic(id);
     setList((prev) => prev.filter(t => t.id !== id));
   };
+
+  if (membership?.role === 'giocatore') {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <Text style={{ color: '#64748b', textAlign: 'center' }}>Non disponibile per il tuo ruolo.</Text>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top','bottom']}>

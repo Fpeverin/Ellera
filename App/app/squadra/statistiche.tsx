@@ -1,4 +1,5 @@
 // app/squadra/statistiche.tsx
+import { useAuth } from '@/app/context/AuthContext';
 import { CalendarEvent, loadEvents } from '@/app/data/events';
 import { loadLineup } from '@/app/data/matchLive';
 import { loadPhotoMap } from '@/app/data/playerMedia';
@@ -93,6 +94,7 @@ const EMPTY: Totals = {
 };
 
 export default function StatisticheSquadra() {
+  const { membership } = useAuth();
   const { allPlayers } = usePlayers();
   const [loading, setLoading] = useState(false);
   const [competitions, setCompetitions] = useState<string[]>(['Tutte']);
@@ -528,6 +530,14 @@ ${uri}`);
   };
 
   // ======= UI =======
+  if (membership?.role === 'giocatore') {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <Text style={{ color: '#64748b', textAlign: 'center' }}>Non disponibile per il tuo ruolo.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Header */}

@@ -13,22 +13,66 @@ qui basta capire cosa è stato deciso e perché.
 
 ## Visione generale
 
-Oggi l'app è installata solo da Francesco, su un tablet e uno smartphone Android, con i dati salvati
-solo sul dispositivo (`AsyncStorage`) — per questo tablet e telefono hanno dati diversi. L'obiettivo dei
-prossimi sviluppi è passare a dati condivisi e legati a un account, con più persone (staff tecnico)
-che potranno usare l'app in futuro con ruoli diversi (admin vs utente normale).
+L'app ha un account/squadra condivisa (Supabase): tutti i dati (calendario, rosa, tattiche, dati
+live-partita, archivio) sono legati all'account e sincronizzati tra dispositivi, non più solo sul
+telefono/tablet di chi li ha creati. C'è gestione utenti con ruoli admin/staff, invito tramite codice,
+ed export/import Excel per rosa e calendario. Il backlog qui sotto è vuoto: aggiungici pure la
+prossima idea non appena viene in mente.
 
 ## Backlog
 
-### 1. Gestione staff (lato admin)
-Schermata per l'admin per vedere chi è nella squadra, cambiare ruoli, rimuovere una persona, rigenerare
-l'invite code.
+- **Notifiche push**: promemoria automatici sul device in base al ruolo, a partire da un promemoria
+  alle 09:00 del giorno stesso per ogni evento (partita, allenamento, scadenza). Richiede
+  `expo-notifications` + un push token per utente/device salvato su Supabase, e capire come inviarle
+  (scheduled locali vs. invio da un job/edge function).
+
+- **Sondaggi staff → giocatori**: uno dello staff invia un sondaggio ai giocatori (stato di salute,
+  livello di allenamento, quanto si sentono stanchi, infortuni, assenze); le risposte devono generare
+  una notifica push allo staff. Richiede uno schema per domande/risposte e si appoggia alle notifiche
+  push del punto precedente.
+
+- **Convocazione partita da app**: portare la gestione dei convocati fuori dalla sezione Live (oggi è
+  dentro `formazione.tsx`), come sezione autonoma visibile allo staff che poi *alimenta* la Live
+  (non viceversa). Deve riprodurre un modello di convocazione in PDF che Francesco fornirà come
+  esempio. All'invio della convocazione, notifica push ai giocatori convocati.
 
 ## In corso
 
 *(vuoto — si popola quando iniziamo davvero il prossimo punto del backlog)*
 
 ## Completato
+
+### 2026-07-28 — Ruoli utente a 3 livelli (Admin/Staff/Giocatore) + inviti personali
+- Terzo ruolo **Giocatore**: sola lettura su Rosa/Calendario/Allenamenti/Partite/Live; in una Live
+  può **proporre** un gol o un cartellino (stessa modale di sempre, bottone "Proponi" al posto di
+  "Salva") — la proposta resta in `match_event_proposals` con stato `pending` finché Staff/Admin non
+  la conferma (viene accodata a gol/cartellini reali) o rifiuta, da una nuova sezione "Proposte in
+  attesa" nella Live. Non vede Moduli/Tattiche/Statistiche/Archivio/Staff.
+- **Niente più codici invito condivisi**: ogni codice è personale, generato dall'admin per una
+  persona precisa.
+  - *Giocatore*: si genera dalla scheda di quel giocatore in Rosa (`app/player/[id].tsx`, solo
+    admin) — chi lo riscatta si collega automaticamente a quella riga della rosa
+    (`memberships.player_id`). Non è possibile "essere Giocatore" senza corrispondere a un giocatore
+    reale già in rosa.
+  - *Staff*: si genera da Gestione Squadra → Staff dando solo un nome libero (la persona non è
+    ancora registrata in quel momento).
+  - Chi riceve un codice si registra e poi lo inserisce in onboarding ("Ho un codice personale")
+    invece di creare/entrare in una squadra col vecchio flusso.
+- Schema aggiuntivo `App/supabase/schema_roles.sql`: tabella `invites` (accesso solo tramite funzioni
+  `security definer` — `create_player_invite`, `create_staff_invite`, `list_pending_invites`,
+  `revoke_invite`, `redeem_invite`), helper `is_staff_or_admin_of`, e split delle policy RLS di tutte
+  le tabelle dati esistenti in lettura (chiunque sia membro) / scrittura (solo Staff/Admin).
+- `app/squadra/staff.tsx` aggiornata con "Inviti in attesa" (Condividi/Revoca) e cambio ruolo a 3 vie.
+
+### 2026-07-28 — Gestione staff (lato admin)
+- Nuova schermata `app/squadra/staff.tsx` (visibile solo all'admin, con una card dedicata in
+  "Gestione Squadra"): mostra il codice invito della squadra con un bottone "Condividi" e uno
+  "Rigenera" (invalida il vecchio codice), e l'elenco di chi è nella squadra con email e ruolo.
+- L'admin può cambiare il ruolo (staff↔admin) o rimuovere chiunque tranne se stesso — niente rischio
+  di restare senza admin o di auto-escludersi per errore.
+- Tre nuove funzioni SQL (`App/supabase/schema_staff.sql`): `list_org_members` (unica via per leggere
+  le email dei membri, dato che il client non può interrogare `auth.users` direttamente),
+  `update_member_role`, `remove_member`, `regenerate_invite_code`.
 
 ### 2026-07-28 — Rosa non più hardcoded + import/export XLSX (rosa e calendario)
 - **Rosa non più scritta nel codice**: i 29 giocatori attivi + 4 ex che vivevano in

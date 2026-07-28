@@ -2,11 +2,13 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../context/AuthContext';
 import { CustomModule, deleteModule, loadModules } from '../data/modules';
 import { MODULES as DEFAULT_MODULES } from '../utils/modules-layout';
 
 export default function ModuliIndex() {
   const router = useRouter();
+  const { membership } = useAuth();
 
   const defaultNames = useMemo(() => Object.keys(DEFAULT_MODULES), []);
   const [custom, setCustom] = useState<CustomModule[]>([]);
@@ -68,6 +70,14 @@ export default function ModuliIndex() {
       </Pressable>
     </View>
   );
+
+  if (membership?.role === 'giocatore') {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <Text style={{ color: '#64748b', textAlign: 'center' }}>Non disponibile per il tuo ruolo.</Text>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>

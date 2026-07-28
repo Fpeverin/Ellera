@@ -5,6 +5,7 @@ import { Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Switch, Text
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import EventEditorModal from './components/EventEditorModal';
+import { useAuth } from './context/AuthContext';
 import { exportTrainingsToXlsx, pickAndParseTrainingsXlsx, planTrainingsImport } from './data/calendarFile';
 import { CalendarEvent, loadEvents, saveEvents } from './data/events';
 
@@ -29,6 +30,8 @@ const IT_DAYS: { label: string; getDay: WeekKey }[] = [
 ];
 
 export default function Allenamenti() {
+  const { membership } = useAuth();
+  const readOnly = membership?.role === 'giocatore';
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [showModal, setShowModal] = useState(false);       // modale "nuovo evento" singolo
   const [showWeekModal, setShowWeekModal] = useState(false); // modale "settimana ideale"
@@ -136,17 +139,19 @@ export default function Allenamenti() {
         )}
       </View>
       
-      <View style={styles.eventActions}>
-        <Pressable 
-          style={styles.deleteBtn} 
-          onPress={(e) => {
-            e.stopPropagation();
-            setConfirmDeleteId(item.id);
-          }}
-        >
-          <Text style={styles.deleteBtnText}>🗑️</Text>
-        </Pressable>
-      </View>
+      {!readOnly && (
+        <View style={styles.eventActions}>
+          <Pressable
+            style={styles.deleteBtn}
+            onPress={(e) => {
+              e.stopPropagation();
+              setConfirmDeleteId(item.id);
+            }}
+          >
+            <Text style={styles.deleteBtnText}>🗑️</Text>
+          </Pressable>
+        </View>
+      )}
     </Pressable>
   );
 
@@ -354,40 +359,44 @@ export default function Allenamenti() {
       </View>
 
       {/* Azioni rapide */}
-      <View style={styles.quickActions}>
-        <Pressable
-          style={[styles.quickActionBtn, styles.primaryAction]}
-          onPress={() => setShowModal(true)}
-        >
-          <Text style={styles.quickActionIcon}>➕</Text>
-          <Text style={styles.quickActionText}>Nuovo</Text>
-        </Pressable>
-        
-        <Pressable
-          style={[styles.quickActionBtn, styles.secondaryAction]}
-          onPress={() => setShowWeekModal(true)}
-        >
-          <Text style={styles.quickActionIcon}>📅</Text>
-          <Text style={styles.quickActionText}>Settimana</Text>
-        </Pressable>
-        
-        <Pressable
-          style={[styles.quickActionBtn, styles.dangerAction]}
-          onPress={() => setConfirmDeleteAll(true)}
-        >
-          <Text style={styles.quickActionIcon}>🗑️</Text>
-          <Text style={styles.quickActionText}>Elimina</Text>
-        </Pressable>
-      </View>
+      {!readOnly && (
+        <View style={styles.quickActions}>
+          <Pressable
+            style={[styles.quickActionBtn, styles.primaryAction]}
+            onPress={() => setShowModal(true)}
+          >
+            <Text style={styles.quickActionIcon}>➕</Text>
+            <Text style={styles.quickActionText}>Nuovo</Text>
+          </Pressable>
 
-      <View style={styles.xlsxRow}>
-        <Pressable style={styles.xlsxBtn} onPress={handleExportTrainings}>
-          <Text style={styles.xlsxBtnText}>📤 Esporta Excel</Text>
-        </Pressable>
-        <Pressable style={styles.xlsxBtn} onPress={handleImportTrainings}>
-          <Text style={styles.xlsxBtnText}>📥 Importa Excel</Text>
-        </Pressable>
-      </View>
+          <Pressable
+            style={[styles.quickActionBtn, styles.secondaryAction]}
+            onPress={() => setShowWeekModal(true)}
+          >
+            <Text style={styles.quickActionIcon}>📅</Text>
+            <Text style={styles.quickActionText}>Settimana</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.quickActionBtn, styles.dangerAction]}
+            onPress={() => setConfirmDeleteAll(true)}
+          >
+            <Text style={styles.quickActionIcon}>🗑️</Text>
+            <Text style={styles.quickActionText}>Elimina</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {!readOnly && (
+        <View style={styles.xlsxRow}>
+          <Pressable style={styles.xlsxBtn} onPress={handleExportTrainings}>
+            <Text style={styles.xlsxBtnText}>📤 Esporta Excel</Text>
+          </Pressable>
+          <Pressable style={styles.xlsxBtn} onPress={handleImportTrainings}>
+            <Text style={styles.xlsxBtnText}>📥 Importa Excel</Text>
+          </Pressable>
+        </View>
+      )}
 
       <ScrollView 
         style={styles.scrollContainer}

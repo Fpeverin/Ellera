@@ -3,6 +3,7 @@ import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../../context/AuthContext';
 import { CalendarEvent, loadEvents, saveEvents } from '../../../data/events';
 import { usePlayers } from '../../../hooks/usePlayers';
 
@@ -19,6 +20,8 @@ const PRESENCE_OPTIONS: { value: PresenceStatus; label: string; emoji: string; c
 export default function AllenamentoDettaglio() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const { membership } = useAuth();
+  const readOnly = membership?.role === 'giocatore';
   const { players } = usePlayers();
   const [event, setEvent] = useState<CalendarEvent | null>(null);
   const [presenze, setPresenze] = useState<Record<string, PresenceStatus>>({});
@@ -141,6 +144,7 @@ export default function AllenamentoDettaglio() {
         placeholder="Inserisci tema dell'allenamento..."
         multiline
         numberOfLines={3}
+        editable={!readOnly}
       />
 
       <Text style={styles.subtitle}>Presenze giocatori</Text>
@@ -153,9 +157,9 @@ export default function AllenamentoDettaglio() {
           const statusOption = PRESENCE_OPTIONS.find(opt => opt.value === currentStatus);
           
           return (
-            <Pressable 
-              style={styles.playerCard} 
-              onPress={() => setShowPlayerModal(item.id)}
+            <Pressable
+              style={styles.playerCard}
+              onPress={readOnly ? undefined : () => setShowPlayerModal(item.id)}
             >
               <View style={styles.playerInfo}>
                 <Text style={styles.playerName}>{item.name}</Text>

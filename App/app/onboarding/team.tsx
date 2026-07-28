@@ -9,10 +9,10 @@ type Mode = 'choose' | 'create' | 'join';
 
 export default function TeamOnboarding() {
   const router = useRouter();
-  const { createOrganization, joinOrganization, signOut } = useAuth();
+  const { createOrganization, redeemInvite, signOut } = useAuth();
   const [mode, setMode] = useState<Mode>('choose');
   const [teamName, setTeamName] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
+  const [personalCode, setPersonalCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -31,7 +31,7 @@ export default function TeamOnboarding() {
   const onJoin = async () => {
     setError(null);
     setBusy(true);
-    const { error } = await joinOrganization(inviteCode.trim());
+    const { error } = await redeemInvite(personalCode.trim());
     setBusy(false);
     if (error) {
       setError(error);
@@ -53,7 +53,7 @@ export default function TeamOnboarding() {
                 <Text style={styles.buttonText}>Crea una nuova squadra</Text>
               </Pressable>
               <Pressable style={[styles.button, styles.secondaryButton]} onPress={() => setMode('join')}>
-                <Text style={[styles.buttonText, styles.secondaryButtonText]}>Entra con un codice invito</Text>
+                <Text style={[styles.buttonText, styles.secondaryButtonText]}>Ho un codice personale</Text>
               </Pressable>
             </>
           )}
@@ -84,16 +84,16 @@ export default function TeamOnboarding() {
             <>
               <TextInput
                 style={styles.input}
-                placeholder="Codice invito"
+                placeholder="Codice personale"
                 autoCapitalize="none"
-                value={inviteCode}
-                onChangeText={setInviteCode}
+                value={personalCode}
+                onChangeText={setPersonalCode}
               />
               {error && <Text style={styles.error}>{error}</Text>}
               <Pressable
-                style={[styles.button, (busy || !inviteCode.trim()) && styles.buttonDisabled]}
+                style={[styles.button, (busy || !personalCode.trim()) && styles.buttonDisabled]}
                 onPress={onJoin}
-                disabled={busy || !inviteCode.trim()}
+                disabled={busy || !personalCode.trim()}
               >
                 <Text style={styles.buttonText}>{busy ? 'Ingresso…' : 'Entra nella squadra'}</Text>
               </Pressable>

@@ -53,16 +53,52 @@ progetto Expo: su [expo.dev](https://expo.dev) → progetto → tab **GitHub** �
 - Login/registrazione email+password (`app/login.tsx`, `app/register.tsx`), gestiti da
   `app/context/AuthContext.tsx`.
 - Dopo la registrazione, se non si ha ancora una squadra: `app/onboarding/team.tsx` propone di
-  **creare una nuova squadra** (si diventa admin) o **entrare in una esistente** con un invite code
-  condiviso dall'admin. Il gating (redirect a login/onboarding/app) è in `app/_layout.tsx`.
-- Multi-tenant: tabelle `organizations` (squadre) e `memberships` (utente↔squadra + ruolo admin/staff),
-  con Row Level Security — vedi `App/supabase/schema.sql`. Un utente vede solo i dati della propria
-  squadra.
+  **creare una nuova squadra** (si diventa admin) o **entrare con un codice personale** (vedi sezione
+  "Ruoli utente e inviti personali" più sotto). Il gating (redirect a login/onboarding/app) è in
+  `app/_layout.tsx`.
+- Multi-tenant: tabelle `organizations` (squadre) e `memberships` (utente↔squadra + ruolo
+  admin/staff/giocatore + `player_id` collegato se Giocatore), con Row Level Security — vedi
+  `App/supabase/schema.sql` + `App/supabase/schema_roles.sql`. Un utente vede solo i dati della
+  propria squadra.
 - `app/lib/currentOrg.ts` tiene traccia dell'org corrente per le funzioni di data-access (es.
   `saveEvents`), così non va passata a mano in ogni schermata.
 - **Import dati locali una tantum**: se un device ha ancora eventi salvati alla vecchia maniera
   (pre-Supabase) e la squadra su Supabase non ha ancora eventi, la Dashboard chiede esplicitamente se
   caricarli (`app/utils/importLocalEvents.ts`) — mai in automatico.
+- **Gestione staff** (`app/squadra/staff.tsx`, solo admin): vedi sezione "Gestione Squadra" più sotto.
+
+## Ruoli utente e inviti personali (2026-07-28)
+
+Tre ruoli, crescenti in permessi:
+- **Admin** (uno solo per squadra, chi l'ha creata): tutto quello che può fare Staff, più la gestione
+  dello Staff stesso.
+- **Staff** (poche persone): accesso in lettura/scrittura a tutte le sezioni (Rosa, Calendario,
+  Allenamenti, Partite, Live, Moduli, Tattiche, Statistiche, Archivio) tranne la gestione Staff.
+- **Giocatore**: sola lettura su Rosa/Calendario/Allenamenti/Partite/Live; in una partita Live può
+  **proporre** un gol o un cartellino (stessa modale di Staff, bottone "Proponi" invece di "Salva") —
+  la proposta resta `pending` finché Staff/Admin non la conferma o rifiuta da "Proposte in attesa".
+  Non vede Moduli/Tattiche/Statistiche/Archivio/Staff.
+
+**Niente codici invito condivisi**: ogni codice è personale e generato dall'admin per una persona
+precisa.
+- **Giocatore**: dalla scheda di un giocatore in Rosa (`app/player/[id].tsx`, solo admin) si genera un
+  codice legato a QUEL giocatore (`create_player_invite`) — chi lo riscatta si collega
+  automaticamente a quella riga di `players` (`memberships.player_id`). Un giocatore non può esistere
+  come ruolo "Giocatore" senza essere collegato a una riga reale della rosa.
+- **Staff**: da `app/squadra/staff.tsx` (bottone "+ Invita membro staff") si genera un codice dando
+  solo un nome libero (`create_staff_invite`) — la persona non è ancora un utente registrato in quel
+  momento.
+- Chi riceve un codice si registra e lo inserisce nella schermata "Ho un codice personale"
+  dell'onboarding (`redeem_invite`, sostituisce il vecchio `join_organization` a codice condiviso,
+  ancora presente in `schema.sql` ma non più chiamato dal client).
+- `app/squadra/staff.tsx` mostra anche gli **inviti in attesa** (non ancora riscattati) con
+  Condividi/Revoca, e per i membri Giocatore già collegati il nome del giocatore in rosa.
+- Schema: `App/supabase/schema_roles.sql` — tabella `invites` (nessuna policy RLS diretta, solo
+  funzioni `security definer`: `create_player_invite`, `create_staff_invite`, `list_pending_invites`,
+  `revoke_invite`, `redeem_invite`), helper `is_staff_or_admin_of`, e lo split
+  lettura(chiunque)/scrittura(Staff/Admin) delle policy RLS su tutte le tabelle dati esistenti.
+- Tabella `match_event_proposals` (gol/cartellino proposti da un Giocatore in una Live) — vedi
+  `app/data/proposals.ts`, usata in `app/eventi/partita/[id]/live.tsx`.
 
 ## Modello dati (tutto su Supabase, scoping automatico per `org_id` via Row Level Security)
 
@@ -75,6 +111,8 @@ progetto Expo: su [expo.dev](https://expo.dev) → progetto → tab **GitHub** �
 | `tactics` + bucket Storage `tactic-previews` | Tattiche/schemi salvati dalla lavagna tattica, con preview immagine su Storage — vedi [tactics.ts](app/data/tactics.ts) |
 | `match_live` | Una riga per partita: gol, sostituzioni, cartellini, formazione/posizioni live, timer persistente, tattiche assegnate — vedi [matchLive.ts](app/data/matchLive.ts) |
 | `season_archives` | Archivio stagioni: un `data` jsonb con l'intero snapshot (`SeasonArchive` — vedi [archive.ts](app/data/archive.ts) / [archiveBuilder.ts](app/utils/archiveBuilder.ts)) |
+| `invites` | Codici di accesso personali (Giocatore collegato a un `player_id`, o Staff con un nome libero), riscattabili una sola volta — vedi [invites.ts](app/data/invites.ts) |
+| `match_event_proposals` | Gol/cartellini proposti da un Giocatore in una partita Live, in attesa di conferma/rifiuto da Staff/Admin — vedi [proposals.ts](app/data/proposals.ts) |
 
 ## Funzionalità attive per area
 
@@ -117,6 +155,10 @@ progetto Expo: su [expo.dev](https://expo.dev) → progetto → tab **GitHub** �
   - Registrazione **gol**, **sostituzioni**, **cartellini** (giallo/rosso, con rosso automatico al secondo giallo), sempre modificabili anche a partita finita.
   - Espulsioni marcate sul giocatore in campo.
   - Inserimento manuale di eventi passati.
+  - **Ruolo Giocatore**: sola lettura sulla cronologia; il bottone GOL/CARTELLINO apre la stessa
+    modale ma il bottone finale è "Proponi" invece di "Salva" — crea una proposta `pending` in
+    `match_event_proposals`. Staff/Admin vedono una sezione "Proposte in attesa" con Conferma (la
+    accoda a gol/cartellini reali) o Rifiuta.
 
 ### Gestione Squadra (`app/squadra/*`)
 - **Panoramica**: conteggi per ruolo ed età media squadra.
@@ -134,6 +176,14 @@ progetto Expo: su [expo.dev](https://expo.dev) → progetto → tab **GitHub** �
 - **Archivio stagioni** (`archivio.tsx` + `archivio/[id]/*`): congela i dati della stagione corrente
   (partite, allenamenti, giocatori con statistiche) in uno storico consultabile per stagioni passate,
   cancellabile singolarmente.
+- **Staff** (`staff.tsx`, card visibile solo se `membership.role === 'admin'`): elenco inviti in attesa
+  (Condividi/Revoca) e membri attivi con email/ruolo (per i Giocatori anche il nome collegato in
+  rosa); l'admin può cambiare il ruolo (Admin/Staff/Giocatore) o rimuovere chiunque tranne se stesso, e
+  invitare un nuovo membro Staff dando solo un nome.
+
+Per il ruolo **Giocatore**: solo la card Rosa è visibile in questa sezione (sola lettura); Moduli,
+Tattiche, Statistiche, Archivio e Staff non compaiono e le relative schermate mostrano un messaggio
+se raggiunte con un link diretto.
 
 ### Scheda giocatore (`app/player/[id].tsx`)
 - Tab: **Partite** (presenze/statistiche), **Allenamenti** (presenze), **Infortuni** (storico status),
@@ -254,3 +304,14 @@ eseguire una volta ciascuno dopo quelli delle fasi precedenti.
 - Nuova dipendenza `xlsx` (SheetJS, pura JS, nessun codice nativo — non serve una build nuova).
 - `usePlayers()` ha ora anche `refresh()` nell'interfaccia pubblica, per ricaricare dopo modifiche
   fatte fuori dall'hook stesso (es. l'import massivo).
+
+## Gestione staff (2026-07-28)
+
+- Schema aggiuntivo `App/supabase/schema_staff.sql`: `list_org_members` (SECURITY DEFINER, unico modo
+  per leggere le email dei membri dato che il client non può interrogare `auth.users` direttamente),
+  `update_member_role`, `remove_member` (entrambe rifiutano `p_user_id = auth.uid()`: non ci si può
+  toccare da soli — evita sia il rischio di restare senza admin sia la necessità di contarli),
+  `regenerate_invite_code`.
+- Nuovo modulo `app/data/staff.ts` e schermata `app/squadra/staff.tsx`, agganciata in
+  `app/squadra/_layout.tsx` e con una card dedicata (solo admin) in `app/squadra/index.tsx`.
+- Condivisione del codice invito via `Share` di React Native (già incluso, nessuna nuova dipendenza).

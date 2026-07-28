@@ -11,13 +11,16 @@ import {
   Image,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
   View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../context/AuthContext';
 import { CalendarEvent, loadEvents } from '../data/events';
+import { createPlayerInvite, loadPlayerInviteStatus } from '../data/invites';
 import {
   loadCards as loadCardsRemote,
   loadGoals as loadGoalsRemote,
@@ -100,8 +103,46 @@ export default function PlayerDetail() {
   const { allPlayers } = usePlayers();
   const base = allPlayers.find(p => p.id === id) as Player | undefined;
   const playerName = base?.name || '';
+  const { membership } = useAuth();
+  const isAdmin = membership?.role === 'admin';
+  const readOnly = membership?.role === 'giocatore';
 
   const [tab, setTab] = useState<TabKey>('PARTITE');
+
+  // Codice di accesso (solo admin): collega questo giocatore a un account.
+  const [inviteStatus, setInviteStatus] = useState<{ pendingCode: string | null; claimedEmail: string | null } | null>(null);
+  const [inviteBusy, setInviteBusy] = useState(false);
+
+  const loadInviteStatus = async () => {
+    if (!isAdmin || !membership?.orgId || !id) return;
+    try {
+      setInviteStatus(await loadPlayerInviteStatus(membership.orgId, id));
+    } catch {}
+  };
+
+  useEffect(() => { loadInviteStatus(); }, [isAdmin, membership?.orgId, id]);
+
+  const handleGenerateInvite = async () => {
+    if (!membership?.orgId || !id) return;
+    setInviteBusy(true);
+    try {
+      const code = await createPlayerInvite(membership.orgId, id);
+      setInviteStatus({ pendingCode: code, claimedEmail: null });
+    } catch (e) {
+      Alert.alert('Errore', 'Impossibile generare il codice.');
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
+  const handleShareInvite = async () => {
+    if (!inviteStatus?.pendingCode) return;
+    try {
+      await Share.share({
+        message: `Codice personale per collegarti come "${playerName}" su ElleraApp: ${inviteStatus.pendingCode}`,
+      });
+    } catch {}
+  };
 
   const [photo, setPhoto] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<PlayerAttachment[]>([]);
@@ -441,11 +482,13 @@ export default function PlayerDetail() {
           {'weight' in base && base.weight ? (<SmallStatCard title="Peso" value={`${base.weight}kg`} icon="⚖️" color="#7c3aed" />) : null}
         </View>
 
-        <View style={styles.headerActions}>
-          <Pressable style={styles.actionBtn} onPress={pickPhoto}>
-            <Text style={styles.actionText}>{photo ? 'Cambia foto' : 'Aggiungi foto'}</Text>
-          </Pressable>
-        </View>
+        {!readOnly && (
+          <View style={styles.headerActions}>
+            <Pressable style={styles.actionBtn} onPress={pickPhoto}>
+              <Text style={styles.actionText}>{photo ? 'Cambia foto' : 'Aggiungi foto'}</Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* TAB */}
         <View style={styles.tabContainer}>
@@ -468,6 +511,31 @@ export default function PlayerDetail() {
 
       {/* CONTENUTO SCROLLABILE SOTTO L’HEADER */}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 248 + insets.top, paddingBottom: 24 }}>
+        {/* ====== ACCESSO ALL'APP (solo admin) ====== */}
+        {isAdmin && (
+          <View style={[styles.tabContent, { paddingBottom: 0 }]}>
+            <View style={styles.inviteCard}>
+              {inviteStatus?.claimedEmail ? (
+                <Text style={styles.inviteText}>
+                  ✅ Collegato all'account <Text style={{ fontWeight: '800' }}>{inviteStatus.claimedEmail}</Text>
+                </Text>
+              ) : inviteStatus?.pendingCode ? (
+                <>
+                  <Text style={styles.inviteText}>Codice di accesso per {playerName}:</Text>
+                  <Text style={styles.inviteCode}>{inviteStatus.pendingCode}</Text>
+                  <Pressable style={styles.actionBtn} onPress={handleShareInvite}>
+                    <Text style={styles.actionText}>Condividi</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <Pressable style={styles.actionBtn} onPress={handleGenerateInvite} disabled={inviteBusy}>
+                  <Text style={styles.actionText}>{inviteBusy ? 'Generazione…' : 'Genera codice di accesso'}</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* ====== PARTITE ====== */}
         {tab === 'PARTITE' && (
           <View style={styles.tabContent}>
@@ -633,11 +701,13 @@ export default function PlayerDetail() {
                       </View>
                       <Text style={styles.injuryDate}>📅 {rec.from} → {rec.to}</Text>
                       <Text style={styles.injuryNote}>Striscia: {comp}</Text>
-                      <View style={{ marginTop: 10 }}>
-                        <Text style={styles.formLabel}>Tipologia (libera)</Text>
-                        <TextInput value={currentType} onChangeText={(txt) => setInjuryType(rec.key, txt)} placeholder="Es. Distrazione flessore, distorsione caviglia" style={styles.formInput} />
-                        <Text style={styles.hintText}>Questo testo è solo descrittivo e viene salvato per questa striscia ({rec.from} → {rec.to}).</Text>
-                      </View>
+                      {!readOnly && (
+                        <View style={{ marginTop: 10 }}>
+                          <Text style={styles.formLabel}>Tipologia (libera)</Text>
+                          <TextInput value={currentType} onChangeText={(txt) => setInjuryType(rec.key, txt)} placeholder="Es. Distrazione flessore, distorsione caviglia" style={styles.formInput} />
+                          <Text style={styles.hintText}>Questo testo è solo descrittivo e viene salvato per questa striscia ({rec.from} → {rec.to}).</Text>
+                        </View>
+                      )}
                     </View>
                   );
                 })}
@@ -651,7 +721,9 @@ export default function PlayerDetail() {
           <View style={styles.tabContent}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>📎 Allegati</Text>
-              <Pressable style={styles.addButton} onPress={addAttachment}><Text style={styles.addButtonText}>+ Aggiungi</Text></Pressable>
+              {!readOnly && (
+                <Pressable style={styles.addButton} onPress={addAttachment}><Text style={styles.addButtonText}>+ Aggiungi</Text></Pressable>
+              )}
             </View>
             {attachments.length === 0 ? (
               <View style={styles.emptyState}>
@@ -668,7 +740,11 @@ export default function PlayerDetail() {
                       <Text style={styles.attachmentName} numberOfLines={1}>{item.name}</Text>
                       <Text style={styles.attachmentPath} numberOfLines={1}>{item.uri}</Text>
                     </View>
-                    <Pressable style={styles.removeAttachmentBtn} onPress={() => removeAttachment(item)}>
+                    <Pressable
+                      style={[styles.removeAttachmentBtn, readOnly && { opacity: 0 }]}
+                      onPress={() => removeAttachment(item)}
+                      disabled={readOnly}
+                    >
                       <Text style={styles.removeAttachmentText}>🗑️</Text>
                     </Pressable>
                   </Pressable>
@@ -823,6 +899,12 @@ const styles = StyleSheet.create({
   headerActions: { marginTop: 10, flexDirection: 'row', gap: 8 },
   actionBtn: { backgroundColor: '#1b7f3b', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
   actionText: { color: 'white', fontWeight: '800' },
+  inviteCard: {
+    backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 4,
+    borderWidth: 1, borderColor: '#e5e7eb', gap: 8, alignItems: 'flex-start',
+  },
+  inviteText: { fontSize: 14, color: '#374151' },
+  inviteCode: { fontSize: 24, fontWeight: '900', letterSpacing: 2, color: '#1b7f3b' },
 
   emptyState: { alignItems: 'center', paddingVertical: 20 },
   emptyIcon: { fontSize: 26 },

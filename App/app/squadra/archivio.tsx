@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../context/AuthContext';
 import { SeasonArchive } from '../data/archive';
 import { usePlayers } from '../hooks/usePlayers';
 import {
@@ -24,6 +25,7 @@ import {
 
 export default function Archivio() {
   const router = useRouter();
+  const { membership } = useAuth();
   const { allPlayers } = usePlayers();
   const [archives, setArchives] = useState<SeasonArchive[]>([]);
   const [loadingList, setLoadingList] = useState(true);
@@ -96,6 +98,14 @@ export default function Archivio() {
       return new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
     } catch { return iso; }
   };
+
+  if (membership?.role === 'giocatore') {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <Text style={{ color: '#64748b', textAlign: 'center' }}>Non disponibile per il tuo ruolo.</Text>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

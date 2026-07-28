@@ -4,7 +4,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { setCurrentOrgId } from '../lib/currentOrg';
 import { supabase } from '../lib/supabase';
 
-export type Membership = { orgId: string; orgName: string; role: 'admin' | 'staff' };
+export type Membership = {
+  orgId: string;
+  orgName: string;
+  role: 'admin' | 'staff' | 'giocatore';
+  playerId: string | null;
+};
 
 type AuthResult = { error: string | null };
 type SignUpResult = AuthResult & { needsEmailConfirmation: boolean };
@@ -17,7 +22,7 @@ type AuthCtx = {
   signUp: (email: string, password: string) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
   createOrganization: (name: string) => Promise<AuthResult>;
-  joinOrganization: (inviteCode: string) => Promise<AuthResult>;
+  redeemInvite: (code: string) => Promise<AuthResult>;
 };
 
 const AuthContext = createContext<AuthCtx | null>(null);
@@ -34,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const { data, error } = await supabase
       .from('memberships')
-      .select('org_id, role, organizations(name)')
+      .select('org_id, role, player_id, organizations(name)')
       .eq('user_id', userId)
       .limit(1)
       .maybeSingle();
@@ -45,7 +50,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     const orgName = (data.organizations as unknown as { name: string } | null)?.name ?? '';
-    setMembership({ orgId: data.org_id, role: data.role as 'admin' | 'staff', orgName });
+    setMembership({
+      orgId: data.org_id,
+      role: data.role as 'admin' | 'staff' | 'giocatore',
+      playerId: data.player_id,
+      orgName,
+    });
     setCurrentOrgId(data.org_id);
   }, []);
 
@@ -91,14 +101,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   };
 
-  const joinOrganization = async (inviteCode: string): Promise<AuthResult> => {
-    const { error } = await supabase.rpc('join_organization', { p_invite_code: inviteCode });
+  const redeemInvite = async (code: string): Promise<AuthResult> => {
+    const { error } = await supabase.rpc('redeem_invite', { p_code: code });
     if (!error) await loadMembership(session?.user?.id);
     return { error: error?.message ?? null };
   };
 
   const value = useMemo<AuthCtx>(
-    () => ({ session, membership, loading, signIn, signUp, signOut, createOrganization, joinOrganization }),
+    () => ({ session, membership, loading, signIn, signUp, signOut, createOrganization, redeemInvite }),
     [session, membership, loading]
   );
 

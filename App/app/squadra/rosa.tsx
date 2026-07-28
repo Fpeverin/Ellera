@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AddPlayerModal from '../components/AddPlayerModal';
+import { useAuth } from '../context/AuthContext';
 import RosterImportReviewModal from '../components/RosterImportReviewModal';
 import { Player } from '../data/players';
 import { loadPhotoMap } from '../data/playerMedia';
@@ -98,6 +99,8 @@ function MiniStat({
 }
 
 export default function Rosa() {
+  const { membership } = useAuth();
+  const readOnly = membership?.role === 'giocatore';
   const { players, exPlayers, addPlayer, moveToEx, removePlayer, refresh } = usePlayers();
   const [photoMap, setPhotoMap] = React.useState<Record<string, string | null>>({});
   const [search, setSearch] = React.useState('');
@@ -232,7 +235,7 @@ export default function Rosa() {
       <Pressable
         style={styles.playerCard}
         onPress={() => {}}
-        onLongPress={() => handleLongPress(item)}
+        onLongPress={readOnly ? undefined : () => handleLongPress(item)}
         delayLongPress={500}
       >
         <Link href={{ pathname: '/player/[id]', params: { id: item.id } }} asChild>
@@ -273,19 +276,23 @@ export default function Rosa() {
         <View style={styles.miniStatsRow}>
           <MiniStat icon="👥" label="Giocatori" value={filteredPlayers.length} />
           <MiniStat icon="📊" label="Età media" value={averageAge ? `${averageAge}` : '—'} />
-          <Pressable style={styles.addBtn} onPress={() => setShowAddModal(true)}>
-            <Text style={styles.addBtnText}>+ Aggiungi</Text>
-          </Pressable>
+          {!readOnly && (
+            <Pressable style={styles.addBtn} onPress={() => setShowAddModal(true)}>
+              <Text style={styles.addBtnText}>+ Aggiungi</Text>
+            </Pressable>
+          )}
         </View>
 
-        <View style={styles.xlsxRow}>
-          <Pressable style={styles.xlsxBtn} onPress={handleExportRoster}>
-            <Text style={styles.xlsxBtnText}>📤 Esporta Excel</Text>
-          </Pressable>
-          <Pressable style={styles.xlsxBtn} onPress={handleImportRoster}>
-            <Text style={styles.xlsxBtnText}>📥 Importa Excel</Text>
-          </Pressable>
-        </View>
+        {!readOnly && (
+          <View style={styles.xlsxRow}>
+            <Pressable style={styles.xlsxBtn} onPress={handleExportRoster}>
+              <Text style={styles.xlsxBtnText}>📤 Esporta Excel</Text>
+            </Pressable>
+            <Pressable style={styles.xlsxBtn} onPress={handleImportRoster}>
+              <Text style={styles.xlsxBtnText}>📥 Importa Excel</Text>
+            </Pressable>
+          </View>
+        )}
 
         <TextInput
           placeholder="🔍 Cerca giocatore…"

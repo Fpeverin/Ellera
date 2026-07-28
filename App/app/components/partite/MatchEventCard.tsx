@@ -11,7 +11,7 @@ type MatchEvent = CalendarEvent & {
 interface MatchEventCardProps {
   item: MatchEvent;
   onPress: (item: MatchEvent) => void;
-  onDelete: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 export default function MatchEventCard({ item, onPress, onDelete }: MatchEventCardProps) {
@@ -30,9 +30,11 @@ export default function MatchEventCard({ item, onPress, onDelete }: MatchEventCa
           {item.date || '—'} · {item.time || '--:--'} · {item.location || '—'}
         </Text>
       </Pressable>
-      <Pressable style={styles.trashBtn} onPress={() => onDelete(item.id)}>
-        <Text style={{ fontSize: 18 }}>🗑️</Text>
-      </Pressable>
+      {onDelete && (
+        <Pressable style={styles.trashBtn} onPress={() => onDelete(item.id)}>
+          <Text style={{ fontSize: 18 }}>🗑️</Text>
+        </Pressable>
+      )}
     </View>
   );
 }

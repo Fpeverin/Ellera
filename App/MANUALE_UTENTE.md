@@ -1,0 +1,230 @@
+# ElleraApp — Manuale utente
+
+Guida pratica a tutte le sezioni dell'app, pensata per chi la usa tutti i giorni (non serve
+nessuna conoscenza tecnica). Per la documentazione tecnica/di sviluppo vedi [CLAUDE.md](CLAUDE.md);
+per le idee future e la cronologia di cosa è stato fatto vedi [PIANO_LAVORO.md](PIANO_LAVORO.md).
+
+## Indice
+
+1. [Primo accesso: account e squadra](#1-primo-accesso-account-e-squadra)
+2. [Dashboard (Home)](#2-dashboard-home)
+3. [Calendario](#3-calendario)
+4. [Allenamenti](#4-allenamenti)
+5. [Partite](#5-partite)
+6. [Gestione Squadra](#6-gestione-squadra)
+7. [Scheda giocatore](#7-scheda-giocatore)
+8. [Ruoli utente e permessi](#8-ruoli-utente-e-permessi)
+9. [Domande frequenti](#9-domande-frequenti)
+
+---
+
+## 1. Primo accesso: account e squadra
+
+L'app richiede un account: i dati non sono più legati al singolo telefono/tablet, ma alla squadra,
+e si vedono identici da qualunque dispositivo su cui si accede con lo stesso account (o un account
+diverso collegato alla stessa squadra).
+
+- **Registrazione**: email + password (almeno 6 caratteri). Se richiesta la conferma email, arriva
+  un link da aprire prima di poter accedere.
+- **Login**: email + password, sempre disponibile dalla stessa schermata (link "Hai già un account?
+  Accedi").
+- **Prima squadra**: al primo accesso, se non si è ancora in nessuna squadra, l'app chiede di:
+  - **Creare una nuova squadra** (basta dare un nome, es. "Ellera") → chi la crea diventa
+    automaticamente **Admin**.
+  - **Entrare in una squadra esistente** con un **codice invito** condiviso dall'admin (via
+    "Staff", vedi [sezione 6](#staff-solo-admin)) → si entra come **Staff**.
+
+## 2. Dashboard (Home)
+
+La prima schermata che si vede aprendo l'app.
+
+- **Calendario mensile**: un pallino/etichetta colorata per ogni evento del giorno (rosso = partita,
+  verde = allenamento); toccando un giorno si apre subito la creazione di un nuovo evento in quella
+  data.
+- **Prossimi eventi**: lista degli eventi futuri più vicini (partite e allenamenti), toccabili per
+  aprirli direttamente. Su schermi piccoli questa lista si nasconde per non affollare la schermata.
+- **Icone 📤 / 📥** accanto al titolo "Calendario": servono solo per esportare/importare eventuali
+  impostazioni minori rimaste sul singolo dispositivo (non i dati veri della squadra, che ormai
+  vivono tutti nel database condiviso — vedi [sezione 9](#9-domande-frequenti) sul backup).
+- **Azioni rapide**: scorciatoie dirette ad Allenamenti, Partite, Gestione Squadra.
+- **Avviso "Dati trovati su questo dispositivo"**: compare *una sola volta*, solo se il dispositivo
+  ha ancora eventi salvati alla vecchia maniera (prima dell'account condiviso) e la squadra su cui si
+  è appena entrati non ha ancora eventi propri. Chiede esplicitamente se caricarli — utile solo in
+  fase di primo popolamento, va sempre confermato consapevolmente (mai automatico, per non rischiare
+  di caricare dati di prova al posto di quelli buoni).
+
+## 3. Calendario
+
+Vista a elenco di **tutti** gli eventi (partite + allenamenti insieme), ordinati per data e ora.
+Bottone **"+ Nuovo"** per aggiungere un evento; toccando una riga si apre il dettaglio (allenamento o
+partita a seconda del tipo).
+
+## 4. Allenamenti
+
+- **Statistiche rapide** in cima: totale allenamenti, quanti nel mese corrente, quanti ancora da
+  fare.
+- **Nuovo allenamento singolo**: data, ora, luogo.
+- **"Settimana ideale"**: si sceglie un periodo (data inizio/fine) e i giorni della settimana
+  ricorrenti con il relativo orario (es. Lunedì e Mercoledì alle 18:30) → l'app crea in blocco tutti
+  gli allenamenti in quel periodo, saltando automaticamente eventuali doppioni già presenti nella
+  stessa data/ora.
+- **Sezioni Oggi / Prossimi / Passati**, con eliminazione singola o totale (sempre richiesta
+  conferma).
+- **Esporta/Importa Excel**: esporta tutti gli allenamenti in un file XLSX; l'import riconosce
+  l'allenamento esistente per **data+ora** e aggiorna solo luogo/tema — non tocca mai le presenze già
+  segnate.
+- **Dettaglio allenamento** (toccando una riga): per ogni giocatore si segna lo stato di presenza —
+  ✅ Presente, ❌ Assente, 🏥 Infortunato, ⚡ Differenziato — e si può scrivere un tema/nota per la
+  seduta. Tutto si salva subito, non serve un bottone "salva".
+
+## 5. Partite
+
+- **Creazione**: partita singola, oppure "per competizione/girone" (inserendo tutte le giornate di
+  un torneo in un colpo solo). Filtro in alto per vedere solo le partite di una competizione.
+- **Eliminazione**: singola partita, tutte quelle di una competizione, o tutte — sempre con conferma
+  dedicata.
+- **Esporta/Importa Excel per competizione** (visibile solo quando è selezionata una competizione
+  specifica, non "Tutte"): riconosce la partita esistente per **avversario + casa/trasferta**
+  (l'avversario di solito non cambia, cambiano data/ora/luogo) — l'import aggiorna solo quei campi,
+  **mai** punteggio/formazione/cartellini/eventi già registrati di una partita già giocata.
+- Toccando una partita si entra nella sua gestione, con tre sotto-sezioni:
+
+  ### Formazione
+  Scelta del **modulo** (es. 3-4-2-1, anche moduli personalizzati creati in "Gestione Squadra"),
+  **convocati** (fino a 20 giocatori), disposizione di titolari e panchina trascinando le maglie sul
+  campo, assegnazione del numero di maglia a ciascuno.
+
+  ### Tattiche (di partita)
+  Lavagna tattica dedicata a questa singola partita: si possono assegnare schemi/tattiche già salvati
+  (vedi [Tattiche](#tattiche) in Gestione Squadra) ai giocatori convocati per quella gara.
+
+  ### Live
+  La schermata da usare durante la partita:
+  - **Timer di gioco** con le fasi Pre-partita → 1° tempo → intervallo → 2° tempo → fine; il timer
+    continua a scorrere anche se si mette l'app in background o si chiude per sbaglio.
+  - Registrazione di **gol**, **sostituzioni**, **cartellini** (giallo/rosso — un secondo giallo
+    genera automaticamente il rosso), sempre modificabili anche a partita già finita.
+  - Le espulsioni restano segnalate sul giocatore in campo.
+  - Un bottone dedicato permette di **inserire manualmente un evento passato** (utile se qualcosa non
+    è stato segnato al momento giusto), sempre disponibile anche a fine partita.
+  - Chi ha ruolo **Giocatore** vede la cronologia in sola lettura ma può **proporre** un gol o un
+    cartellino con lo stesso bottone GOL/CARTELLINO (qui diventa "Proponi"); la proposta compare allo
+    Staff/Admin in "Proposte in attesa" da confermare o rifiutare.
+
+## 6. Gestione Squadra
+
+Sezione con tutte le funzioni "di amministrazione" della rosa e degli strumenti tattici.
+
+### Panoramica
+Conteggi automatici: numero giocatori totali, età media, quanti per ruolo (portieri, difensori,
+centrocampisti, attaccanti).
+
+### Rosa
+- Elenco giocatori raggruppato per ruolo, con foto profilo ed età (calcolata dalla data di nascita se
+  inserita).
+- Aggiunta nuovo giocatore, modifica dati, spostamento a "ex giocatori" (restano nello storico ma non
+  contano più nella rosa attiva) — ogni giocatore è modificabile/cancellabile allo stesso modo, non
+  esiste più distinzione tra giocatori "di base" e aggiunti a mano.
+- **Esporta/Importa Excel**: esporta tutta la rosa (attivi + ex) con nome, ruolo, anno, altezza, peso,
+  stato. L'import riconosce lo stesso giocatore **per nome**: aggiunge chi è nuovo e aggiorna i campi
+  cambiati (incluso lo stato attivo/ex letto dal file). Se un giocatore attivo manca dal file
+  importato, **non viene mai toccato in automatico** — prima di applicare l'import viene mostrata una
+  schermata di riepilogo dove si sceglie, uno per uno, chi eventualmente spostare tra gli ex.
+
+### Moduli
+- Moduli predefiniti (es. 3-1-4-2, 3-4-2-1...) in sola lettura, sempre disponibili.
+- Moduli personalizzati: si creano ed editano con un editor a trascinamento delle posizioni in campo
+  ("+ Nuovo" nell'elenco moduli).
+
+### Tattiche
+Editor della lavagna tattica generale (maglie squadra/avversari + pallone, tutto trascinabile),
+con possibilità di salvare uno schema (comparirà con un'anteprima immagine nell'elenco) e
+riutilizzarlo poi nella tattica di una singola partita.
+
+### Statistiche
+Dati stagionali aggregati per giocatore (minuti giocati, gol, cartellini, presenze
+partite/allenamenti...), con filtro per competizione. Bottone per **esportare un PDF** pronto da
+condividere/stampare.
+
+### Archivio stagioni
+A fine stagione, "Archivia stagione corrente": si dà un'etichetta (es. "2025/2026") e l'app
+congela in uno storico tutti i dati della stagione (partite, allenamenti, statistiche giocatori),
+poi ripulisce i dati correnti per iniziare la stagione successiva da zero. Gli archivi passati
+restano sempre consultabili (e cancellabili singolarmente se serve) da questa stessa sezione.
+
+### Staff (solo Admin)
+Visibile solo a chi ha ruolo Admin. Qui si gestisce chi fa parte della squadra sull'app:
+- **"+ Invita membro staff"**: basta un nome per generare subito un codice personale da condividere
+  (bottone "Condividi", usa la condivisione nativa del telefono).
+- **Inviti in attesa**: elenco dei codici generati (per Staff da qui, per Giocatori dalla loro scheda
+  in Rosa) e non ancora usati, con Condividi di nuovo o Revoca.
+- **Membri della squadra**: email e ruolo di ognuno (per i Giocatori anche il nome collegato in
+  rosa). L'admin può cambiare il ruolo (Admin/Staff/Giocatore) o rimuovere chiunque — **tranne se
+  stesso**, per evitare sia il rischio di restare senza admin sia quello di auto-escludersi per
+  errore.
+
+## 7. Scheda giocatore
+
+Si apre toccando un giocatore da Rosa o da altre schermate. Quattro schede:
+- **Partite**: presenze e statistiche (minuti, gol, cartellini) partita per partita.
+- **Allenamenti**: storico presenze agli allenamenti.
+- **Infortuni**: storico dei periodi segnati come infortunato/differenziato.
+- **Allegati**: documenti caricati (referti, certificati...), apribili dall'app.
+
+Da qui si gestiscono anche **foto profilo** (da galleria o fotocamera) e **link esterni** (si aprono
+nel browser integrato dell'app, senza uscire da ElleraApp).
+
+Solo per l'Admin, in cima alla scheda: se il giocatore non ha ancora un account collegato, un
+bottone "Genera codice di accesso" (vedi [sezione 8](#8-ruoli-utente-e-permessi)); se è già
+collegato, mostra l'email dell'account.
+
+## 8. Ruoli utente e permessi
+
+Tre ruoli:
+- **Admin** (uno per squadra, chi l'ha creata): tutto quello che può fare Staff, più la gestione dello
+  Staff (generare inviti, cambiare ruoli, rimuovere membri).
+- **Staff** (poche persone): accesso completo a tutte le altre sezioni (Rosa, Calendario, Allenamenti,
+  Partite, Live, Moduli, Tattiche, Statistiche, Archivio).
+- **Giocatore**: vede in sola lettura Rosa, Calendario/Allenamenti/Partite e la Live di una partita.
+  Durante una Live può **proporre** un gol o un cartellino (stesso bottone GOL/CARTELLINO di sempre,
+  ma con "Proponi" al posto di "Salva") — la proposta resta in attesa finché uno dello Staff non la
+  conferma o la rifiuta da "Proposte in attesa". Non vede Moduli, Tattiche, Statistiche, Archivio né
+  la gestione Staff.
+
+### Come si entra in squadra: codici personali
+
+Non esistono più codici invito "generici" condivisi da tutta la squadra. Ogni codice è **personale**,
+generato dall'admin per una persona precisa:
+
+- **Per un Giocatore**: dalla scheda di quel giocatore in Rosa (visibile solo all'admin) c'è un
+  bottone "Genera codice di accesso" → mostra un codice da condividere (WhatsApp, messaggi...) con
+  quella persona esatta. Quando lo usa in fase di registrazione, il suo account resta collegato per
+  sempre a quel giocatore della rosa — non è possibile "entrare come Giocatore" senza essere legati a
+  un giocatore reale già presente in rosa.
+- **Per un membro dello Staff**: da Gestione Squadra → Staff → "+ Invita membro staff", basta dare un
+  nome per riconoscerlo (es. "Marco - allenatore in seconda") e si ottiene subito un codice da
+  condividere con lui.
+- Chi riceve un codice si registra normalmente nell'app (email + password) e poi, invece di "Crea una
+  nuova squadra", sceglie **"Ho un codice personale"** e lo inserisce: entra direttamente con il ruolo
+  giusto, senza altri passaggi.
+- In Gestione Squadra → Staff, l'admin vede anche l'elenco dei codici generati ma non ancora usati
+  ("Inviti in attesa"), con la possibilità di condividerli di nuovo o revocarli se non servono più.
+
+## 9. Domande frequenti
+
+**Se cambio dispositivo, perdo i dati?**
+No: tutto (calendario, rosa, foto, tattiche, statistiche, archivio) vive su un database condiviso
+(Supabase), non sul telefono. Basta accedere con lo stesso account (o un account collegato alla
+stessa squadra) da qualunque dispositivo per vedere sempre gli stessi dati aggiornati.
+
+**Come faccio un backup?**
+Non serve farlo manualmente: i dati sono già al sicuro sul database condiviso. Le icone 📤/📥 in
+Dashboard servono solo per le poche impostazioni rimaste sul singolo dispositivo, non per i dati
+della squadra.
+
+**Chi può vedere i dati della mia squadra?**
+Solo chi è stato invitato (con il codice invito) o ha creato la squadra — ogni squadra vede
+esclusivamente i propri dati, mai quelli di altre squadre eventualmente registrate sulla stessa app.
+
+**Ho sbagliato a condividere il codice invito, qualcuno di indesiderato potrebbe entrare?**
+Vai su Gestione Squadra → Staff → "Rigenera": il codice vecchio smette immediatamente di funzionare.

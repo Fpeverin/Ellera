@@ -4,9 +4,12 @@ import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EventEditorModal from './components/EventEditorModal';
+import { useAuth } from './context/AuthContext';
 import { CalendarEvent, loadEvents } from './data/events';
 
 export default function Calendario() {
+  const { membership } = useAuth();
+  const readOnly = membership?.role === 'giocatore';
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [showModal, setShowModal] = useState(false);
   const router = useRouter();
@@ -24,9 +27,11 @@ export default function Calendario() {
       {/* Top bar coerente con le altre pagine */}
       <View style={styles.topBar}>
         <Text style={styles.title}>Calendario</Text>
-        <Pressable style={styles.createBtn} onPress={() => setShowModal(true)}>
-          <Text style={styles.createBtnText}>＋ Nuovo</Text>
-        </Pressable>
+        {!readOnly && (
+          <Pressable style={styles.createBtn} onPress={() => setShowModal(true)}>
+            <Text style={styles.createBtnText}>＋ Nuovo</Text>
+          </Pressable>
+        )}
       </View>
 
       <FlatList

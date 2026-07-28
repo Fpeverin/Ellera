@@ -3,6 +3,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../../context/AuthContext';
 import { CalendarEvent, loadEvents, saveEvents } from '../../../data/events';
 import {
   loadLineup as loadLineupRemote,
@@ -70,6 +71,8 @@ function RedShirt({ number }: { number?: number }) {
 export default function TattichePartita() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { membership } = useAuth();
+  const readOnly = membership?.role === 'giocatore';
   const { allPlayers } = usePlayers();
 
   const [event, setEvent] = useState<CalendarEvent | null>(null);
@@ -264,9 +267,11 @@ export default function TattichePartita() {
         <View style={styles.topBar}>
           <Text style={styles.title}>Tattiche partita</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Pressable style={[styles.btn, { backgroundColor: '#1b7f3b' }]} onPress={() => setModalOpen(true)}>
-              <Text style={styles.btnText}>+ Aggiungi</Text>
-            </Pressable>
+            {!readOnly && (
+              <Pressable style={[styles.btn, { backgroundColor: '#1b7f3b' }]} onPress={() => setModalOpen(true)}>
+                <Text style={styles.btnText}>+ Aggiungi</Text>
+              </Pressable>
+            )}
             <Pressable style={[styles.btn, { backgroundColor: '#9ca3af' }]} onPress={() => useRouter().back()}>
               <Text style={styles.btnText}>Chiudi</Text>
             </Pressable>
@@ -297,9 +302,11 @@ export default function TattichePartita() {
                     <Text style={styles.meta}>{assignedCount}/{homeSlots.length} giocatori assegnati</Text>
                   </View>
                 </Pressable>
-                <Pressable style={styles.deleteBtn} onPress={() => removeTactic(item.id)}>
-                  <Text style={{ fontSize: 16 }}>🗑️</Text>
-                </Pressable>
+                {!readOnly && (
+                  <Pressable style={styles.deleteBtn} onPress={() => removeTactic(item.id)}>
+                    <Text style={{ fontSize: 16 }}>🗑️</Text>
+                  </Pressable>
+                )}
               </View>
             );
           }}
@@ -414,8 +421,8 @@ export default function TattichePartita() {
                           return (
                             <View key={el.id} style={[styles.abs, { left: `${el.x}%`, top, marginLeft: -SHIRT_W/2 }]}>
                               <Pressable
-                                onPress={() => setPickerState({ open: true, tacticId: tid, elementId: el.id })}
-                                onLongPress={() => assignedId && setAssign(tid, el.id, null)}
+                                onPress={readOnly ? undefined : () => setPickerState({ open: true, tacticId: tid, elementId: el.id })}
+                                onLongPress={readOnly ? undefined : () => assignedId && setAssign(tid, el.id, null)}
                               >
                                 <BlueWhiteShirt empty={!assignedId} number={jerseyNumber} />
                               </Pressable>
@@ -426,22 +433,24 @@ export default function TattichePartita() {
 
                       {/* AZIONI */}
                       <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
-                        <Pressable
-                          style={[styles.modalBtn, { backgroundColor: '#9ca3af', flex: 1 }]}
-                          onPress={() => {
-                            const resetAssignments = Object.fromEntries(
-                              tactic.elements.filter(e => e.type === 'HOME').map(e => [e.id, null as string | null])
-                            );
-                            setAssignments(prev => {
-                              const next = { ...prev };
-                              next[tid] = resetAssignments;
-                              saveTacticsAssignmentsRemote(id!, next);
-                              return next;
-                            });
-                          }}
-                        >
-                          <Text style={styles.modalBtnText}>Reset</Text>
-                        </Pressable>
+                        {!readOnly && (
+                          <Pressable
+                            style={[styles.modalBtn, { backgroundColor: '#9ca3af', flex: 1 }]}
+                            onPress={() => {
+                              const resetAssignments = Object.fromEntries(
+                                tactic.elements.filter(e => e.type === 'HOME').map(e => [e.id, null as string | null])
+                              );
+                              setAssignments(prev => {
+                                const next = { ...prev };
+                                next[tid] = resetAssignments;
+                                saveTacticsAssignmentsRemote(id!, next);
+                                return next;
+                              });
+                            }}
+                          >
+                            <Text style={styles.modalBtnText}>Reset</Text>
+                          </Pressable>
+                        )}
                         <Pressable
                           style={[styles.modalBtn, { backgroundColor: '#10b981', flex: 1 }]}
                           onPress={() => setAssignModal({ open: false })}
@@ -474,8 +483,8 @@ export default function TattichePartita() {
                               <Pressable
                                 key={slot.id}
                                 style={styles.legendRow}
-                                onPress={() => setPickerState({ open: true, tacticId: tid, elementId: slot.id })}
-                                onLongPress={() => assignedId && setAssign(tid, slot.id, null)}
+                                onPress={readOnly ? undefined : () => setPickerState({ open: true, tacticId: tid, elementId: slot.id })}
+                                onLongPress={readOnly ? undefined : () => assignedId && setAssign(tid, slot.id, null)}
                               >
                                 <View style={styles.numberBadge}>
                                   <Text style={styles.numberBadgeText}>

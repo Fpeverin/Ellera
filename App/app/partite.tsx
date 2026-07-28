@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import CompetitionModal from './components/partite/CompetitionModal';
 import ConfirmDeleteModal from './components/partite/ConfirmDeleteModal';
 import MatchEventCard from './components/partite/MatchEventCard';
+import { useAuth } from './context/AuthContext';
 import { exportMatchesToXlsx, pickAndParseMatchesXlsx, planMatchesImport } from './data/calendarFile';
 import { CalendarEvent, loadEvents, saveEvents } from './data/events';
 
@@ -38,6 +39,8 @@ const ALL_COMP = '__ALL__';
 
 export default function Partite() {
   const router = useRouter();
+  const { membership } = useAuth();
+  const readOnly = membership?.role === 'giocatore';
   const [events, setEvents] = useState<MatchEventRow[]>([]);
 
   // modali creazione
@@ -284,7 +287,7 @@ export default function Partite() {
 
     return (
       <View style={{ marginBottom: 8 }}>
-        <MatchEventCard item={item as any} onPress={openPartita as any} onDelete={(id) => setConfirmDeleteId(id)} />
+        <MatchEventCard item={item as any} onPress={openPartita as any} onDelete={readOnly ? undefined : (id) => setConfirmDeleteId(id)} />
         {result ? (
           <View style={styles.resultRow}>
             <Text style={styles.resultText}>{result}</Text>
@@ -351,25 +354,27 @@ export default function Partite() {
         </View>
 
         {/* Azioni rapide (coerenti con lo stile esistente) */}
-        <View style={styles.topActions}>
-          <Pressable style={[styles.outlineBtn, { borderColor: '#b91c1c' }]} onPress={() => setConfirmDeleteAll(true)}>
-            <Text style={[styles.outlineText, { color: '#b91c1c' }]}>🧹 Rimuovi tutte</Text>
-          </Pressable>
+        {!readOnly && (
+          <View style={styles.topActions}>
+            <Pressable style={[styles.outlineBtn, { borderColor: '#b91c1c' }]} onPress={() => setConfirmDeleteAll(true)}>
+              <Text style={[styles.outlineText, { color: '#b91c1c' }]}>🧹 Rimuovi tutte</Text>
+            </Pressable>
 
-          <Pressable
-            style={[styles.outlineBtn, { borderColor: '#1f2937' }]}
-            onPress={() => {
-              const first = competitions[0]?.name ?? '—';
-              setSelectedComp(first);
-              setShowChooseCompModal(true);
-            }}
-          >
-            <Text style={[styles.outlineText, { color: '#1f2937' }]}>🏷️ Rimuovi competizione</Text>
-          </Pressable>
-        </View>
+            <Pressable
+              style={[styles.outlineBtn, { borderColor: '#1f2937' }]}
+              onPress={() => {
+                const first = competitions[0]?.name ?? '—';
+                setSelectedComp(first);
+                setShowChooseCompModal(true);
+              }}
+            >
+              <Text style={[styles.outlineText, { color: '#1f2937' }]}>🏷️ Rimuovi competizione</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
-      {compFilter !== ALL_COMP && (
+      {!readOnly && compFilter !== ALL_COMP && (
         <View style={styles.xlsxRow}>
           <Pressable style={styles.xlsxBtn} onPress={handleExportMatches}>
             <Text style={styles.xlsxBtnText}>📤 Esporta Excel</Text>
@@ -396,14 +401,16 @@ export default function Partite() {
       </ScrollView>
 
       {/* CTA bottom */}
-      <View style={styles.bottomActions}>
-        <Pressable style={[styles.cta, { backgroundColor: '#1b7f3b' }]} onPress={() => setShowSingleModal(true)}>
-          <Text style={styles.ctaText}>CREA PARTITA</Text>
-        </Pressable>
-        <Pressable style={[styles.cta, { backgroundColor: '#1b4f7f' }]} onPress={() => setShowCompModal(true)}>
-          <Text style={styles.ctaText}>CREA CALENDARIO COMPETIZIONE</Text>
-        </Pressable>
-      </View>
+      {!readOnly && (
+        <View style={styles.bottomActions}>
+          <Pressable style={[styles.cta, { backgroundColor: '#1b7f3b' }]} onPress={() => setShowSingleModal(true)}>
+            <Text style={styles.ctaText}>CREA PARTITA</Text>
+          </Pressable>
+          <Pressable style={[styles.cta, { backgroundColor: '#1b4f7f' }]} onPress={() => setShowCompModal(true)}>
+            <Text style={styles.ctaText}>CREA CALENDARIO COMPETIZIONE</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Modali creazione */}
       <SingleMatchModal
