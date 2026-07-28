@@ -8,5 +8,6 @@ jobs:
     name: Pubblica aggiornamento OTA
     type: update
     params:
-      branch: production
+      branch: preview
+      platform: android
       message: ${{ github.event.head_commit.message }}
