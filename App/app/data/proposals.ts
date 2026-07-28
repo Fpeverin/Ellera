@@ -2,7 +2,7 @@
 //
 // Proposte di evento live (gol/cartellino) fatte da un Giocatore durante una
 // partita: restano "pending" finche' Staff/Admin non le conferma o rifiuta.
-// Le RLS bastano da sole (vedi schema_roles.sql), non serve passare da RPC.
+// Le RLS bastano da sole (vedi 8_schema_roles.sql), non serve passare da RPC.
 import { getCurrentOrgId } from '../lib/currentOrg';
 import { supabase } from '../lib/supabase';
 import { CardItem, GoalItem } from './matchLive';

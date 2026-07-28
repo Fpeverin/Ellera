@@ -1,8 +1,8 @@
 -- ElleraApp — schema Supabase: ruoli a 3 livelli (Admin/Staff/Giocatore) + inviti personali
 --
 -- Da eseguire UNA VOLTA nell'SQL Editor di Supabase, dopo TUTTI gli script precedenti
--- (schema.sql, schema_players.sql, schema_archive.sql, schema_modules_tactics.sql,
--- schema_match_live.sql, schema_staff.sql).
+-- (1_schema.sql, 2_schema_players.sql, 3_schema_archive.sql, 4_schema_modules_tactics.sql,
+-- 5_schema_match_live.sql, 7_schema_staff.sql).
 --
 -- Cambia il modello di ingresso in squadra: non esistono piu' codici invito condivisi.
 -- Ogni codice e' personale e generato dall'admin per UNA persona precisa:
@@ -10,7 +10,7 @@
 --     (create_player_invite) — chi lo riscatta si collega a QUEL giocatore.
 --   - per lo Staff, l'admin lo genera dando solo un nome (create_staff_invite) — chi lo
 --     riscatta entra come Staff.
--- Il vecchio "codice invito" condiviso di organizations/join_organization (schema.sql)
+-- Il vecchio "codice invito" condiviso di organizations/join_organization (1_schema.sql)
 -- resta nel database inutilizzato: non lo tocchiamo, il client smette solo di chiamarlo.
 
 -- ============================================================================
@@ -209,7 +209,7 @@ end;
 $$;
 
 -- ============================================================================
--- Estensione funzioni staff esistenti (schema_staff.sql): terzo ruolo +
+-- Estensione funzioni staff esistenti (7_schema_staff.sql): terzo ruolo +
 -- nome del giocatore collegato nell'elenco membri.
 -- ============================================================================
 

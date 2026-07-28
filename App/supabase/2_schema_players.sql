@@ -1,6 +1,6 @@
 -- ElleraApp — schema Supabase, Fase 2: Giocatori/Rosa + foto/allegati/infortuni
 --
--- Da eseguire UNA VOLTA nell'SQL Editor di Supabase, in aggiunta a schema.sql
+-- Da eseguire UNA VOLTA nell'SQL Editor di Supabase, in aggiunta a 1_schema.sql
 -- (che deve essere gia' stato eseguito prima di questo).
 
 -- ============================================================================
@@ -64,7 +64,7 @@ create table if not exists player_injury_types (
 );
 
 -- ============================================================================
--- Row Level Security (stesso pattern di schema.sql: solo i membri della
+-- Row Level Security (stesso pattern di 1_schema.sql: solo i membri della
 -- propria squadra possono leggere/scrivere)
 -- ============================================================================
 

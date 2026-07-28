@@ -1,7 +1,7 @@
 -- ElleraApp — schema Supabase, Fase 3B: Moduli personalizzati e Tattiche
 --
--- Da eseguire UNA VOLTA nell'SQL Editor di Supabase, dopo schema.sql,
--- schema_players.sql e schema_archive.sql.
+-- Da eseguire UNA VOLTA nell'SQL Editor di Supabase, dopo 1_schema.sql,
+-- 2_schema_players.sql e 3_schema_archive.sql.
 
 -- I moduli predefiniti restano hardcoded nel codice (app/utils/modules-layout.tsx):
 -- qui vivono solo quelli personalizzati, con il NOME come chiave naturale

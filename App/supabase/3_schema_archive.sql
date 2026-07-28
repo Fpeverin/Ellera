@@ -1,7 +1,7 @@
 -- ElleraApp — schema Supabase, Fase 3A: Archivio stagioni
 --
--- Da eseguire UNA VOLTA nell'SQL Editor di Supabase, dopo schema.sql e
--- schema_players.sql.
+-- Da eseguire UNA VOLTA nell'SQL Editor di Supabase, dopo 1_schema.sql e
+-- 2_schema_players.sql.
 
 create table if not exists season_archives (
   id text primary key,

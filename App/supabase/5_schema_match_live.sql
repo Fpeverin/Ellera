@@ -1,7 +1,7 @@
 -- ElleraApp — schema Supabase, Fase 3C: dati live-partita
 --
--- Da eseguire UNA VOLTA nell'SQL Editor di Supabase, dopo schema.sql,
--- schema_players.sql, schema_archive.sql e schema_modules_tactics.sql.
+-- Da eseguire UNA VOLTA nell'SQL Editor di Supabase, dopo 1_schema.sql,
+-- 2_schema_players.sql, 3_schema_archive.sql e 4_schema_modules_tactics.sql.
 --
 -- Sostituisce le 9 chiavi AsyncStorage per-partita di oggi (goals, subs,
 -- cards, lineup, positions, live_formation, started, timer_state,

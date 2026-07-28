@@ -48,6 +48,13 @@ Perché l'aggiornamento automatico al push funzioni, il repository GitHub deve e
 progetto Expo: su [expo.dev](https://expo.dev) → progetto → tab **GitHub** → "Install & Authorize"
 (un click, richiede l'autorizzazione GitHub del proprietario del repo).
 
+## Convenzione script SQL (`App/supabase/`)
+
+Ogni file è numerato con l'ordine in cui va eseguito nell'SQL Editor di Supabase (`1_schema.sql`,
+`2_schema_players.sql`, ...). **Ogni nuovo script va aggiunto con il numero successivo** (es. il
+prossimo sarà `9_...`), così l'ordine di esecuzione resta sempre leggibile dal nome del file senza
+dover aprire ogni script per controllare le dipendenze.
+
 ## Autenticazione e squadre (Supabase)
 
 - Login/registrazione email+password (`app/login.tsx`, `app/register.tsx`), gestiti da
@@ -58,7 +65,7 @@ progetto Expo: su [expo.dev](https://expo.dev) → progetto → tab **GitHub** �
   `app/_layout.tsx`.
 - Multi-tenant: tabelle `organizations` (squadre) e `memberships` (utente↔squadra + ruolo
   admin/staff/giocatore + `player_id` collegato se Giocatore), con Row Level Security — vedi
-  `App/supabase/schema.sql` + `App/supabase/schema_roles.sql`. Un utente vede solo i dati della
+  `App/supabase/1_schema.sql` + `App/supabase/8_schema_roles.sql`. Un utente vede solo i dati della
   propria squadra.
 - `app/lib/currentOrg.ts` tiene traccia dell'org corrente per le funzioni di data-access (es.
   `saveEvents`), così non va passata a mano in ogni schermata.
@@ -90,10 +97,10 @@ precisa.
   momento.
 - Chi riceve un codice si registra e lo inserisce nella schermata "Ho un codice personale"
   dell'onboarding (`redeem_invite`, sostituisce il vecchio `join_organization` a codice condiviso,
-  ancora presente in `schema.sql` ma non più chiamato dal client).
+  ancora presente in `1_schema.sql` ma non più chiamato dal client).
 - `app/squadra/staff.tsx` mostra anche gli **inviti in attesa** (non ancora riscattati) con
   Condividi/Revoca, e per i membri Giocatore già collegati il nome del giocatore in rosa.
-- Schema: `App/supabase/schema_roles.sql` — tabella `invites` (nessuna policy RLS diretta, solo
+- Schema: `App/supabase/8_schema_roles.sql` — tabella `invites` (nessuna policy RLS diretta, solo
   funzioni `security definer`: `create_player_invite`, `create_staff_invite`, `list_pending_invites`,
   `revoke_invite`, `redeem_invite`), helper `is_staff_or_admin_of`, e lo split
   lettura(chiunque)/scrittura(Staff/Admin) delle policy RLS su tutte le tabelle dati esistenti.
@@ -232,7 +239,7 @@ foto profilo di default in `rosa.tsx`.
 
 Vedi anche [PIANO_LAVORO.md](PIANO_LAVORO.md) per il contesto/motivazione completa.
 
-- Aggiunto Supabase (Postgres + Auth + RLS, piano gratuito): `App/supabase/schema.sql` contiene tabelle,
+- Aggiunto Supabase (Postgres + Auth + RLS, piano gratuito): `App/supabase/1_schema.sql` contiene tabelle,
   funzioni RPC (`create_organization`, `join_organization`) e le policy di sicurezza.
 - Aggiunte `@supabase/supabase-js` e `react-native-url-polyfill` (import obbligatorio
   `'react-native-url-polyfill/auto'` in cima a `app/_layout.tsx`, altrimenti crash all'avvio).
@@ -252,8 +259,8 @@ Vedi anche [PIANO_LAVORO.md](PIANO_LAVORO.md) per il contesto/motivazione comple
 
 ## Dati condivisi su Supabase — Fase 2: Giocatori/Rosa (2026-07-27)
 
-- Schema aggiuntivo `App/supabase/schema_players.sql` (da eseguire una volta in più, dopo
-  `schema.sql`): tabella `players` (giocatori custom, con `is_ex` invece di due liste separate),
+- Schema aggiuntivo `App/supabase/2_schema_players.sql` (da eseguire una volta in più, dopo
+  `1_schema.sql`): tabella `players` (giocatori custom, con `is_ex` invece di due liste separate),
   tabelle `player_photos`/`player_attachments`/`player_injury_types` (si applicano anche ai giocatori
   statici, per questo non hanno foreign key verso `players.id`), due bucket Supabase Storage pubblici
   (`player-photos`, `player-attachments`).
@@ -269,7 +276,7 @@ Vedi anche [PIANO_LAVORO.md](PIANO_LAVORO.md) per il contesto/motivazione comple
 ## Dati condivisi su Supabase — Fase 3: ultimi 3 domini (2026-07-27)
 
 Con questa fase tutti i domini dell'app sono su Supabase. Tre nuovi script SQL aggiuntivi in
-`App/supabase/` (`schema_archive.sql`, `schema_modules_tactics.sql`, `schema_match_live.sql`), da
+`App/supabase/` (`3_schema_archive.sql`, `4_schema_modules_tactics.sql`, `5_schema_match_live.sql`), da
 eseguire una volta ciascuno dopo quelli delle fasi precedenti.
 
 - **Archivio stagioni** → tabella `season_archives` (`app/utils/archiveBuilder.ts`
@@ -292,7 +299,7 @@ eseguire una volta ciascuno dopo quelli delle fasi precedenti.
 ## Rosa non hardcoded + import/export XLSX (2026-07-28)
 
 - **Rosa rimossa dal codice**: `app/data/players.ts` conteneva 29 giocatori attivi + 4 ex reali
-  dell'Ellera — spostati una tantum su Supabase (`App/supabase/seed_ellera_roster.sql`, da eseguire
+  dell'Ellera — spostati una tantum su Supabase (`App/supabase/6_seed_ellera_roster.sql`, da eseguire
   prima di aggiornare l'app) e tolti dai sorgenti (restano solo i tipi). `app/hooks/usePlayers.ts`
   semplificato: non c'è più merge statici+custom, `removeCustomPlayer` → `removePlayer`, il campo
   `customPlayers` è sparito (non serve più distinguere). `app/squadra/rosa.tsx` ha perso la logica
@@ -307,7 +314,7 @@ eseguire una volta ciascuno dopo quelli delle fasi precedenti.
 
 ## Gestione staff (2026-07-28)
 
-- Schema aggiuntivo `App/supabase/schema_staff.sql`: `list_org_members` (SECURITY DEFINER, unico modo
+- Schema aggiuntivo `App/supabase/7_schema_staff.sql`: `list_org_members` (SECURITY DEFINER, unico modo
   per leggere le email dei membri dato che il client non può interrogare `auth.users` direttamente),
   `update_member_role`, `remove_member` (entrambe rifiutano `p_user_id = auth.uid()`: non ci si può
   toccare da soli — evita sia il rischio di restare senza admin sia la necessità di contarli),

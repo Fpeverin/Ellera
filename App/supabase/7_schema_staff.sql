@@ -1,7 +1,7 @@
 -- ElleraApp — schema Supabase: gestione staff (lato admin)
 --
 -- Da eseguire UNA VOLTA nell'SQL Editor di Supabase, in aggiunta agli
--- script precedenti (schema.sql deve essere gia' stato eseguito, servono
+-- script precedenti (1_schema.sql deve essere gia' stato eseguito, servono
 -- le funzioni is_member_of/is_admin_of che definisce).
 
 -- Elenco membri di una squadra con email (auth.users non e' leggibile

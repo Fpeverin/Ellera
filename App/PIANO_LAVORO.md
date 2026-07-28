@@ -58,7 +58,7 @@ prossima idea non appena viene in mente.
     ancora registrata in quel momento).
   - Chi riceve un codice si registra e poi lo inserisce in onboarding ("Ho un codice personale")
     invece di creare/entrare in una squadra col vecchio flusso.
-- Schema aggiuntivo `App/supabase/schema_roles.sql`: tabella `invites` (accesso solo tramite funzioni
+- Schema aggiuntivo `App/supabase/8_schema_roles.sql`: tabella `invites` (accesso solo tramite funzioni
   `security definer` — `create_player_invite`, `create_staff_invite`, `list_pending_invites`,
   `revoke_invite`, `redeem_invite`), helper `is_staff_or_admin_of`, e split delle policy RLS di tutte
   le tabelle dati esistenti in lettura (chiunque sia membro) / scrittura (solo Staff/Admin).
@@ -70,13 +70,13 @@ prossima idea non appena viene in mente.
   "Rigenera" (invalida il vecchio codice), e l'elenco di chi è nella squadra con email e ruolo.
 - L'admin può cambiare il ruolo (staff↔admin) o rimuovere chiunque tranne se stesso — niente rischio
   di restare senza admin o di auto-escludersi per errore.
-- Tre nuove funzioni SQL (`App/supabase/schema_staff.sql`): `list_org_members` (unica via per leggere
+- Tre nuove funzioni SQL (`App/supabase/7_schema_staff.sql`): `list_org_members` (unica via per leggere
   le email dei membri, dato che il client non può interrogare `auth.users` direttamente),
   `update_member_role`, `remove_member`, `regenerate_invite_code`.
 
 ### 2026-07-28 — Rosa non più hardcoded + import/export XLSX (rosa e calendario)
 - **Rosa non più scritta nel codice**: i 29 giocatori attivi + 4 ex che vivevano in
-  `app/data/players.ts` sono stati spostati (una tantum, script `seed_ellera_roster.sql`) dentro la
+  `app/data/players.ts` sono stati spostati (una tantum, script `6_seed_ellera_roster.sql`) dentro la
   tabella `players` su Supabase e rimossi dai sorgenti — restano solo i tipi `Player`/`Role`. Effetto
   collaterale positivo: prima solo i giocatori aggiunti a mano erano modificabili/cancellabili dalla
   Rosa, ora lo sono tutti allo stesso modo (`app/hooks/usePlayers.ts` semplificato,
@@ -114,8 +114,8 @@ sul dispositivo (a parte impostazioni locali minori tipo l'ultimo tocco per il r
 - **Corretto un piccolo bug di pulizia dati**: quando si archivia una stagione, prima restavano orfane
   le chiavi `match/{id}/positions` e `match/{id}/tacticsAssignments` (mai cancellate). Ora sparisce
   tutto insieme cancellando la riga `match_live` della partita.
-- Dettagli tecnici: tre script SQL aggiuntivi in `App/supabase/` (`schema_archive.sql`,
-  `schema_modules_tactics.sql`, `schema_match_live.sql`), da eseguire una volta ciascuno dopo quelli
+- Dettagli tecnici: tre script SQL aggiuntivi in `App/supabase/` (`3_schema_archive.sql`,
+  `4_schema_modules_tactics.sql`, `5_schema_match_live.sql`), da eseguire una volta ciascuno dopo quelli
   delle fasi precedenti.
 
 ### 2026-07-27 — Dati condivisi su Supabase: Giocatori/Rosa + foto/allegati/infortuni (Fase 2)
@@ -131,8 +131,8 @@ sul dispositivo (a parte impostazioni locali minori tipo l'ultimo tocco per il r
 - **Bug corretto**: la lavagna tattiche di una singola partita (`eventi/partita/[id]/tattiche.tsx`)
   leggeva il roster statico invece dei giocatori reali della squadra — i giocatori aggiunti a mano non
   comparivano mai lì. Ora usa `usePlayers()` come le altre schermate.
-- Dettagli tecnici: schema aggiuntivo in `App/supabase/schema_players.sql` (da eseguire una volta in
-  più, dopo `schema.sql`).
+- Dettagli tecnici: schema aggiuntivo in `App/supabase/2_schema_players.sql` (da eseguire una volta in
+  più, dopo `1_schema.sql`).
 
 ### 2026-07-27 — Dati condivisi su Supabase: autenticazione + squadre + Eventi/Calendario (Fase 1)
 - Aggiunto un vero backend (Supabase: Postgres + Auth + Row Level Security), **piano gratuito** —
@@ -152,7 +152,7 @@ sul dispositivo (a parte impostazioni locali minori tipo l'ultimo tocco per il r
   buoni di un altro device.
 - Tutti gli altri domini (rosa/foto, dati live-partita, moduli, tattiche, archivio stagioni) **restano
   ancora locali** in questa fase — migrazione pianificata nel Backlog qui sopra, un dominio alla volta.
-- Dettagli tecnici: schema SQL in `App/supabase/schema.sql`, client in `App/app/lib/supabase.ts`.
+- Dettagli tecnici: schema SQL in `App/supabase/1_schema.sql`, client in `App/app/lib/supabase.ts`.
 
 ### 2026-07-26/27 — Aggiornamento Expo SDK 57 e automazione rilasci
 - Portato Expo da SDK 53 a SDK 57 (React Native 0.79 → 0.86), passaggio al workflow CNG (niente più
