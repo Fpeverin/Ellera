@@ -436,6 +436,16 @@ eseguire una volta ciascuno dopo quelli delle fasi precedenti.
   una convocazione) — quei casi restano in Backlog e richiederanno di salvare un push token Expo per
   account su Supabase.
 
+## Bottone account/logout in Dashboard (2026-07-29)
+
+- L'app non aveva **nessun modo di uscire dall'account** una volta entrati in una squadra (`signOut`
+  esisteva già in `AuthContext.tsx` ma era raggiungibile solo dalla schermata di onboarding, prima di
+  creare/entrare in una squadra) — bloccava, tra l'altro, il testare più account sullo stesso
+  dispositivo (es. verificare l'invio email registrando un nuovo utente).
+- Aggiunto un bottone **👤** nell'header di `app/index.tsx` (Dashboard, raggiungibile da tutti i
+  ruoli): apre un `Alert` con email + ruolo dell'account corrente e un'azione "Esci" (con conferma),
+  che chiama `signOut()`.
+
 ## Modelli XLSX scaricabili per gli import (2026-07-29)
 
 - Ogni import Excel dell'app (Rosa, Partite, Allenamenti) ha ora un bottone **"📄 Modello"** accanto a

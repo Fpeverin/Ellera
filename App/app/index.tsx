@@ -5,7 +5,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useMemo, useState } from 'react';
-import { Dimensions, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Dimensions, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import EventEditorModal from './components/EventEditorModal';
 import { useAuth } from './context/AuthContext';
@@ -26,10 +26,16 @@ function parseYMDTimeLocal(ymd: string, hhmm = '00:00') {
 }
 
 /* ------------------------------ Component ------------------------------ */
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Amministratore',
+  staff: 'Staff',
+  giocatore: 'Giocatore',
+};
+
 export default function Dashboard() {
   const router = useRouter();
   const { height: screenHeight } = Dimensions.get('window');
-  const { membership } = useAuth();
+  const { session, membership, signOut } = useAuth();
 
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -205,6 +211,27 @@ const exportData = async () => {
     return cells;
   };
 
+  const handleAccountPress = () => {
+    const roleLabel = membership ? ROLE_LABELS[membership.role] ?? membership.role : '';
+    Alert.alert(
+      membership?.orgName || 'Account',
+      `${session?.user?.email ?? ''}${roleLabel ? `\nRuolo: ${roleLabel}` : ''}`,
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Esci',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Uscire dall’account?', 'Potrai accedere di nuovo con questo o un altro account.', [
+              { text: 'Annulla', style: 'cancel' },
+              { text: 'Esci', style: 'destructive', onPress: () => signOut() },
+            ]);
+          },
+        },
+      ]
+    );
+  };
+
   /* --------------------------------- Render --------------------------------- */
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -213,6 +240,9 @@ const exportData = async () => {
         <View style={styles.topSection}>
         <View style={styles.header}>
           <Text style={styles.title}>Dashboard Calcistica</Text>
+          <Pressable style={styles.accountBtn} onPress={handleAccountPress}>
+            <Text style={styles.accountBtnText}>👤</Text>
+          </Pressable>
         </View>
 
         <View style={styles.calendarSection}>
@@ -356,6 +386,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: { fontSize: 28, fontWeight: '700', color: '#1a202c' },
+  accountBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#eef2f7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountBtnText: { fontSize: 18 },
 
   sectionTitle: { fontSize: 20, fontWeight: '700', color: '#1a202c', marginBottom: 12 },
 

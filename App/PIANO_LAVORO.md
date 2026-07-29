@@ -47,6 +47,12 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
+### 2026-07-29 — Bottone account/logout in Dashboard
+Non esisteva alcun modo di uscire dall'account una volta entrati in una squadra — impossibile, ad
+esempio, provare un secondo account sullo stesso dispositivo. Aggiunto un bottone **👤** in Dashboard
+(in alto a destra, raggiungibile da ogni ruolo) che mostra email/ruolo dell'account e permette di
+uscire (con conferma).
+
 ### 2026-07-29 — OTA automatico: da EAS Workflow (mai partita) a GitHub Action
 La EAS Workflow nativa (`App/.eas/workflows/update-on-push.yml`), pensata per pubblicare da sola un
 aggiornamento OTA a ogni push su GitHub, non è mai partita nonostante il repo risultasse

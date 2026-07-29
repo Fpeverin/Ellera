@@ -47,6 +47,9 @@ La prima schermata che si vede aprendo l'app.
   impostazioni minori rimaste sul singolo dispositivo (non i dati veri della squadra, che ormai
   vivono tutti nel database condiviso — vedi [sezione 9](#9-domande-frequenti) sul backup).
 - **Azioni rapide**: scorciatoie dirette ad Allenamenti, Partite, Gestione Squadra.
+- **👤 (in alto a destra)**: mostra l'account collegato (email, ruolo) e permette di **uscire**
+  (logout). Utile su un dispositivo condiviso da più persone: si esce e si accede con un altro
+  account senza reinstallare nulla.
 
 ## 3. Calendario
 
