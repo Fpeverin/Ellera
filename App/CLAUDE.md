@@ -521,6 +521,13 @@ Tutto in `app/index.tsx` (unico file toccato):
   senza modifiche di struttura.
 - Nessuna dipendenza nuova (riusa `xlsx`/`expo-sharing` già presenti) — arriva via OTA.
 
+## Mostra/nascondi password (2026-07-29)
+
+Nuovo componente `app/components/PasswordInput.tsx` (wrapper di `TextInput` con un bottone 👁️ che
+alterna `secureTextEntry`) usato in `app/login.tsx` e `app/register.tsx` (password + conferma
+password) — richiesta esplicita di Francesco, prima le password erano sempre oscurate senza modo di
+verificarle mentre si digitano.
+
 ## Convocazione partita + Rosa Staff categorizzata (2026-07-29)
 
 Portata la gestione dei convocati fuori da `formazione.tsx` in un tab autonomo per-partita

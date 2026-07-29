@@ -3,6 +3,7 @@ import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import PasswordInput from './components/PasswordInput';
 import { useAuth } from './context/AuthContext';
 
 export default function Register() {
@@ -69,17 +70,13 @@ export default function Register() {
             value={email}
             onChangeText={setEmail}
           />
-          <TextInput
-            style={styles.input}
+          <PasswordInput
             placeholder="Password (almeno 6 caratteri)"
-            secureTextEntry
             value={password}
             onChangeText={setPassword}
           />
-          <TextInput
-            style={styles.input}
+          <PasswordInput
             placeholder="Conferma password"
-            secureTextEntry
             value={confirmPassword}
             onChangeText={setConfirmPassword}
           />

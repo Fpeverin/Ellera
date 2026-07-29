@@ -28,6 +28,8 @@ diverso collegato alla stessa squadra).
   un link da aprire prima di poter accedere.
 - **Login**: email + password, sempre disponibile dalla stessa schermata (link "Hai già un account?
   Accedi").
+- Ogni campo password ha un'icona **👁️** per mostrare il testo in chiaro mentre lo digiti (utile su
+  schermi piccoli o password complesse) — tocca di nuovo per rinasconderlo.
 - **Prima squadra**: al primo accesso, se non si è ancora in nessuna squadra, l'app chiede di:
   - **Creare una nuova squadra** (basta dare un nome, es. "Ellera") → chi la crea diventa
     automaticamente **Admin**.

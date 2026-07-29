@@ -45,6 +45,10 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
+### 2026-07-29 — Mostra/nascondi password
+Aggiunta un'icona 👁️ sui campi password di Login e Registrazione per vederle in chiaro mentre si
+digitano (tocca di nuovo per rinascondere).
+
 ### 2026-07-29 — Convocazione partita + Rosa Staff categorizzata
 Portata la gestione dei convocati fuori da Formazione in un tab autonomo per-partita ("Convocazione",
 visibile solo a Staff/Admin), che riproduce la scheda usata dal club (Excel condiviso da Francesco):
