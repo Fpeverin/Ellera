@@ -47,6 +47,16 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
+### 2026-07-29 — Fix critico: gli aggiornamenti OTA non arrivavano mai (runtimeVersion)
+Scoperto perché, nonostante la GitHub Action per l'OTA automatico partisse correttamente, Francesco
+non vedeva mai le novità sul telefono: `runtimeVersion` era calcolata automaticamente
+("fingerprint") e veniva calcolata **diversa** a seconda di dove giravo `eas update` (computer
+locale, GitHub Action, server di build Expo) — un problema noto quando si pubblica da più ambienti.
+Ogni aggiornamento pubblicato dalla GitHub Action veniva quindi scartato in silenzio dal telefono
+(etichetta di compatibilità diversa da quella dell'APK installato). Fix: `runtimeVersion` ora è una
+stringa fissa in `app.json`, uguale in ogni ambiente. **Serve un'ultima nuova build/reinstallazione
+dell'APK** per allineare tutto, poi il problema non si ripresenterà più.
+
 ### 2026-07-29 — Fix Import/Export Partite con filtro "Tutte"
 I bottoni Esporta/Importa/Modello in Partite sparivano del tutto con il filtro "Tutte" (visibili
 solo con una competizione specifica selezionata) e, quando visibili, l'export scriveva la stessa

@@ -43,9 +43,9 @@ Ci sono solo due scenari:
    rispettati), abbiamo **rimosso quel file** e sostituito il meccanismo con una **GitHub Action**
    dedicata (`.github/workflows/eas-update.yml`): stessa cosa in pratica, ma è GitHub stesso a far
    partire l'esecuzione (non dipende dal webhook EAS↔GitHub), quindi è più facile da verificare/
-   debuggare direttamente dalla tab **Actions** del repository. **Verificato funzionante** il
-   2026-07-29: push su `main` → Action partita da sola → nuovo update pubblicato su EAS, tutto senza
-   intervento manuale.
+   debuggare direttamente dalla tab **Actions** del repository. La Action **partiva** correttamente da
+   sola, ma un secondo problema (vedi nota su `runtimeVersion` sotto) ha fatto sì che gli aggiornamenti
+   pubblicati da lì non arrivassero comunque sul dispositivo — risolto il 2026-07-29.
 
 2. **Serve una build nuova (raro)** — hai aggiunto una libreria che usa codice nativo, cambiato icona/
    splash/permessi, o aggiornato la versione di Expo. In questi casi una modifica "al volo" (OTA) non
@@ -54,6 +54,28 @@ Ci sono solo due scenari:
    `build-internal.yml` (o da terminale: `eas workflow:run .eas/workflows/build-internal.yml`).
    Dopo qualche minuto ottieni un link/QR code: apri il link sul telefono e installa il nuovo APK
    (distribuzione interna, nessun Play Store).
+   → **Importante**: se il motivo della build è un cambio davvero nativo (nuova libreria nativa,
+   nuovo permesso — non icona/splash, che sono innocui per la compatibilità OTA), incrementa a mano
+   `expo.runtimeVersion` in `app.json` (vedi nota subito sotto) **prima** di lanciare la build.
+
+### `runtimeVersion` fissa, non "fingerprint" (fix 2026-07-29)
+`app.json` aveva `runtimeVersion: { policy: "fingerprint" }` — un'"etichetta di compatibilità"
+calcolata **automaticamente** in base a codice/dipendenze native, usata da `expo-updates` per capire
+se un aggiornamento OTA è compatibile con l'APK installato (aggiornamenti con etichetta diversa
+vengono scartati in silenzio, senza errori). **Problema scoperto**: quell'etichetta viene calcolata
+in modo diverso a seconda dell'ambiente in cui giri `eas update` — il computer locale (Windows), la
+GitHub Action (Linux) e i server di build di Expo producevano **tre valori diversi** pur partendo
+dallo stesso codice (problema noto della community Expo quando si pubblica da più ambienti). Risultato
+concreto: ogni aggiornamento pubblicato dalla GitHub Action da quando esiste non è mai arrivato sul
+dispositivo di Francesco, senza nessun errore visibile.
+
+**Fix**: `runtimeVersion` è ora una stringa fissa (`"1.0.0"`, in `app.json`), identica qualunque sia
+l'ambiente che pubblica. **Regola da seguire sempre d'ora in poi**: quando serve una build nuova per
+un cambiamento *davvero* nativo (nuova libreria nativa, nuovo permesso — non per icona/splash, che
+non cambiano la compatibilità OTA), **incrementa a mano questa stringa** in `app.json` prima di
+lanciare `build-internal.yml`, così i futuri aggiornamenti OTA (che porteranno la nuova stringa) non
+verranno scartati dal vecchio APK, e viceversa il vecchio codice non verrà mai applicato per errore
+al nuovo APK.
 
 ### Setup una tantum per la GitHub Action `eas-update.yml` (da fare una volta sola)
 La Action ha bisogno di 3 valori configurati su GitHub (repo `Fpeverin/Ellera` → **Settings**):
