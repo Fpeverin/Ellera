@@ -223,7 +223,10 @@ alla scheda:
 
 Solo per l'Admin, in cima alla scheda: se il giocatore non ha ancora un account collegato, un
 bottone "Genera codice di accesso" (vedi [sezione 8](#8-ruoli-utente-e-permessi)); se è già
-collegato, mostra l'email dell'account.
+collegato, mostra l'email dell'account e un bottone **"🔓 Scollega account"** — rimuove quella
+persona dalla squadra e libera il collegamento (potrai generare un nuovo codice per lo stesso
+giocatore in seguito). **Non cancella l'account stesso** (per farlo serve la dashboard Supabase,
+Authentication → Users).
 
 ## 8. Ruoli utente e permessi
 

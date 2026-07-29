@@ -521,6 +521,18 @@ Tutto in `app/index.tsx` (unico file toccato):
   senza modifiche di struttura.
 - Nessuna dipendenza nuova (riusa `xlsx`/`expo-sharing` già presenti) — arriva via OTA.
 
+## Scollega account giocatore (2026-07-29)
+
+- `app/data/invites.ts`'s `loadPlayerInviteStatus` ritorna ora anche `claimedUserId` (oltre a
+  `claimedEmail`/`pendingCode`), preso da `loadOrgMembers` (già disponibile, solo non ancora
+  esposto).
+- `app/player/[id].tsx`: quando un giocatore è collegato a un account, nuovo bottone **"🔓 Scollega
+  account"** (solo Admin, con conferma) che chiama `removeMember(orgId, userId)` (già esistente in
+  `app/data/staff.ts`/RPC `remove_member`) — rimuove la membership (quindi anche `player_id`), non
+  l'account Supabase stesso (che resta orfano, cancellabile solo dalla dashboard Supabase →
+  Authentication → Users → Delete user). Dopo lo scollegamento si può generare un nuovo codice per
+  lo stesso giocatore, esattamente come se non fosse mai stato collegato.
+
 ## Mostra/nascondi password (2026-07-29)
 
 Nuovo componente `app/components/PasswordInput.tsx` (wrapper di `TextInput` con un bottone 👁️ che

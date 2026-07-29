@@ -45,6 +45,12 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
+### 2026-07-29 — Scollega account giocatore
+Sulla scheda di un giocatore già collegato a un account, l'Admin ora vede anche un bottone "🔓
+Scollega account" (con conferma): rimuove quella persona dalla squadra e libera il collegamento, per
+poter generare un nuovo codice allo stesso giocatore in seguito — utile ad esempio per ripulire un
+account di test. Non cancella l'account Supabase stesso (va fatto dalla dashboard).
+
 ### 2026-07-29 — SMTP esterno (SendGrid) configurato e funzionante
 Il servizio email gratuito integrato di Supabase (limitato a poche email/ora) è stato sostituito con
 SMTP personalizzato via **SendGrid** (piano gratuito, verifica del mittente senza bisogno di un

@@ -22,6 +22,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../context/AuthContext';
 import { CalendarEvent, loadEvents } from '../data/events';
 import { createPlayerInvite, loadPlayerInviteStatus } from '../data/invites';
+import { removeMember } from '../data/staff';
 import {
   loadCards as loadCardsRemote,
   loadGoals as loadGoalsRemote,
@@ -224,7 +225,11 @@ export default function PlayerDetail() {
   };
 
   // Codice di accesso (solo admin): collega questo giocatore a un account.
-  const [inviteStatus, setInviteStatus] = useState<{ pendingCode: string | null; claimedEmail: string | null } | null>(null);
+  const [inviteStatus, setInviteStatus] = useState<{
+    pendingCode: string | null;
+    claimedEmail: string | null;
+    claimedUserId: string | null;
+  } | null>(null);
   const [inviteBusy, setInviteBusy] = useState(false);
 
   const loadInviteStatus = async () => {
@@ -241,7 +246,7 @@ export default function PlayerDetail() {
     setInviteBusy(true);
     try {
       const code = await createPlayerInvite(membership.orgId, id);
-      setInviteStatus({ pendingCode: code, claimedEmail: null });
+      setInviteStatus({ pendingCode: code, claimedEmail: null, claimedUserId: null });
     } catch (e) {
       Alert.alert('Errore', 'Impossibile generare il codice.');
     } finally {
@@ -256,6 +261,34 @@ export default function PlayerDetail() {
         message: `Codice personale per collegarti come "${playerName}" su ElleraApp: ${inviteStatus.pendingCode}`,
       });
     } catch {}
+  };
+
+  const handleUnlinkAccount = () => {
+    if (!inviteStatus?.claimedUserId || !membership?.orgId) return;
+    const userId = inviteStatus.claimedUserId;
+    const orgId = membership.orgId;
+    Alert.alert(
+      'Scollegare l\'account?',
+      `L'account ${inviteStatus.claimedEmail} uscirà dalla squadra e non sarà più collegato a ${playerName}. Potrai generare un nuovo codice di accesso in seguito. L'account in sé non viene cancellato (per farlo serve la dashboard Supabase).`,
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Scollega',
+          style: 'destructive',
+          onPress: async () => {
+            setInviteBusy(true);
+            try {
+              await removeMember(orgId, userId);
+              setInviteStatus({ pendingCode: null, claimedEmail: null, claimedUserId: null });
+            } catch {
+              Alert.alert('Errore', "Impossibile scollegare l'account.");
+            } finally {
+              setInviteBusy(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const [photo, setPhoto] = useState<string | null>(null);
@@ -706,9 +739,18 @@ export default function PlayerDetail() {
           <View style={[styles.tabContent, { paddingBottom: 0 }]}>
             <View style={styles.inviteCard}>
               {inviteStatus?.claimedEmail ? (
-                <Text style={styles.inviteText}>
-                  ✅ Collegato all'account <Text style={{ fontWeight: '800' }}>{inviteStatus.claimedEmail}</Text>
-                </Text>
+                <>
+                  <Text style={styles.inviteText}>
+                    ✅ Collegato all'account <Text style={{ fontWeight: '800' }}>{inviteStatus.claimedEmail}</Text>
+                  </Text>
+                  <Pressable
+                    style={[styles.actionBtn, { backgroundColor: '#dc2626', marginTop: 8 }]}
+                    onPress={handleUnlinkAccount}
+                    disabled={inviteBusy}
+                  >
+                    <Text style={styles.actionText}>{inviteBusy ? 'Attendere…' : '🔓 Scollega account'}</Text>
+                  </Pressable>
+                </>
               ) : inviteStatus?.pendingCode ? (
                 <>
                   <Text style={styles.inviteText}>Codice di accesso per {playerName}:</Text>

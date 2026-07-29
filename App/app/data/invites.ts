@@ -57,9 +57,13 @@ export async function revokeInvite(inviteId: string): Promise<void> {
 export async function loadPlayerInviteStatus(
   orgId: string,
   playerId: string
-): Promise<{ pendingCode: string | null; claimedEmail: string | null }> {
+): Promise<{ pendingCode: string | null; claimedEmail: string | null; claimedUserId: string | null }> {
   const [invites, members] = await Promise.all([loadPendingInvites(orgId), loadOrgMembers(orgId)]);
   const pending = invites.find((i) => i.role === 'giocatore' && i.playerId === playerId);
   const claimed = members.find((m) => m.role === 'giocatore' && m.playerId === playerId);
-  return { pendingCode: pending?.code ?? null, claimedEmail: claimed?.email ?? null };
+  return {
+    pendingCode: pending?.code ?? null,
+    claimedEmail: claimed?.email ?? null,
+    claimedUserId: claimed?.userId ?? null,
+  };
 }
