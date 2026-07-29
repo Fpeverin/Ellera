@@ -1,0 +1,40 @@
+name: Pubblica aggiornamento OTA (EAS Update)
+
+# Alternativa alla Workflow EAS nativa (App/.eas/workflows/update-on-push.yml),
+# che per questo progetto non e' mai partita da sola nonostante il repo GitHub
+# risulti collegato su expo.dev. GitHub Actions e' il meccanismo standard di
+# GitHub stesso, quindi non dipende dal webhook EAS<->GitHub.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'App/**'
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: App
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Installa le dipendenze
+        run: npm ci
+
+      - name: Pubblica l'aggiornamento OTA
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: >
+          npx eas-cli update
+          --branch preview
+          --platform android
+          --non-interactive
+          --message "${{ github.event.head_commit.message }}"

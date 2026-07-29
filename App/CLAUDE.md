@@ -33,7 +33,17 @@ Ci sono solo due scenari:
 1. **Modifica normale (99% dei casi)** — hai cambiato una schermata, una logica, un testo, uno stile.
    → Fai commit e push su GitHub del branch `main`. Basta questo: in 1-2 minuti chi ha già l'app
    installata riceve l'aggiornamento **da solo**, senza reinstallare nulla (aggiornamento OTA via
-   `App/.eas/workflows/update-on-push.yml`). Non serve lanciare nessun comando.
+   `.github/workflows/eas-update.yml`, vedi sotto). Non serve lanciare nessun comando.
+
+   **Nota (2026-07-29)**: il meccanismo pensato originariamente — `App/.eas/workflows/update-on-push.yml`,
+   una EAS Workflow nativa attivata dal collegamento GitHub su expo.dev — non è mai partito da solo
+   nonostante il repo risultasse correttamente collegato (confermato: nessuna esecuzione automatica su
+   due push di prova, `eas workflow:runs` non ha mai registrato il file). Non essendoci una causa
+   individuabile lato nostro (documentazione ufficiale Expo consultata, tutti i requisiti noti
+   rispettati), abbiamo **rimosso quel file** e sostituito il meccanismo con una **GitHub Action**
+   dedicata (`.github/workflows/eas-update.yml`): stessa cosa in pratica, ma è GitHub stesso a far
+   partire l'esecuzione (non dipende dal webhook EAS↔GitHub), quindi è più facile da verificare/
+   debuggare direttamente dalla tab **Actions** del repository.
 
 2. **Serve una build nuova (raro)** — hai aggiunto una libreria che usa codice nativo, cambiato icona/
    splash/permessi, o aggiornato la versione di Expo. In questi casi una modifica "al volo" (OTA) non
@@ -43,12 +53,28 @@ Ci sono solo due scenari:
    Dopo qualche minuto ottieni un link/QR code: apri il link sul telefono e installa il nuovo APK
    (distribuzione interna, nessun Play Store).
 
-### Setup una tantum (già fatto, da rifare solo se si crea un nuovo progetto EAS)
-Perché l'aggiornamento automatico al push funzioni, il repository GitHub deve essere collegato al
-progetto Expo: su [expo.dev](https://expo.dev) → progetto → tab **GitHub** → "Install & Authorize"
-(un click, richiede l'autorizzazione GitHub del proprietario del repo). **Confermato collegato**
-(`Fpeverin/Ellera`) il 2026-07-29 — questo commit stesso serve da test per verificare che l'OTA
-automatico al push funzioni davvero.
+### Setup una tantum per la GitHub Action `eas-update.yml` (da fare una volta sola)
+La Action ha bisogno di 3 valori configurati su GitHub (repo `Fpeverin/Ellera` → **Settings**):
+
+1. **Settings → Secrets and variables → Actions → tab "Secrets" → "New repository secret"**
+   - Nome: `EXPO_TOKEN`
+   - Valore: un Personal Access Token generato su
+     [expo.dev/settings/access-tokens](https://expo.dev/settings/access-tokens) → "Create token"
+     (dà alla Action il permesso di pubblicare aggiornamenti a nome tuo — va trattato come una
+     password, non condividerlo).
+2. **Stessa pagina → tab "Variables" → "New repository variable"** (questi due NON sono segreti, la
+   chiave "anon" di Supabase è pensata per stare nel client — vedi `App/.env.example`):
+   - `EXPO_PUBLIC_SUPABASE_URL` = lo stesso valore che hai in `App/.env`
+   - `EXPO_PUBLIC_SUPABASE_ANON_KEY` = lo stesso valore che hai in `App/.env`
+
+Una volta impostati questi 3 valori, ogni push su `main` che tocca file dentro `App/` pubblica da
+solo l'aggiornamento OTA — verificabile dalla tab **Actions** del repository su GitHub.
+
+### Collegamento GitHub↔EAS Workflows (confermato attivo, ma non usato per l'OTA)
+Il repository GitHub risulta correttamente collegato al progetto Expo (`Fpeverin/Ellera`, confermato
+il 2026-07-29 su expo.dev → progetto → tab **GitHub**) — questo collegamento resta utile per lanciare
+build manuali dalla dashboard ("Build from GitHub"), ma **non** per l'OTA automatico: quel compito è
+passato alla GitHub Action descritta sopra.
 
 ## Convenzione script SQL (`App/supabase/`)
 

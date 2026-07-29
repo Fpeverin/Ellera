@@ -47,6 +47,16 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
+### 2026-07-29 — OTA automatico: da EAS Workflow (mai partita) a GitHub Action
+La EAS Workflow nativa (`App/.eas/workflows/update-on-push.yml`), pensata per pubblicare da sola un
+aggiornamento OTA a ogni push su GitHub, non è mai partita nonostante il repo risultasse
+correttamente collegato su expo.dev (verificato con due push di prova e la documentazione ufficiale
+Expo — nessuna causa individuabile lato nostro). Sostituita con una **GitHub Action**
+(`.github/workflows/eas-update.yml`): stesso risultato per chi usa l'app, ma il trigger è nativo di
+GitHub (non dipende dal collegamento EAS↔GitHub) e le esecuzioni si vedono direttamente nella tab
+**Actions** del repository. **Serve un'ultima configurazione una tantum da fare tu** (token/segreti
+su GitHub, vedi `App/CLAUDE.md` sezione "Come rilascio una modifica") prima che parta da sola.
+
 ### 2026-07-29 — Modello scaricabile per ogni import Excel
 Accanto a "📥 Importa Excel" (Rosa, Partite, Allenamenti) c'è ora un bottone **"📄 Modello"**: scarica
 un file XLSX di esempio, diverso per ciascuna sezione, con le colonne corrette già intestate, 2-3
