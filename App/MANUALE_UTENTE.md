@@ -38,18 +38,17 @@ diverso collegato alla stessa squadra).
 
 La prima schermata che si vede aprendo l'app.
 
+- **Header**: nome della squadra a sinistra, bottone **👤 Account** a destra — mostra l'account
+  collegato (email, ruolo) e permette di **uscire** (logout). Utile su un dispositivo condiviso da
+  più persone: si esce e si accede con un altro account senza reinstallare nulla.
+- **Oggi e domani**: due colonne con gli impegni di oggi e di domani (allenamenti/partite),
+  toccabili per aprirli direttamente — il modo più rapido per vedere cosa c'è nell'immediato senza
+  scorrere il calendario.
 - **Calendario mensile**: un pallino/etichetta colorata per ogni evento del giorno (rosso = partita,
-  verde = allenamento); toccando un giorno si apre subito la creazione di un nuovo evento in quella
-  data.
-- **Prossimi eventi**: lista degli eventi futuri più vicini (partite e allenamenti), toccabili per
-  aprirli direttamente. Su schermi piccoli questa lista si nasconde per non affollare la schermata.
-- **Icone 📤 / 📥** accanto al titolo "Calendario": servono solo per esportare/importare eventuali
-  impostazioni minori rimaste sul singolo dispositivo (non i dati veri della squadra, che ormai
-  vivono tutti nel database condiviso — vedi [sezione 9](#9-domande-frequenti) sul backup).
-- **Azioni rapide**: scorciatoie dirette ad Allenamenti, Partite, Gestione Squadra.
-- **👤 (in alto a destra)**: mostra l'account collegato (email, ruolo) e permette di **uscire**
-  (logout). Utile su un dispositivo condiviso da più persone: si esce e si accede con un altro
-  account senza reinstallare nulla.
+  verde = allenamento). Per Admin/Staff, toccare un giorno apre subito la creazione di un nuovo
+  evento in quella data (per il Giocatore il tocco non fa nulla, coerente con la sola lettura).
+- **Azioni rapide**: scorciatoie dirette ad Allenamenti, Partite e — Gestione Squadra per Admin/
+  Staff, direttamente Rosa per il Giocatore (che in Gestione Squadra vedrebbe comunque solo quella).
 
 ## 3. Calendario
 
@@ -244,9 +243,7 @@ No: tutto (calendario, rosa, foto, tattiche, statistiche, archivio) vive su un d
 stessa squadra) da qualunque dispositivo per vedere sempre gli stessi dati aggiornati.
 
 **Come faccio un backup?**
-Non serve farlo manualmente: i dati sono già al sicuro sul database condiviso. Le icone 📤/📥 in
-Dashboard servono solo per le poche impostazioni rimaste sul singolo dispositivo, non per i dati
-della squadra.
+Non serve farlo manualmente: i dati sono già al sicuro sul database condiviso.
 
 **Chi può vedere i dati della mia squadra?**
 Solo chi è stato invitato (con il codice invito) o ha creato la squadra — ogni squadra vede

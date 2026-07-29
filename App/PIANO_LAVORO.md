@@ -47,11 +47,24 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
-### 2026-07-29 — Bottone account/logout in Dashboard
-Non esisteva alcun modo di uscire dall'account una volta entrati in una squadra — impossibile, ad
-esempio, provare un secondo account sullo stesso dispositivo. Aggiunto un bottone **👤** in Dashboard
-(in alto a destra, raggiungibile da ogni ruolo) che mostra email/ruolo dell'account e permette di
-uscire (con conferma).
+### 2026-07-29 — Ridisegno Dashboard/Home
+Su richiesta di Francesco, rivista tutta la prima schermata dell'app:
+- Nuovo blocco **"Oggi e domani"** (impegni del giorno stesso e di domani, colonne cliccabili) subito
+  sotto l'header, prima del calendario mensile — che resta centrale ma non è più l'unica cosa in
+  cima. Sostituisce la vecchia lista "Prossimi eventi" (a volte nascosta su schermi piccoli).
+- Tolti il titolo "Dashboard Calcistica" (sostituito dal nome della squadra) e la scritta
+  "Calendario" sopra la griglia mensile — ridondanti, occupavano solo spazio.
+- Tolte le icone 📤/📥 di backup/import JSON locale: non servono più, i dati vivono tutti su
+  Supabase da tempo.
+- **Azioni rapide differenziate per ruolo**: per il Giocatore, "Gestione Squadra" (che per lui
+  mostrerebbe comunque solo la card Rosa) diventa un tasto diretto **"Rosa"**.
+- **Corretto un bug di permessi**: toccare un giorno nel calendario apriva sempre la creazione di un
+  nuovo evento, anche per un account Giocatore (sola lettura in tutto il resto dell'app) — ora il
+  tocco non fa nulla per quel ruolo.
+- Bottone **👤 Account** nell'header (con etichetta visibile, non solo icona) che mostra email/ruolo
+  dell'account e permette di uscire (con conferma) — prima non esisteva alcun modo di uscire
+  dall'account una volta entrati in una squadra, impossibile ad esempio provare un secondo account
+  sullo stesso dispositivo.
 
 ### 2026-07-29 — OTA automatico: da EAS Workflow (mai partita) a GitHub Action
 La EAS Workflow nativa (`App/.eas/workflows/update-on-push.yml`), pensata per pubblicare da sola un

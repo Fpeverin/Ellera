@@ -436,15 +436,35 @@ eseguire una volta ciascuno dopo quelli delle fasi precedenti.
   una convocazione) — quei casi restano in Backlog e richiederanno di salvare un push token Expo per
   account su Supabase.
 
-## Bottone account/logout in Dashboard (2026-07-29)
+## Ridisegno Dashboard/Home (2026-07-29)
 
-- L'app non aveva **nessun modo di uscire dall'account** una volta entrati in una squadra (`signOut`
-  esisteva già in `AuthContext.tsx` ma era raggiungibile solo dalla schermata di onboarding, prima di
-  creare/entrare in una squadra) — bloccava, tra l'altro, il testare più account sullo stesso
-  dispositivo (es. verificare l'invio email registrando un nuovo utente).
-- Aggiunto un bottone **👤** nell'header di `app/index.tsx` (Dashboard, raggiungibile da tutti i
-  ruoli): apre un `Alert` con email + ruolo dell'account corrente e un'azione "Esci" (con conferma),
-  che chiama `signOut()`.
+Tutto in `app/index.tsx` (unico file toccato):
+- **Bottone account/logout**: l'app non aveva nessun modo di uscire dall'account una volta entrati
+  in una squadra (`signOut` esisteva già in `AuthContext.tsx` ma era raggiungibile solo
+  dall'onboarding, prima di creare/entrare in una squadra) — bloccava, tra l'altro, il testare più
+  account sullo stesso dispositivo. Bottone **👤 Account** nell'header (etichetta visibile, non solo
+  icona — la sola icona non si notava abbastanza), raggiungibile da tutti i ruoli: apre un `Alert`
+  con email + ruolo dell'account corrente e un'azione "Esci" (con conferma) che chiama `signOut()`.
+- **Titolo header**: da "Dashboard Calcistica" (statico) al nome della squadra
+  (`membership?.orgName`) — più utile, e tolto anche il titolo "Calendario" sopra la griglia mensile
+  (ridondante, si capisce già cos'è).
+- **Blocco "Oggi e domani"** (nuovo): due colonne compatte con gli eventi del giorno stesso e del
+  giorno dopo (riusa `eventsByDate`, già calcolato), righe cliccabili verso il dettaglio evento.
+  **Sostituisce** la vecchia lista "Prossimi eventi" (tutti gli eventi futuri, un `FlatList`
+  nascosto su schermi piccoli via `hasSpaceForEvents`/`Dimensions` — rimossi entrambi, il nuovo
+  blocco è abbastanza compatto da stare sempre).
+- **Rimosse le icone 📤/📥** (backup/import JSON via AsyncStorage) accanto al calendario — non
+  servono più, tutti i dati reali vivono su Supabase da tempo. Rimosse anche le dipendenze non più
+  usate in questo file (`@react-native-async-storage/async-storage`, `expo-document-picker`,
+  `expo-file-system/legacy`, `expo-sharing` — restano comunque usate altrove nell'app).
+- **Fix**: il tap su un giorno della griglia mensile apriva sempre la creazione di un nuovo evento,
+  **senza controllo di ruolo** — un account Giocatore (sola lettura ovunque nel resto dell'app)
+  poteva quindi creare eventi dalla Dashboard. Ora il tap non fa nulla per `membership?.role ===
+  'giocatore'`.
+- **Azioni rapide per ruolo**: Allenamenti/Partite restano uguali per tutti (il Giocatore ha già
+  accesso in sola lettura). L'ultimo tasto cambia: "Gestione Squadra" per Admin/Staff, ma per il
+  Giocatore diventa un tasto diretto **"Rosa"** (`/squadra/rosa`) — quella pagina per lui mostrerebbe
+  comunque solo quella card, quindi si salta il passaggio intermedio.
 
 ## Modelli XLSX scaricabili per gli import (2026-07-29)
 

@@ -1,11 +1,7 @@
 // app/index.tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system/legacy';
 import { useFocusEffect, useRouter } from 'expo-router';
-import * as Sharing from 'expo-sharing';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Dimensions, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import EventEditorModal from './components/EventEditorModal';
 import { useAuth } from './context/AuthContext';
@@ -34,15 +30,12 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function Dashboard() {
   const router = useRouter();
-  const { height: screenHeight } = Dimensions.get('window');
   const { session, membership, signOut } = useAuth();
+  const isGiocatore = membership?.role === 'giocatore';
 
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [initialDateForModal, setInitialDateForModal] = useState<string | undefined>(undefined);
-
-  // Calcola se c'è spazio per mostrare gli eventi futuri
-  const hasSpaceForEvents = screenHeight > 700;
 
   const refreshEvents = async () => {
     const list = await loadEvents();
@@ -77,53 +70,12 @@ export default function Dashboard() {
     return map;
   }, [events]);
 
-  /* ---------------------------- Eventi futuri ---------------------------- */
-  const now = new Date();
-  const upcomingEvents = useMemo(
-    () =>
-      events
-        .filter((ev) => parseYMDTimeLocal(ev.date, ev.time || '00:00') >= now)
-        .sort(
-          (a, b) =>
-            parseYMDTimeLocal(a.date, a.time || '00:00').getTime() -
-            parseYMDTimeLocal(b.date, b.time || '00:00').getTime()
-        ),
-    [events]
-  );
-const exportData = async () => {
-    try {
-      const allKeys = await AsyncStorage.getAllKeys();
-      const allItems = await AsyncStorage.multiGet(allKeys);
-      const data: Record<string, any> = {};
-      allItems.forEach(([key, value]) => {
-        if (value !== null) data[key] = JSON.parse(value);
-      });
+  /* ------------------------- Blocco "Oggi / Domani" ------------------------- */
+  const todayStr = fmtYMDLocal(new Date());
+  const tomorrowStr = fmtYMDLocal(new Date(Date.now() + 24 * 60 * 60 * 1000));
+  const todayEvents = useMemo(() => eventsByDate.get(todayStr) ?? [], [eventsByDate, todayStr]);
+  const tomorrowEvents = useMemo(() => eventsByDate.get(tomorrowStr) ?? [], [eventsByDate, tomorrowStr]);
 
-      const fileUri = FileSystem.cacheDirectory + 'backup.json';
-      await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(data, null, 2));
-      await Sharing.shareAsync(fileUri, { mimeType: 'application/json', dialogTitle: 'Esporta dati' });
-    } catch (e) {
-      console.error('Errore export', e);
-    }
-  };
-
-  const importData = async () => {
-    try {
-      const res = await DocumentPicker.getDocumentAsync({ type: 'application/json' });
-      if (res.canceled) return;
-      const file = res.assets[0];
-      const content = await FileSystem.readAsStringAsync(file.uri);
-      const parsed = JSON.parse(content);
-
-      for (const [key, value] of Object.entries(parsed)) {
-        await AsyncStorage.setItem(key, JSON.stringify(value));
-      }
-      alert('Dati importati con successo!');
-      refreshEvents(); // ricarico calendario
-    } catch (e) {
-      console.error('Errore import', e);
-    }
-  };
   /* ---------------------- Format e colori delle pill ---------------------- */
   const pillColor = (ev: CalendarEvent) => (ev.type === 'PARTITA' ? '#e74c3c' : '#1b7f3b');
 
@@ -140,10 +92,33 @@ const exportData = async () => {
     return `${titolo}${comp}`;
   };
 
-  const formatEventCardTitle = (ev: CalendarEvent) =>
-    ev.type === 'PARTITA'
-      ? formatEventPill(ev)
-      : formatEventPill(ev);
+  const goToEvent = (ev: CalendarEvent) => {
+    router.push(ev.type === 'PARTITA' ? `/eventi/partita/${ev.id}` : `/eventi/allenamento/${ev.id}`);
+  };
+
+  const renderDayBlock = (label: string, list: CalendarEvent[]) => (
+    <View style={styles.dayBlock}>
+      <Text style={styles.dayBlockLabel}>{label}</Text>
+      {list.length === 0 ? (
+        <Text style={styles.dayBlockEmpty}>Nessun impegno</Text>
+      ) : (
+        list.map((ev) => (
+          <Pressable key={ev.id} style={styles.dayBlockRow} onPress={() => goToEvent(ev)}>
+            <View style={[styles.dayBlockDot, { backgroundColor: pillColor(ev) }]} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.dayBlockTitle} numberOfLines={1}>
+                {formatEventPill(ev)}
+              </Text>
+              <Text style={styles.dayBlockDetails}>
+                {ev.time || '--:--'}
+                {ev.location ? ` · ${ev.location}` : ''}
+              </Text>
+            </View>
+          </Pressable>
+        ))
+      )}
+    </View>
+  );
 
   /* ------------------------- Griglia calendario (6x7) ------------------------- */
   const renderMonthGrid = () => {
@@ -174,6 +149,7 @@ const exportData = async () => {
           key={dateStr}
           style={[styles.dayCell, !isCurrentMonth && styles.otherMonth, isToday && styles.todayCell]}
           onPress={() => {
+            if (isGiocatore) return;
             setInitialDateForModal(dateStr);
             setShowModal(true);
           }}
@@ -239,22 +215,23 @@ const exportData = async () => {
         {/* Header + Calendario - fissi, non scrollabili */}
         <View style={styles.topSection}>
         <View style={styles.header}>
-          <Text style={styles.title}>Dashboard Calcistica</Text>
+          <Text style={styles.title}>{membership?.orgName || 'TeamBoard'}</Text>
           <Pressable style={styles.accountBtn} onPress={handleAccountPress}>
-            <Text style={styles.accountBtnText}>👤</Text>
+            <Text style={styles.accountBtnIcon}>👤</Text>
+            <Text style={styles.accountBtnText}>Account</Text>
           </Pressable>
         </View>
 
-        <View style={styles.calendarSection}>
-          <Text style={styles.sectionTitle}>Calendario</Text>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <Pressable onPress={exportData}>
-              <Text style={{ fontSize: 20 }}>📤</Text>
-            </Pressable>
-            <Pressable onPress={importData}>
-              <Text style={{ fontSize: 20 }}>📥</Text>
-            </Pressable>
+        <View style={styles.todayTomorrowSection}>
+          <Text style={styles.sectionTitle}>Oggi e domani</Text>
+          <View style={styles.todayTomorrowCard}>
+            {renderDayBlock('Oggi', todayEvents)}
+            <View style={styles.daySeparator} />
+            {renderDayBlock('Domani', tomorrowEvents)}
           </View>
+        </View>
+
+        <View style={styles.calendarSection}>
           <View style={styles.miniCalendar}>
             <Text style={styles.monthTitle}>
               {new Date().toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
@@ -283,47 +260,6 @@ const exportData = async () => {
           </View>
         </View>
       </View>
-
-      {/* Eventi futuri - solo se c'è spazio */}
-      {hasSpaceForEvents && (
-        <View style={styles.eventsSection}>
-        
-          <FlatList
-            data={upcomingEvents}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={<Text style={styles.emptyText}>Nessun evento futuro</Text>}
-            renderItem={({ item }) => (
-              <Pressable
-                style={styles.eventCard}
-                onPress={() => {
-                  if (item.type === 'PARTITA') {
-                    router.push(`/eventi/partita/${item.id}`);
-                  } else {
-                    router.push(`/eventi/allenamento/${item.id}`);
-                  }
-                }}
-              >
-                <View style={styles.eventHeader}>
-                  <Text
-                    style={[
-                      styles.eventType,
-                      { backgroundColor: item.type === 'PARTITA' ? '#e74c3c' : '#1b7f3b' },
-                    ]}
-                  >
-                    {item.type}
-                  </Text>
-                  <Text style={styles.eventDate}>{item.date}</Text>
-                </View>
-                <Text style={styles.eventTitle}>{formatEventCardTitle(item)}</Text>
-                <Text style={styles.eventDetails}>
-                  {item.time || '--:--'} · {item.location}
-                </Text>
-              </Pressable>
-            )}
-          />
-        </View>
-      )}
       </View>
 
       {/* Azioni rapide - sempre visibili sopra la barra di navigazione */}
@@ -338,10 +274,17 @@ const exportData = async () => {
             <Text style={styles.actionIcon}>🏆</Text>
             <Text style={styles.actionText}>Partite</Text>
           </Pressable>
-          <Pressable style={styles.actionButton} onPress={() => router.push('/squadra')}>
-            <Text style={styles.actionIcon}>👥</Text>
-            <Text style={styles.actionText}>Gestione Squadra</Text>
-          </Pressable>
+          {isGiocatore ? (
+            <Pressable style={styles.actionButton} onPress={() => router.push('/squadra/rosa')}>
+              <Text style={styles.actionIcon}>📋</Text>
+              <Text style={styles.actionText}>Rosa</Text>
+            </Pressable>
+          ) : (
+            <Pressable style={styles.actionButton} onPress={() => router.push('/squadra')}>
+              <Text style={styles.actionIcon}>👥</Text>
+              <Text style={styles.actionText}>Gestione Squadra</Text>
+            </Pressable>
+          )}
         </View>
       </View>
       
@@ -368,10 +311,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  bottomSafeArea: {
-    backgroundColor: '#f5f7fa',
-  },
-
   // Sezione top fissa (niente scroll): occupa solo lo spazio necessario
   topSection: {
     flexShrink: 0,
@@ -387,16 +326,39 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 28, fontWeight: '700', color: '#1a202c' },
   accountBtn: {
-    width: 40,
-    height: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 20,
     backgroundColor: '#eef2f7',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  accountBtnText: { fontSize: 18 },
+  accountBtnIcon: { fontSize: 16 },
+  accountBtnText: { fontSize: 14, fontWeight: '700', color: '#1a202c' },
 
   sectionTitle: { fontSize: 20, fontWeight: '700', color: '#1a202c', marginBottom: 12 },
+
+  // Blocco "Oggi / Domani"
+  todayTomorrowSection: { paddingHorizontal: 16, marginBottom: 20 },
+  todayTomorrowCard: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  dayBlock: { flex: 1, padding: 14 },
+  daySeparator: { width: 1, backgroundColor: '#eef2f7' },
+  dayBlockLabel: { fontSize: 13, fontWeight: '700', color: '#64748b', marginBottom: 8, textTransform: 'uppercase' },
+  dayBlockEmpty: { fontSize: 13, color: '#999', fontStyle: 'italic' },
+  dayBlockRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 10 },
+  dayBlockDot: { width: 8, height: 8, borderRadius: 4, marginTop: 5 },
+  dayBlockTitle: { fontSize: 14, fontWeight: '700', color: '#1a202c' },
+  dayBlockDetails: { fontSize: 12, color: '#666', marginTop: 2 },
 
   // Calendario
   calendarSection: { paddingHorizontal: 16, marginBottom: 24 },
@@ -448,39 +410,6 @@ const styles = StyleSheet.create({
   morePill: { backgroundColor: '#e5e7eb' },
 
   calendarInfo: { fontSize: 14, color: '#666', textAlign: 'center', marginTop: 8 },
-
-  // Eventi futuri - flessibile in base allo spazio
-  eventsSection: { 
-    flex: 1, 
-    paddingHorizontal: 16, 
-    marginBottom: 8,
-    maxHeight: '25%'
-  },
-  eventCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  eventHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  eventType: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    textTransform: 'uppercase',
-  },
-  eventDate: { fontSize: 14, color: '#666', fontWeight: '500' },
-  eventTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4, color: '#1a202c' },
-  eventDetails: { fontSize: 14, color: '#666' },
-  emptyText: { color: '#666', textAlign: 'center', fontStyle: 'italic', paddingVertical: 20 },
 
   // Bottoni - sempre visibili in fondo
   actionsSection: { 
