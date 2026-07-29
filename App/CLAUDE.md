@@ -520,3 +520,57 @@ Tutto in `app/index.tsx` (unico file toccato):
   del workbook, quindi il modello scaricato può anche essere ricompilato e reimportato direttamente
   senza modifiche di struttura.
 - Nessuna dipendenza nuova (riusa `xlsx`/`expo-sharing` già presenti) — arriva via OTA.
+
+## Convocazione partita + Rosa Staff categorizzata (2026-07-29)
+
+Portata la gestione dei convocati fuori da `formazione.tsx` in un tab autonomo per-partita
+(`app/eventi/partita/[id]/convocazione.tsx`), visibile solo a Staff/Admin (`readOnly` per
+Giocatore, come le altre schermate). Riproduce la "Scheda Convocazione" usata dal club (Excel con
+liste convocati e riepilogo pranzo), condiviso da Francesco come modello.
+
+- **Schema** — `App/supabase/12_schema_convocazione.sql`:
+  - **`staff_members`** (nuova tabella): elenco persone (nome, `category` in
+    `TECNICO`/`SANITARIO`/`DIRIGENZIALE`, `role` libero es. "Allenatore") — indipendente dagli
+    account, stesso principio di `players` per i giocatori (nessun account richiesto per comparire
+    nelle convocazioni). RLS: lettura `is_member_of`, scrittura `is_staff_or_admin_of`.
+  - **`match_live.convocazione`** (nuova colonna jsonb, stesso pattern di goals/subs/cards/lineup):
+    `{ ritrovo, playerIds, staffIds, menuItems: {id,name}[], meals: Record<personId, menuItemId> }`.
+- **`app/data/staffRoster.ts`** (nuovo): CRUD diretto su `staff_members` (`loadStaffMembers`,
+  `addStaffMember`, `updateStaffMember`, `removeStaffMember`) — mirror di `players.ts`, senza
+  concetto di "ex" e senza blocco cancellazione se già usato in una convocazione passata
+  (semplificazione consapevole: dato a basso rischio, a differenza dei giocatori).
+- **`app/data/matchLive.ts`**: nuova coppia `loadConvocazione`/`saveConvocazione` (get/set sulla
+  colonna `convocazione`, stesso `getColumn`/`setColumn` di tutte le altre).
+- **`app/data/convocazione.ts`** (nuovo, livello più alto): `loadConvocazione`/`saveConvocazione`
+  (con default vuoto), `loadPreviousMenuTemplate(eventId)` (cerca la partita passata più recente con
+  un menu già impostato, per prepopolare piatti e scelte di una convocazione nuova — richiesta
+  esplicita di Francesco), `saveConvocatiPlayerIds(eventId, ids)` (setter condiviso: salva
+  `convocazione.playerIds` **e** pota `lineup.field`/`lineup.bench` togliendo ogni id non più
+  convocato — stesso comportamento che prima viveva nella modale CONVOCATI di `formazione.tsx`).
+- **`app/components/partite/ConvocatiPlayersModal.tsx`** (nuovo, condiviso): checklist giocatori con
+  tetto massimo (default 20), usata sia dal tab Convocazione sia dalla modifica "ultimo secondo" in
+  Live.
+- **`app/eventi/partita/[id]/convocazione.tsx`** (nuovo): intestazione partita (letta da
+  `loadEvents()`) + campo Ritrovo, checklist giocatori (alfabetico, tramite la modale condivisa),
+  staff diviso nelle 3 categorie con aggiunta rapida di nuove persone al roster, riepilogo conteggi
+  per categoria, sezione menu pranzo (piatti disponibili editabili + scelta per convocato, con
+  riepilogo pasti calcolato lato client), bottone "📄 Esporta PDF" (stesso pattern HTML →
+  `Print.printToFileAsync` → `Sharing.shareAsync` di `app/squadra/statistiche.tsx`). Tutto autosalva,
+  nessun bottone "Salva" esplicito (stesso stile di `formazione.tsx`).
+- **`app/eventi/partita/[id]/formazione.tsx`**: non gestisce più i convocati in proprio — rimossi
+  `convocatiIds`/`MAX_CONVOCATI`/la modale "CONVOCATI" interna. Ora legge (sola lettura)
+  `loadConvocazione(matchId).playerIds` per filtrare `availablePlayers`; se vuoto mostra un banner
+  d'avviso con link al tab Convocazione.
+- **`app/eventi/partita/[id]/live.tsx`**: nuova card "🗒️ CONVOCAZIONE" (link al tab) sempre visibile
+  per Staff/Admin, più una card "✏️ MODIFICA CONVOCATI" visibile solo **prima di Start** (modifica
+  "ultimo secondo" richiesta esplicitamente da Francesco) che apre la stessa
+  `ConvocatiPlayersModal` e chiama `saveConvocatiPlayerIds` (stessa pruning-logic).
+
+**Cosa NON è in questo giro** (scelte di scope esplicite, concordate prima di iniziare):
+- Nessuna **notifica push** ai convocati — richiede un'infrastruttura di push token per-utente non
+  ancora costruita (nota già presente nel Backlog di `PIANO_LAVORO.md` su altri punti simili).
+- Nessun **collegamento account↔staff roster** (l'equivalente di `memberships.player_id` per i
+  Giocatori) — lo staff roster resta dato puro, non collegato a nessun account.
+
+Nessuna dipendenza nuova (`expo-print`/`expo-sharing` già presenti) → arriva via OTA. Richiede
+l'esecuzione di `App/supabase/12_schema_convocazione.sql` su Supabase.

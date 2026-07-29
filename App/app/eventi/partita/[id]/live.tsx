@@ -19,6 +19,8 @@ import {
   loadCompetitionRules,
   type CompetitionRules,
 } from '../../../data/competitionRules';
+import ConvocatiPlayersModal from '../../../components/partite/ConvocatiPlayersModal';
+import { loadConvocazione, saveConvocatiPlayerIds } from '../../../data/convocazione';
 import { loadEvents, saveEvents } from '../../../data/events';
 import {
   CardItem,
@@ -199,6 +201,30 @@ const setSecondHalfBaseline = async () => {
 
   // Regole di partecipazione (Under/Over) della competizione di questa partita
   const [competitionRules, setCompetitionRules] = useState<CompetitionRules | null>(null);
+
+  // Convocati (dal tab Convocazione) — modificabili "all'ultimo secondo" prima di Start
+  const [convocatiPlayerIds, setConvocatiPlayerIds] = useState<string[]>([]);
+  const [convocatiModalOpen, setConvocatiModalOpen] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      if (!matchId) return;
+      try {
+        const conv = await loadConvocazione(matchId);
+        setConvocatiPlayerIds(conv.playerIds);
+      } catch {}
+    })();
+  }, [matchId]);
+
+  const handleConfirmConvocati = async (ids: string[]) => {
+    if (!matchId) return;
+    setConvocatiPlayerIds(ids);
+    try {
+      await saveConvocatiPlayerIds(matchId, ids);
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare i giocatori convocati.');
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -1220,6 +1246,29 @@ const yellowCount = new Map<string, number>();
             </Pressable>
           </View>
 
+          {!readOnly && (
+            <View style={[styles.managementActions, { marginTop: 12 }]}>
+              <Pressable
+                style={[styles.actionCard, styles.convocazioneCard]}
+                onPress={() => router.push(`/eventi/partita/${matchId}/convocazione`)}
+              >
+                <Text style={styles.actionIcon}>🗒️</Text>
+                <Text style={styles.actionTitle}>CONVOCAZIONE</Text>
+                <Text style={styles.actionSubtitle}>{convocatiPlayerIds.length} convocati</Text>
+              </Pressable>
+              {!startedOnce && (
+                <Pressable
+                  style={[styles.actionCard, styles.convocazioneCard]}
+                  onPress={() => setConvocatiModalOpen(true)}
+                >
+                  <Text style={styles.actionIcon}>✏️</Text>
+                  <Text style={styles.actionTitle}>MODIFICA CONVOCATI</Text>
+                  <Text style={styles.actionSubtitle}>Ultimo secondo</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+
           {/* Cartellini */}
           <View style={[styles.managementActions, { marginTop: 12 }]}>
             <Pressable
@@ -1908,6 +1957,14 @@ const yellowCount = new Map<string, number>();
             </View>
           </View>
         </Modal>
+
+        <ConvocatiPlayersModal
+          visible={convocatiModalOpen}
+          players={basePlayers}
+          selectedIds={convocatiPlayerIds}
+          onClose={() => setConvocatiModalOpen(false)}
+          onConfirm={handleConfirmConvocati}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -2056,6 +2113,9 @@ const styles = StyleSheet.create({
   },
   tacticsCard: {
     backgroundColor: '#ede9fe',
+  },
+  convocazioneCard: {
+    backgroundColor: '#dcfce7',
   },
   yellowCard: {
     backgroundColor: '#fef9c3',

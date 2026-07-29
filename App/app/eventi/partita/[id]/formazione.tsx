@@ -13,6 +13,7 @@ import {
   type CompetitionRules,
   type RulesCheckResult,
 } from '../../../data/competitionRules';
+import { loadConvocazione } from '../../../data/convocazione';
 import { loadEvents } from '../../../data/events';
 import {
   loadLineup as loadLineupRemote,
@@ -30,7 +31,6 @@ type Player = { id: string; name: string; role?: string; number?: number };
 
 const SHIRT_W = 46;
 const SHIRT_H = 30;
-const MAX_CONVOCATI = 20;
 
 type PickTarget =
   | { kind: 'FIELD'; index: number }
@@ -95,8 +95,9 @@ export default function Schieramento() {
 
   const [fieldSize, setFieldSize] = useState({ w: 0, h: 0 });
 
-  const [convocatiOpen, setConvocatiOpen] = useState(false);
-  const [convocatiIds, setConvocatiIds] = useState<Set<string>>(new Set());
+  // Convocati: scelti nel tab "Convocazione" della partita, qui solo consumati
+  // (sola lettura) per decidere chi si può schierare in campo/panchina.
+  const [convocatiPlayerIds, setConvocatiPlayerIds] = useState<string[]>([]);
 
   const [fieldAssignments, setFieldAssignments] = useState<(Player | null)[]>([]);
   const [benchAssignments, setBenchAssignments] = useState<Player[]>([]);
@@ -136,6 +137,17 @@ export default function Schieramento() {
       }
     })();
   }, [competition]);
+
+  // --- convocati (dal tab Convocazione) ---
+  React.useEffect(() => {
+    (async () => {
+      if (!matchId) return;
+      try {
+        const conv = await loadConvocazione(matchId);
+        setConvocatiPlayerIds(conv.playerIds);
+      } catch {}
+    })();
+  }, [matchId]);
 
   const rulesCheck: RulesCheckResult | null = useMemo(() => {
     if (!competitionRules || (!competitionRules.underEnabled && !competitionRules.overEnabled)) return null;
@@ -190,7 +202,6 @@ export default function Schieramento() {
         const saved = await loadLineupRemote(matchId);
         if (saved) {
           if (saved.moduleName) setSelectedModuleName(saved.moduleName);
-          setConvocatiIds(new Set(saved.convocati));
 
           const numbersMap: Record<string, number> = saved.numbers || {};
           const idToPlayer = new Map(basePlayers.map(p => [p.id, p]));
@@ -245,7 +256,7 @@ export default function Schieramento() {
     fieldAssignments.forEach(p => p && inUseIds.add(p.id));
     benchAssignments.forEach(p => inUseIds.add(p.id));
     const arr = basePlayers
-      .filter(p => convocatiIds.has(p.id) && !inUseIds.has(p.id))
+      .filter(p => convocatiPlayerIds.includes(p.id) && !inUseIds.has(p.id))
       .sort((a, b) => a.name.localeCompare(b.name));
     const seen = new Set<string>();
     return arr.filter(p => {
@@ -253,34 +264,7 @@ export default function Schieramento() {
       seen.add(p.name);
       return true;
     });
-  }, [basePlayers, convocatiIds, fieldAssignments, benchAssignments]);
-
-  // --- lista completa per convocati ---
-  const uniquePlayers = useMemo(() => {
-    const seen = new Set<string>();
-    const out: Player[] = [];
-    for (const p of basePlayers.slice().sort((a, b) => a.name.localeCompare(b.name))) {
-      if (!seen.has(p.name)) {
-        seen.add(p.name);
-        out.push(p);
-      }
-    }
-    return out;
-  }, [basePlayers]);
-
-  // --- helpers convocati ---
-  const toggleConvocato = (id: string) => {
-    setConvocatiIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        if (next.size >= MAX_CONVOCATI) return next;
-        next.add(id);
-      }
-      return next;
-    });
-  };
+  }, [basePlayers, convocatiPlayerIds, fieldAssignments, benchAssignments]);
 
   const openPickerForField = (index: number) => {
     if (liveMode || readOnly) return;
@@ -367,7 +351,7 @@ export default function Schieramento() {
 
         const payload: SavedLineup = {
           moduleName: selectedModuleName ?? null,
-          convocati: Array.from(convocatiIds),
+          convocati: convocatiPlayerIds,
           field: fieldAssignments.map(p => p?.id ?? null),
           bench: benchAssignments.map(p => p.id),
           numbers, // <-- SALVO I NUMERI
@@ -375,7 +359,7 @@ export default function Schieramento() {
         await saveLineupRemote(matchId, payload);
       } catch {}
     })();
-  }, [matchId, selectedModuleName, convocatiIds, fieldAssignments, benchAssignments]);
+  }, [matchId, selectedModuleName, convocatiPlayerIds, fieldAssignments, benchAssignments]);
 
   React.useEffect(() => {
     if (!loadedRef.current || !matchId) return;
@@ -582,9 +566,25 @@ export default function Schieramento() {
                 ))}
               </View>
             )}
-            <Pressable disabled={liveMode || readOnly} style={[styles.convBtn, (liveMode || readOnly) && { opacity: 0.6 }]} onPress={() => setConvocatiOpen(true)}>
-              <Text style={styles.convBtnText}>CONVOCATI</Text>
-            </Pressable>
+            {convocatiPlayerIds.length === 0 ? (
+              <Pressable
+                style={styles.convBanner}
+                disabled={readOnly}
+                onPress={() => !readOnly && router.push(`/eventi/partita/${matchId}/convocazione`)}
+              >
+                <Text style={styles.convBannerText}>
+                  ⚠️ Nessuna convocazione impostata. Tocca per andare al tab Convocazione.
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={styles.convBtn}
+                disabled={readOnly}
+                onPress={() => !readOnly && router.push(`/eventi/partita/${matchId}/convocazione`)}
+              >
+                <Text style={styles.convBtnText}>CONVOCATI: {convocatiPlayerIds.length}</Text>
+              </Pressable>
+            )}
             <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Disponibili</Text>
             <FlatList
               data={availablePlayers}
@@ -621,53 +621,6 @@ export default function Schieramento() {
               ListEmptyComponent={<Text style={{ color: '#64748b' }}>Nessun giocatore disponibile</Text>}
             />
           </View>
-
-          {/* MODALE CONVOCATI */}
-          <Modal visible={convocatiOpen} transparent animationType="slide" onRequestClose={() => setConvocatiOpen(false)}>
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalCardSm}>
-                <Text style={styles.modalTitle}>
-                  Seleziona convocati ({convocatiIds.size}/{MAX_CONVOCATI})
-                </Text>
-                <FlatList
-                  data={uniquePlayers}
-                  keyExtractor={(p) => p.id}
-                  renderItem={({ item }) => {
-                    const checked = convocatiIds.has(item.id);
-                    const atLimit = convocatiIds.size >= MAX_CONVOCATI;
-                    const disabled = (atLimit && !checked) || liveMode;
-                    return (
-                      <Pressable
-                        style={[styles.ckRow, disabled && { opacity: 0.5 }]}
-                        onPress={() => !disabled && toggleConvocato(item.id)}
-                      >
-                        <View style={[styles.ckBox, checked && styles.ckBoxOn]}>
-                          {checked ? <Text style={{ color: 'white' }}>✓</Text> : null}
-                        </View>
-                        <Text style={{ flex: 1 }}>{surnameOf(item.name)}</Text>
-                      </Pressable>
-                    );
-                  }}
-                />
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                  <Pressable style={[styles.btn, { backgroundColor: '#9ca3af', flex: 1 }]} onPress={() => setConvocatiOpen(false)}>
-                    <Text style={styles.btnText}>Chiudi</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.btn, { backgroundColor: '#1b7f3b', flex: 1, opacity: liveMode ? 0.6 : 1 }]}
-                    disabled={liveMode}
-                    onPress={() => {
-                      setConvocatiOpen(false);
-                      setFieldAssignments(prev => prev.map(p => (p && !convocatiIds.has(p.id) ? null : p)));
-                      setBenchAssignments(prev => prev.filter(p => convocatiIds.has(p.id)));
-                    }}
-                  >
-                    <Text style={styles.btnText}>Conferma</Text>
-                  </Pressable>
-                </View>
-              </View>
-            </View>
-          </Modal>
 
           {/* MODALE PICKER */}
           <Modal visible={pickModalOpen} transparent animationType="fade" onRequestClose={() => { setPickModalOpen(false); setPickTarget(null); }}>
@@ -826,6 +779,8 @@ const styles = StyleSheet.create({
 
   convBtn: { backgroundColor: '#1b7f3b', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
   convBtnText: { color: 'white', fontWeight: '900' },
+  convBanner: { backgroundColor: '#fef3c7', borderWidth: 1, borderColor: '#f59e0b', borderRadius: 8, padding: 10 },
+  convBannerText: { color: '#92400e', fontWeight: '700', fontSize: 12 },
 
   rulesPanel: {
     backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10,
@@ -844,7 +799,6 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
 
   modalCard: { width: '92%', maxHeight: '92%', backgroundColor: '#fff', borderRadius: 12, padding: 14 },
-  modalCardSm: { width: '86%', maxHeight: '70%', backgroundColor: '#fff', borderRadius: 12, padding: 14 },
   modalCardNumber: { width: 320, maxWidth: '86%', backgroundColor: '#fff', borderRadius: 12, padding: 14 },
 
   modalTitle: { fontSize: 18, fontWeight: '800', marginBottom: 10 },

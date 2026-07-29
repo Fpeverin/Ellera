@@ -45,6 +45,14 @@ export type SavedLineup = {
 };
 export type PosOverride = { x: number; y: number } | null;
 export type AssignState = Record<string, Record<string, string | null>>;
+export type ConvocazioneMenuItem = { id: string; name: string };
+export type ConvocazioneData = {
+  ritrovo: string;
+  playerIds: string[];
+  staffIds: string[];
+  menuItems: ConvocazioneMenuItem[];
+  meals: Record<string, string>;
+};
 
 async function getColumn<T>(eventId: string, column: string): Promise<T | null> {
   const { data, error } = await supabase
@@ -96,6 +104,10 @@ export const loadTacticsAssignments = (eventId: string) =>
   getColumn<AssignState>(eventId, 'tactics_assignments').then((v) => v ?? {});
 export const saveTacticsAssignments = (eventId: string, assignments: AssignState) =>
   setColumn(eventId, 'tactics_assignments', assignments);
+
+export const loadConvocazione = (eventId: string) => getColumn<ConvocazioneData>(eventId, 'convocazione');
+export const saveConvocazione = (eventId: string, data: ConvocazioneData) =>
+  setColumn(eventId, 'convocazione', data);
 
 /** Cancella l'intera riga di una partita (usato quando si archivia la stagione). */
 export async function deleteMatchLive(eventId: string): Promise<void> {

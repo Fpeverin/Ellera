@@ -30,12 +30,10 @@ prossima idea non appena viene in mente.
   installato) e inviare da client all'API pubblica di Expo (`exp.host/--/api/v2/push/send`) verso i
   token dello staff, senza bisogno di un server dedicato.
 
-- **Convocazione partita da app**: portare la gestione dei convocati fuori dalla sezione Live (oggi è
-  dentro `formazione.tsx`), come sezione autonoma visibile allo staff che poi *alimenta* la Live
-  (non viceversa). Deve riprodurre un modello di convocazione in PDF che Francesco fornirà come
-  esempio. All'invio della convocazione, notifica push ai giocatori convocati. **Stessa nota tecnica
-  del punto sopra**: serve il push token per-utente (notifica verso *altri* dispositivi), non i
-  promemoria locali già implementati.
+- **Notifica invio convocazione ai giocatori convocati** (rimasto dal punto "Convocazione partita da
+  app", ora completato — vedi Completato — tranne questa parte): quando la convocazione è pronta,
+  notifica push ai giocatori convocati. Stessa nota tecnica del punto sopra: serve il push token
+  per-utente (notifica verso *altri* dispositivi), non i promemoria locali già implementati.
 
 - **Notifica proposte Live all'admin/staff** (richiesta precedente di Francesco, ancora da fare):
   quando un giocatore propone un gol/cartellino da Live, notifica push allo staff/admin di quella
@@ -46,6 +44,26 @@ prossima idea non appena viene in mente.
 *(vuoto — si popola quando iniziamo davvero il prossimo punto del backlog)*
 
 ## Completato
+
+### 2026-07-29 — Convocazione partita + Rosa Staff categorizzata
+Portata la gestione dei convocati fuori da Formazione in un tab autonomo per-partita ("Convocazione",
+visibile solo a Staff/Admin), che riproduce la scheda usata dal club (Excel condiviso da Francesco):
+- Elenco **giocatori convocati** (Rosa in ordine alfabetico) e **staff convocato**, diviso nelle 3
+  categorie **Tecnico / Sanitario / Dirigenziale** — introdotta una vera Rosa Staff (nome + categoria
+  + ruolo), indipendente dagli account, sullo stesso principio della Rosa giocatori.
+- **Ritrovo** (testo libero) e **riepilogo conteggi** per categoria.
+- **Menu pranzo**: piatti disponibili modificabili ad ogni convocazione, scelta per ciascun
+  convocato, tutto **prepopolato dall'ultima convocazione fatta** (piatti e scelte), poi lo staff
+  aggiusta quello che serve — su richiesta esplicita di Francesco.
+- **Esporta PDF** della scheda completa.
+- I giocatori convocati qui **alimentano** Formazione (che non gestisce più i convocati in proprio) e
+  Live; una modifica "dell'ultimo secondo" ai convocati resta sempre possibile da Live, prima di
+  Start.
+
+**Non incluso in questo giro** (segnalato esplicitamente): la notifica push ai convocati (serve
+un'infrastruttura di push token non ancora costruita, vedi Backlog) e il collegamento tra un membro
+della Rosa Staff e un account app (oggi non richiesto — chi non userà mai l'app comparirà comunque
+nelle convocazioni).
 
 ### 2026-07-29 — Fix critico: gli aggiornamenti OTA non arrivavano mai (runtimeVersion)
 Scoperto perché, nonostante la GitHub Action per l'OTA automatico partisse correttamente, Francesco

@@ -97,12 +97,31 @@ partita a seconda del tipo).
   stato di ogni soglia; in **Live**, "Start" e le sostituzioni vengono **bloccati con un messaggio
   chiaro** se il risultato non rispetta le regole attive per quella competizione. Un giocatore
   espulso (cartellino rosso) continua a contare come se fosse ancora in campo.
-- Toccando una partita si entra nella sua gestione, con tre sotto-sezioni:
+- Toccando una partita si entra nella sua gestione, con queste sotto-sezioni (solo Staff/Admin,
+  Giocatore non la vede):
+
+  ### Convocazione
+  Riproduce la scheda di convocazione cartacea. Solo Staff/Admin.
+  - **Ritrovo**: testo libero (luogo/orario di ritrovo pre-partita).
+  - **Giocatori convocati**: elenco Rosa in ordine alfabetico, fino a 20, con un bottone "✏️
+    Modifica" che apre la selezione a spunta. **Sono questi i giocatori disponibili in Formazione** —
+    chi non è convocato non può essere schierato.
+  - **Staff convocato**: diviso in tre categorie — **Tecnico**, **Sanitario**, **Dirigenziale** —
+    ciascuna con un elenco a spunta e un modo rapido per aggiungere una nuova persona (nome + ruolo,
+    es. "Allenatore", "Fisioterapista") che resta poi disponibile per le convocazioni future.
+  - **Riepilogo**: conteggi per categoria e totale.
+  - **Menu pranzo**: piatti disponibili (aggiungibili/rimovibili) e scelta del piatto per ciascun
+    convocato — tutto **precompilato dall'ultima convocazione fatta**, da correggere solo se serve.
+  - **📄 Esporta PDF**: genera la scheda completa da condividere/stampare.
+  - **Modifica dell'ultimo secondo**: dalla schermata **Live**, finché la partita non è ancora
+    iniziata (prima di "Start"), un bottone "✏️ Modifica convocati" permette di correggere al volo
+    l'elenco giocatori anche senza tornare in questa sezione.
 
   ### Formazione
-  Scelta del **modulo** (es. 3-4-2-1, anche moduli personalizzati creati in "Gestione Squadra"),
-  **convocati** (fino a 20 giocatori), disposizione di titolari e panchina trascinando le maglie sul
-  campo, assegnazione del numero di maglia a ciascuno.
+  Scelta del **modulo** (es. 3-4-2-1, anche moduli personalizzati creati in "Gestione Squadra") e
+  disposizione di titolari e panchina, trascinando le maglie sul campo tra i **giocatori convocati**
+  (impostati nella sezione Convocazione — se non è stata ancora fatta, compare un avviso con il
+  collegamento diretto), assegnazione del numero di maglia a ciascuno.
 
   ### Tattiche (di partita)
   Lavagna tattica dedicata a questa singola partita: si possono assegnare schemi/tattiche già salvati
@@ -230,6 +249,11 @@ generato dall'admin per una persona precisa:
 - **Per un membro dello Staff**: da Gestione Squadra → Staff → "+ Invita membro staff", basta dare un
   nome per riconoscerlo (es. "Marco - allenatore in seconda") e si ottiene subito un codice da
   condividere con lui.
+
+**Da non confondere**: questo "Staff" è chi ha (o può avere) un account per usare l'app. La **Rosa
+Staff** delle Convocazioni (Tecnico/Sanitario/Dirigenziale — vedi [sezione 5](#5-partite)) è un
+elenco separato di persone (nome, categoria, ruolo) che non richiede nessun account: serve solo per
+dire chi è convocato a una partita, anche per chi non userà mai l'app (es. il fisioterapista).
 - Chi riceve un codice si registra normalmente nell'app (email + password) e poi, invece di "Crea una
   nuova squadra", sceglie **"Ho un codice personale"** e lo inserisce: entra direttamente con il ruolo
   giusto, senza altri passaggi.
