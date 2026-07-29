@@ -54,8 +54,9 @@ correttamente collegato su expo.dev (verificato con due push di prova e la docum
 Expo — nessuna causa individuabile lato nostro). Sostituita con una **GitHub Action**
 (`.github/workflows/eas-update.yml`): stesso risultato per chi usa l'app, ma il trigger è nativo di
 GitHub (non dipende dal collegamento EAS↔GitHub) e le esecuzioni si vedono direttamente nella tab
-**Actions** del repository. **Serve un'ultima configurazione una tantum da fare tu** (token/segreti
-su GitHub, vedi `App/CLAUDE.md` sezione "Come rilascio una modifica") prima che parta da sola.
+**Actions** del repository. **Verificato funzionante** il 2026-07-29: dopo la configurazione dei
+segreti su GitHub, un push di prova ha fatto partire l'Action da sola e pubblicato l'aggiornamento —
+l'automazione OTA ora funziona davvero end-to-end.
 
 ### 2026-07-29 — Modello scaricabile per ogni import Excel
 Accanto a "📥 Importa Excel" (Rosa, Partite, Allenamenti) c'è ora un bottone **"📄 Modello"**: scarica

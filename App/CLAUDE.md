@@ -43,7 +43,9 @@ Ci sono solo due scenari:
    rispettati), abbiamo **rimosso quel file** e sostituito il meccanismo con una **GitHub Action**
    dedicata (`.github/workflows/eas-update.yml`): stessa cosa in pratica, ma è GitHub stesso a far
    partire l'esecuzione (non dipende dal webhook EAS↔GitHub), quindi è più facile da verificare/
-   debuggare direttamente dalla tab **Actions** del repository.
+   debuggare direttamente dalla tab **Actions** del repository. **Verificato funzionante** il
+   2026-07-29: push su `main` → Action partita da sola → nuovo update pubblicato su EAS, tutto senza
+   intervento manuale.
 
 2. **Serve una build nuova (raro)** — hai aggiunto una libreria che usa codice nativo, cambiato icona/
    splash/permessi, o aggiornato la versione di Expo. In questi casi una modifica "al volo" (OTA) non
