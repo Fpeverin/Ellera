@@ -28,6 +28,22 @@ async function writeAndShare(fileName: string, rows: Record<string, any>[], shee
   await Sharing.shareAsync(fileUri, { mimeType: XLSX_MIME, dialogTitle: fileName });
 }
 
+async function writeTemplateAndShare(
+  fileName: string,
+  dialogTitle: string,
+  dataRows: Record<string, any>[],
+  dataSheetName: string,
+  istruzioni: { Colonna: string; Descrizione: string }[]
+): Promise<void> {
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(dataRows), dataSheetName);
+  XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(istruzioni), 'Istruzioni');
+  const base64 = XLSX.write(book, { type: 'base64', bookType: 'xlsx' });
+  const fileUri = FileSystem.cacheDirectory + fileName;
+  await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+  await Sharing.shareAsync(fileUri, { mimeType: XLSX_MIME, dialogTitle });
+}
+
 async function pickAndReadXlsx(): Promise<any[] | null> {
   const res = await DocumentPicker.getDocumentAsync({
     type: [XLSX_MIME, 'application/vnd.ms-excel'],
@@ -54,6 +70,40 @@ export async function exportMatchesToXlsx(competition: string, matches: Calendar
     Competizione: competition,
   }));
   await writeAndShare(`partite-${competition || 'senza-competizione'}.xlsx`, rows, 'Partite');
+}
+
+/** Genera e condivide un file XLSX di esempio con le colonne attese dall'import delle partite. */
+export async function downloadMatchesTemplate(): Promise<void> {
+  const rows = [
+    {
+      Avversario: 'VIRTUS SPOLETO',
+      Data: '2026-09-14',
+      Ora: '15:30',
+      'Casa/Trasferta': 'CASA',
+      Luogo: 'Campo Sportivo Ellera',
+      Competizione: 'Eccellenza Umbra',
+    },
+    {
+      Avversario: 'BASTIA UMBRA',
+      Data: '2026-09-21',
+      Ora: '15:30',
+      'Casa/Trasferta': 'TRASFERTA',
+      Luogo: 'Campo Sportivo Bastia',
+      Competizione: 'Eccellenza Umbra',
+    },
+  ];
+  const istruzioni = [
+    { Colonna: 'Avversario', Descrizione: 'Nome della squadra avversaria' },
+    { Colonna: 'Data', Descrizione: 'Formato AAAA-MM-GG, es. 2026-09-14' },
+    { Colonna: 'Ora', Descrizione: 'Formato HH:MM, es. 15:30' },
+    { Colonna: 'Casa/Trasferta', Descrizione: 'CASA oppure TRASFERTA' },
+    { Colonna: 'Luogo', Descrizione: 'Nome/indirizzo del campo' },
+    {
+      Colonna: 'Competizione',
+      Descrizione: "Nome del campionato/torneo (deve corrispondere al filtro competizione scelto nell'app)",
+    },
+  ];
+  await writeTemplateAndShare('modello-partite.xlsx', 'Modello Partite', rows, 'Partite', istruzioni);
 }
 
 export type MatchFileRow = {
@@ -141,6 +191,21 @@ export async function exportTrainingsToXlsx(trainings: CalendarEvent[]): Promise
     Tema: ev.temaAllenamento ?? '',
   }));
   await writeAndShare('allenamenti.xlsx', rows, 'Allenamenti');
+}
+
+/** Genera e condivide un file XLSX di esempio con le colonne attese dall'import degli allenamenti. */
+export async function downloadTrainingsTemplate(): Promise<void> {
+  const rows = [
+    { Data: '2026-09-10', Ora: '18:30', Luogo: 'Campo Sportivo Ellera', Tema: 'Lavoro aerobico e possesso palla' },
+    { Data: '2026-09-12', Ora: '18:30', Luogo: 'Campo Sportivo Ellera', Tema: 'Tattica: fase di non possesso' },
+  ];
+  const istruzioni = [
+    { Colonna: 'Data', Descrizione: 'Formato AAAA-MM-GG, es. 2026-09-10' },
+    { Colonna: 'Ora', Descrizione: 'Formato HH:MM, es. 18:30' },
+    { Colonna: 'Luogo', Descrizione: 'Nome/indirizzo del campo' },
+    { Colonna: 'Tema', Descrizione: "Testo libero, tema della seduta (facoltativo)" },
+  ];
+  await writeTemplateAndShare('modello-allenamenti.xlsx', 'Modello Allenamenti', rows, 'Allenamenti', istruzioni);
 }
 
 export type TrainingFileRow = { date: string; time: string; location: string; tema: string };

@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import EventEditorModal from './components/EventEditorModal';
 import { useAuth } from './context/AuthContext';
-import { exportTrainingsToXlsx, pickAndParseTrainingsXlsx, planTrainingsImport } from './data/calendarFile';
+import { downloadTrainingsTemplate, exportTrainingsToXlsx, pickAndParseTrainingsXlsx, planTrainingsImport } from './data/calendarFile';
 import { CalendarEvent, loadEvents, saveEvents } from './data/events';
 
 interface CalendarDay {
@@ -297,6 +297,14 @@ export default function Allenamenti() {
     }
   };
 
+  const handleDownloadTrainingsTemplate = async () => {
+    try {
+      await downloadTrainingsTemplate();
+    } catch {
+      Alert.alert('Errore', 'Impossibile generare il modello.');
+    }
+  };
+
   // --- gestione mini calendario (range picker) ---
   const onDayPress = (day: CalendarDay) => {
     const d = day.dateString; // YYYY-MM-DD
@@ -394,6 +402,9 @@ export default function Allenamenti() {
           </Pressable>
           <Pressable style={styles.xlsxBtn} onPress={handleImportTrainings}>
             <Text style={styles.xlsxBtnText}>📥 Importa Excel</Text>
+          </Pressable>
+          <Pressable style={styles.xlsxBtn} onPress={handleDownloadTrainingsTemplate}>
+            <Text style={styles.xlsxBtnText}>📄 Modello</Text>
           </Pressable>
         </View>
       )}

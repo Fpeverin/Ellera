@@ -22,6 +22,7 @@ import { Player } from '../data/players';
 import { loadPhotoMap } from '../data/playerMedia';
 import {
   applyRosterImport,
+  downloadRosterTemplate,
   exportRosterToXlsx,
   pickAndParseRosterXlsx,
   planRosterImport,
@@ -314,6 +315,14 @@ export default function Rosa() {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      await downloadRosterTemplate();
+    } catch {
+      Alert.alert('Errore', 'Impossibile generare il modello.');
+    }
+  };
+
   const handleConfirmImport = async (moveToExIds: string[]) => {
     if (!importPlan) return;
     setImportBusy(true);
@@ -414,6 +423,9 @@ export default function Rosa() {
             </Pressable>
             <Pressable style={styles.xlsxBtn} onPress={handleImportRoster}>
               <Text style={styles.xlsxBtnText}>📥 Importa Excel</Text>
+            </Pressable>
+            <Pressable style={styles.xlsxBtn} onPress={handleDownloadTemplate}>
+              <Text style={styles.xlsxBtnText}>📄 Modello</Text>
             </Pressable>
             <Pressable
               style={styles.xlsxBtn}

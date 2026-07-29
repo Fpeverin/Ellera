@@ -68,6 +68,9 @@ partita a seconda del tipo).
 - **Esporta/Importa Excel**: esporta tutti gli allenamenti in un file XLSX; l'import riconosce
   l'allenamento esistente per **data+ora** e aggiorna solo luogo/tema — non tocca mai le presenze già
   segnate.
+- **📄 Modello**: scarica un file XLSX di esempio già compilato con le colonne giuste (Data, Ora,
+  Luogo, Tema) e un foglio "Istruzioni" che spiega ogni colonna — utile per capire come preparare il
+  file da importare.
 - **Dettaglio allenamento** (toccando una riga): per ogni giocatore si segna lo stato di presenza —
   ✅ Presente, ❌ Assente, 🏥 Infortunato, ⚡ Differenziato — e si può scrivere un tema/nota per la
   seduta. Tutto si salva subito, non serve un bottone "salva".
@@ -82,6 +85,8 @@ partita a seconda del tipo).
   specifica, non "Tutte"): riconosce la partita esistente per **avversario + casa/trasferta**
   (l'avversario di solito non cambia, cambiano data/ora/luogo) — l'import aggiorna solo quei campi,
   **mai** punteggio/formazione/cartellini/eventi già registrati di una partita già giocata.
+- **📄 Modello**: scarica un file XLSX di esempio già compilato con le colonne giuste (Avversario,
+  Data, Ora, Casa/Trasferta, Luogo, Competizione) e un foglio "Istruzioni" che spiega ogni colonna.
 - **Regole di partecipazione** (bottone "⚙️ Regole", con una competizione specifica selezionata):
   utile per tornei con vincoli di età (es. Eccellenza) — Under "servono almeno N giocatori in campo
   nati nell'anno X o dopo", Over "...o prima". Puoi aggiungere più soglie (es. 2006→1, 2007→2,
@@ -139,6 +144,8 @@ centrocampisti, attaccanti).
   cambiati (incluso lo stato attivo/ex letto dal file). Se un giocatore attivo manca dal file
   importato, **non viene mai toccato in automatico** — prima di applicare l'import viene mostrata una
   schermata di riepilogo dove si sceglie, uno per uno, chi eventualmente spostare tra gli ex.
+- **📄 Modello**: scarica un file XLSX di esempio già compilato con le colonne giuste (Nome, Ruolo,
+  Anno, Altezza, Peso, Stato) e un foglio "Istruzioni" che spiega ogni colonna e i valori ammessi.
 
 ### Moduli
 - Moduli predefiniti (es. 3-1-4-2, 3-4-2-1...) in sola lettura, sempre disponibili.

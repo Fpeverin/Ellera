@@ -47,6 +47,12 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
+### 2026-07-29 — Modello scaricabile per ogni import Excel
+Accanto a "📥 Importa Excel" (Rosa, Partite, Allenamenti) c'è ora un bottone **"📄 Modello"**: scarica
+un file XLSX di esempio, diverso per ciascuna sezione, con le colonne corrette già intestate, 2-3
+righe di esempio compilate e un foglio "Istruzioni" che spiega ogni colonna/i valori ammessi — per
+aiutare a capire come preparare il file da importare senza doverlo indovinare dall'export.
+
 ### 2026-07-28 — Promemoria push per allenamenti/partite (solo Giocatore)
 Ogni account con ruolo **Giocatore** riceve un avviso sul telefono alle **09:00 del giorno stesso** di
 ogni allenamento o partita in calendario (non per altri tipi di evento, e non per Staff/Admin — su

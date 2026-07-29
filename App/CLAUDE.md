@@ -405,3 +405,17 @@ eseguire una volta ciascuno dopo quelli delle fasi precedenti.
   giocatore invia una proposta o risponde a un sondaggio, o avvisare i convocati quando lo staff invia
   una convocazione) — quei casi restano in Backlog e richiederanno di salvare un push token Expo per
   account su Supabase.
+
+## Modelli XLSX scaricabili per gli import (2026-07-29)
+
+- Ogni import Excel dell'app (Rosa, Partite, Allenamenti) ha ora un bottone **"📄 Modello"** accanto a
+  "📥 Importa Excel" che genera al volo e condivide un file XLSX di esempio, diverso per ciascuna
+  sezione: colonne corrette già intestate, 2-3 righe di esempio compilate, più un secondo foglio
+  "Istruzioni" che spiega ogni colonna e i valori ammessi (es. Ruolo: Portiere/Difensore/
+  Centrocampista/Attaccante, Casa/Trasferta: CASA/TRASFERTA, formati data/ora).
+- Nuove funzioni: `downloadRosterTemplate()` in `app/data/rosterFile.ts`; `downloadMatchesTemplate()`
+  e `downloadTrainingsTemplate()` in `app/data/calendarFile.ts` (quest'ultimo file ha anche un nuovo
+  helper interno `writeTemplateAndShare` per generare i due fogli). Il foglio dati è sempre il primo
+  del workbook, quindi il modello scaricato può anche essere ricompilato e reimportato direttamente
+  senza modifiche di struttura.
+- Nessuna dipendenza nuova (riusa `xlsx`/`expo-sharing` già presenti) — arriva via OTA.

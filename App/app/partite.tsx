@@ -8,7 +8,7 @@ import CompetitionRulesModal from './components/partite/CompetitionRulesModal';
 import ConfirmDeleteModal from './components/partite/ConfirmDeleteModal';
 import MatchEventCard from './components/partite/MatchEventCard';
 import { useAuth } from './context/AuthContext';
-import { exportMatchesToXlsx, pickAndParseMatchesXlsx, planMatchesImport } from './data/calendarFile';
+import { downloadMatchesTemplate, exportMatchesToXlsx, pickAndParseMatchesXlsx, planMatchesImport } from './data/calendarFile';
 import { CalendarEvent, loadEvents, saveEvents } from './data/events';
 
 /* -------------------------------------------------------------------------- */
@@ -283,6 +283,14 @@ export default function Partite() {
     }
   };
 
+  const handleDownloadMatchesTemplate = async () => {
+    try {
+      await downloadMatchesTemplate();
+    } catch {
+      Alert.alert('Errore', 'Impossibile generare il modello.');
+    }
+  };
+
   const renderItem = ({ item }: { item: MatchEventRow }) => {
     const hasScore = !!item?.score && Number.isFinite(item.score?.home) && Number.isFinite(item.score?.away);
     const result = item?.resultText || (hasScore ? `Risultato: ${item.score!.home} - ${item.score!.away}` : null);
@@ -383,6 +391,9 @@ export default function Partite() {
           </Pressable>
           <Pressable style={styles.xlsxBtn} onPress={handleImportMatches}>
             <Text style={styles.xlsxBtnText}>📥 Importa Excel</Text>
+          </Pressable>
+          <Pressable style={styles.xlsxBtn} onPress={handleDownloadMatchesTemplate}>
+            <Text style={styles.xlsxBtnText}>📄 Modello</Text>
           </Pressable>
           <Pressable style={styles.xlsxBtn} onPress={() => setShowRulesModal(true)}>
             <Text style={styles.xlsxBtnText}>⚙️ Regole</Text>

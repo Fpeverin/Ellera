@@ -55,6 +55,32 @@ export async function exportRosterToXlsx(active: Player[], ex: Player[]): Promis
   await Sharing.shareAsync(fileUri, { mimeType: XLSX_MIME, dialogTitle: 'Esporta rosa' });
 }
 
+/** Genera e condivide un file XLSX di esempio, con le colonne attese dall'import e righe di esempio già compilate. */
+export async function downloadRosterTemplate(): Promise<void> {
+  const rows = [
+    { Nome: 'MARIO ROSSI', Ruolo: 'Centrocampista', Anno: 2008, Altezza: '175', Peso: '65', Stato: 'Attivo' },
+    { Nome: 'LUCA BIANCHI', Ruolo: 'Portiere', Anno: 2007, Altezza: '182', Peso: '75', Stato: 'Attivo' },
+    { Nome: 'GIUSEPPE VERDI', Ruolo: 'Attaccante', Anno: 2006, Altezza: '178', Peso: '70', Stato: 'Ex' },
+  ];
+  const istruzioni = [
+    { Colonna: 'Nome', Descrizione: 'Nome e cognome del giocatore' },
+    { Colonna: 'Ruolo', Descrizione: 'Uno tra: Portiere, Difensore, Centrocampista, Attaccante' },
+    { Colonna: 'Anno', Descrizione: 'Anno di nascita (numero), es. 2008' },
+    { Colonna: 'Altezza', Descrizione: 'Altezza in centimetri, es. 175' },
+    { Colonna: 'Peso', Descrizione: 'Peso in chilogrammi, es. 65' },
+    { Colonna: 'Stato', Descrizione: 'Attivo oppure Ex' },
+  ];
+
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(rows), 'Rosa');
+  XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(istruzioni), 'Istruzioni');
+  const base64 = XLSX.write(book, { type: 'base64', bookType: 'xlsx' });
+
+  const fileUri = FileSystem.cacheDirectory + 'modello-rosa.xlsx';
+  await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+  await Sharing.shareAsync(fileUri, { mimeType: XLSX_MIME, dialogTitle: 'Modello Rosa' });
+}
+
 export type RosterFileRow = {
   name: string;
   role: Role;
