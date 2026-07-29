@@ -466,6 +466,25 @@ Tutto in `app/index.tsx` (unico file toccato):
   Giocatore diventa un tasto diretto **"Rosa"** (`/squadra/rosa`) — quella pagina per lui mostrerebbe
   comunque solo quella card, quindi si salta il passaggio intermedio.
 
+## Fix Import/Export Partite: competizione per-riga, non per filtro (2026-07-29)
+
+- Bug segnalato da Francesco: i bottoni "Esporta/Importa/Modello" in `app/partite.tsx` erano
+  visibili **solo** quando era selezionata una competizione specifica (`compFilter !== ALL_COMP`) —
+  con il filtro "Tutte" sparivano del tutto. Inoltre, anche quando visibili, `exportMatchesToXlsx`
+  scriveva la **stessa** competizione (quella del filtro) su ogni riga esportata, ignorando il campo
+  `competition` reale di ciascun evento — sbagliato non appena si esportava con un filtro diverso da
+  una singola competizione.
+- **Fix in `app/data/calendarFile.ts`**: `MatchFileRow` ha ora un campo `competition` (letto dalla
+  colonna "Competizione" del file, già presente da quando è stato aggiunto il modello scaricabile).
+  `exportMatchesToXlsx` scrive la competizione **di ciascun evento**, non un valore fisso.
+  `planMatchesImport` non prende più un parametro `competition` singolo: la chiave di identità
+  "stessa partita" (avversario + casa/trasferta + competizione) usa la competizione di ogni riga del
+  file. Risultato: import/export funzionano identici con qualsiasi filtro (anche "Tutte"), e un
+  unico file può contenere partite di più competizioni.
+- **`app/partite.tsx`**: "📤 Esporta Excel" / "📥 Importa Excel" / "📄 Modello" ora visibili sempre
+  (`!readOnly`, senza il vincolo sulla competizione) — resta legato a una competizione specifica solo
+  "⚙️ Regole" (le regole Under/Over si applicano per competizione, ha senso solo lì).
+
 ## Modelli XLSX scaricabili per gli import (2026-07-29)
 
 - Ogni import Excel dell'app (Rosa, Partite, Allenamenti) ha ora un bottone **"📄 Modello"** accanto a

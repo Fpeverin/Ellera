@@ -47,6 +47,15 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
+### 2026-07-29 — Fix Import/Export Partite con filtro "Tutte"
+I bottoni Esporta/Importa/Modello in Partite sparivano del tutto con il filtro "Tutte" (visibili
+solo con una competizione specifica selezionata) e, quando visibili, l'export scriveva la stessa
+competizione su ogni riga anche se le partite erano di competizioni diverse. Corretto: ora sempre
+visibili con qualsiasi filtro, e la competizione di ogni partita viene letta/scritta riga per riga
+(colonna "Competizione" del file) invece che dal filtro selezionato — un unico file può quindi
+contenere partite di più competizioni insieme. Resta legato a una competizione specifica solo il
+bottone "⚙️ Regole" (le regole Under/Over si applicano per competizione).
+
 ### 2026-07-29 — Ridisegno Dashboard/Home
 Su richiesta di Francesco, rivista tutta la prima schermata dell'app:
 - Nuovo blocco **"Oggi e domani"** (impegni del giorno stesso e di domani, colonne cliccabili) subito

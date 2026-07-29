@@ -83,10 +83,11 @@ partita a seconda del tipo).
   un torneo in un colpo solo). Filtro in alto per vedere solo le partite di una competizione.
 - **Eliminazione**: singola partita, tutte quelle di una competizione, o tutte — sempre con conferma
   dedicata.
-- **Esporta/Importa Excel per competizione** (visibile solo quando è selezionata una competizione
-  specifica, non "Tutte"): riconosce la partita esistente per **avversario + casa/trasferta**
-  (l'avversario di solito non cambia, cambiano data/ora/luogo) — l'import aggiorna solo quei campi,
-  **mai** punteggio/formazione/cartellini/eventi già registrati di una partita già giocata.
+- **Esporta/Importa Excel** (sempre visibili, con qualsiasi filtro competizione — anche "Tutte"):
+  riconosce la partita esistente per **avversario + casa/trasferta + competizione** (letta dalla
+  colonna "Competizione" di ogni riga del file, non dal filtro selezionato nell'app) — l'import
+  aggiorna solo data/ora/luogo, **mai** punteggio/formazione/cartellini/eventi già registrati di una
+  partita già giocata. Un unico file può contenere partite di più competizioni insieme.
 - **📄 Modello**: scarica un file XLSX di esempio già compilato con le colonne giuste (Avversario,
   Data, Ora, Casa/Trasferta, Luogo, Competizione) e un foglio "Istruzioni" che spiega ogni colonna.
 - **Regole di partecipazione** (bottone "⚙️ Regole", con una competizione specifica selezionata):

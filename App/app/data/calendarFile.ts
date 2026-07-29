@@ -60,16 +60,16 @@ async function pickAndReadXlsx(): Promise<any[] | null> {
 
 /* --------------------------------- Partite -------------------------------- */
 
-export async function exportMatchesToXlsx(competition: string, matches: CalendarEvent[]): Promise<void> {
+export async function exportMatchesToXlsx(label: string, matches: CalendarEvent[]): Promise<void> {
   const rows = matches.map((ev) => ({
     Avversario: ev.opponent ?? '',
     Data: ev.date,
     Ora: ev.time,
     'Casa/Trasferta': (ev as any).homeAway ?? 'CASA',
     Luogo: ev.location ?? '',
-    Competizione: competition,
+    Competizione: (ev as any).competition ?? '',
   }));
-  await writeAndShare(`partite-${competition || 'senza-competizione'}.xlsx`, rows, 'Partite');
+  await writeAndShare(`partite-${label || 'tutte'}.xlsx`, rows, 'Partite');
 }
 
 /** Genera e condivide un file XLSX di esempio con le colonne attese dall'import delle partite. */
@@ -100,7 +100,7 @@ export async function downloadMatchesTemplate(): Promise<void> {
     { Colonna: 'Luogo', Descrizione: 'Nome/indirizzo del campo' },
     {
       Colonna: 'Competizione',
-      Descrizione: "Nome del campionato/torneo (deve corrispondere al filtro competizione scelto nell'app)",
+      Descrizione: 'Nome del campionato/torneo di quella partita (es. "Eccellenza Umbra")',
     },
   ];
   await writeTemplateAndShare('modello-partite.xlsx', 'Modello Partite', rows, 'Partite', istruzioni);
@@ -112,6 +112,7 @@ export type MatchFileRow = {
   time: string;
   homeAway: 'CASA' | 'TRASFERTA';
   location: string;
+  competition: string;
 };
 
 export async function pickAndParseMatchesXlsx(): Promise<MatchFileRow[] | null> {
@@ -124,6 +125,7 @@ export async function pickAndParseMatchesXlsx(): Promise<MatchFileRow[] | null> 
       time: String(row.Ora ?? '').trim(),
       homeAway: String(row['Casa/Trasferta'] ?? '').trim().toUpperCase() === 'TRASFERTA' ? 'TRASFERTA' : 'CASA',
       location: String(row.Luogo ?? '').trim(),
+      competition: String(row.Competizione ?? '').trim(),
     }))
     .filter((r) => r.opponent.length > 0 && r.date.length > 0);
 }
@@ -134,23 +136,29 @@ export type MatchesImportPlan = {
   apply: () => Promise<void>;
 };
 
-export function planMatchesImport(
-  rows: MatchFileRow[],
-  allEvents: CalendarEvent[],
-  competition: string
-): MatchesImportPlan {
-  const key = (opponent: string, homeAway: string) => `${opponent.trim().toUpperCase()}|${homeAway}`;
+/**
+ * L'identità "stessa partita" usa la competizione scritta su ogni riga del file
+ * (colonna "Competizione"), non un filtro scelto nell'app — così l'import
+ * funziona identico sia con una competizione specifica selezionata sia con
+ * "Tutte", e un unico file può contenere partite di più competizioni insieme.
+ */
+export function planMatchesImport(rows: MatchFileRow[], allEvents: CalendarEvent[]): MatchesImportPlan {
+  const key = (opponent: string, homeAway: string, competition: string) =>
+    `${opponent.trim().toUpperCase()}|${homeAway}|${competition.trim().toUpperCase()}`;
   const existingByKey = new Map(
     allEvents
-      .filter((ev) => ev.type === 'PARTITA' && ((ev as any).competition || '') === competition)
-      .map((ev) => [key(ev.opponent || '', (ev as any).homeAway || 'CASA'), ev])
+      .filter((ev) => ev.type === 'PARTITA')
+      .map((ev) => [
+        key(ev.opponent || '', (ev as any).homeAway || 'CASA', (ev as any).competition || ''),
+        ev,
+      ])
   );
 
   const toInsert: CalendarEvent[] = [];
   const patchById = new Map<string, Partial<CalendarEvent>>();
 
   for (const row of rows) {
-    const existing = existingByKey.get(key(row.opponent, row.homeAway));
+    const existing = existingByKey.get(key(row.opponent, row.homeAway, row.competition));
     if (existing) {
       patchById.set(existing.id, { date: row.date, time: row.time, location: row.location, homeAway: row.homeAway } as any);
     } else {
@@ -161,7 +169,7 @@ export function planMatchesImport(
         time: row.time,
         location: row.location,
         opponent: row.opponent,
-        competition,
+        competition: row.competition,
         homeAway: row.homeAway,
         formationSlots: undefined,
         benchIds: [],

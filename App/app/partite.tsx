@@ -259,7 +259,7 @@ export default function Partite() {
 
   const handleExportMatches = async () => {
     try {
-      await exportMatchesToXlsx(compFilter, filteredEvents);
+      await exportMatchesToXlsx(compFilter === ALL_COMP ? 'tutte' : compFilter, filteredEvents);
     } catch {
       Alert.alert('Errore', 'Impossibile esportare le partite.');
     }
@@ -274,7 +274,7 @@ export default function Partite() {
         return;
       }
       const all = await loadEvents();
-      const plan = planMatchesImport(rows, all, compFilter);
+      const plan = planMatchesImport(rows, all);
       await plan.apply();
       await refreshEvents();
       Alert.alert('Import completato', `${plan.toInsertCount} nuove partite, ${plan.toUpdateCount} aggiornate.`);
@@ -384,7 +384,7 @@ export default function Partite() {
         )}
       </View>
 
-      {!readOnly && compFilter !== ALL_COMP && (
+      {!readOnly && (
         <View style={styles.xlsxRow}>
           <Pressable style={styles.xlsxBtn} onPress={handleExportMatches}>
             <Text style={styles.xlsxBtnText}>📤 Esporta Excel</Text>
@@ -395,9 +395,11 @@ export default function Partite() {
           <Pressable style={styles.xlsxBtn} onPress={handleDownloadMatchesTemplate}>
             <Text style={styles.xlsxBtnText}>📄 Modello</Text>
           </Pressable>
-          <Pressable style={styles.xlsxBtn} onPress={() => setShowRulesModal(true)}>
-            <Text style={styles.xlsxBtnText}>⚙️ Regole</Text>
-          </Pressable>
+          {compFilter !== ALL_COMP && (
+            <Pressable style={styles.xlsxBtn} onPress={() => setShowRulesModal(true)}>
+              <Text style={styles.xlsxBtnText}>⚙️ Regole</Text>
+            </Pressable>
+          )}
         </View>
       )}
 
