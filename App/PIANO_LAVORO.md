@@ -45,6 +45,14 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
+### 2026-07-29 — SMTP esterno (SendGrid) configurato e funzionante
+Il servizio email gratuito integrato di Supabase (limitato a poche email/ora) è stato sostituito con
+SMTP personalizzato via **SendGrid** (piano gratuito, verifica del mittente senza bisogno di un
+dominio proprio — "Single Sender Verification"). Diagnosticato un errore 500 in registrazione dovuto
+a una configurazione SMTP iniziale sbagliata (nessuna modifica di codice: solo impostazioni sulla
+dashboard Supabase, Authentication → Emails → SMTP Settings). Ora la registrazione di nuovi account
+funziona regolarmente, senza il limite di invii del piano gratuito integrato.
+
 ### 2026-07-29 — Mostra/nascondi password
 Aggiunta un'icona 👁️ sui campi password di Login e Registrazione per vederle in chiaro mentre si
 digitano (tocca di nuovo per rinascondere).
