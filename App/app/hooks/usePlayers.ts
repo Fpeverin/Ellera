@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { loadEvents } from '../data/events';
 import { isPlayerInMatches } from '../data/matchLive';
 import { Player, Role } from '../data/players';
+import { getCurrentOrgId } from '../lib/currentOrg';
 import { supabase } from '../lib/supabase';
 
 /** Lanciata da removePlayer quando il giocatore ha gia' preso parte a una partita della stagione corrente. */
@@ -106,6 +107,7 @@ export function usePlayers(): UsePlayersResult {
     };
     const { error } = await supabase.from('players').insert({
       id: newPlayer.id,
+      org_id: getCurrentOrgId(),
       name: newPlayer.name,
       role: newPlayer.role,
       year,
