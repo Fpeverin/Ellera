@@ -46,7 +46,9 @@ Ci sono solo due scenari:
 ### Setup una tantum (già fatto, da rifare solo se si crea un nuovo progetto EAS)
 Perché l'aggiornamento automatico al push funzioni, il repository GitHub deve essere collegato al
 progetto Expo: su [expo.dev](https://expo.dev) → progetto → tab **GitHub** → "Install & Authorize"
-(un click, richiede l'autorizzazione GitHub del proprietario del repo).
+(un click, richiede l'autorizzazione GitHub del proprietario del repo). **Confermato collegato**
+(`Fpeverin/Ellera`) il 2026-07-29 — questo commit stesso serve da test per verificare che l'OTA
+automatico al push funzioni davvero.
 
 ## Convenzione script SQL (`App/supabase/`)
 
