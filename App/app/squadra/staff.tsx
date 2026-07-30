@@ -7,15 +7,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { loadPendingInvites, revokeInvite, type PendingInvite } from '../data/invites';
 import { loadOrgLogoUrl, loadStaffRoleOptions, saveStaffRoleOptions, uploadOrgLogo } from '../data/organization';
-import { loadOrgMembers, removeMember, updateMemberRole, type OrgMember, type Role } from '../data/staff';
+import { loadOrgMembers, removeMember, setMemberLink, updateMemberRole, type OrgMember, type Role } from '../data/staff';
+import { loadStaffMembers, type StaffMember } from '../data/staffRoster';
+import { usePlayers } from '../hooks/usePlayers';
 
 const ROLE_LABEL: Record<Role, string> = { admin: 'Admin', staff: 'Staff', giocatore: 'Giocatore' };
 const ALL_ROLES: Role[] = ['admin', 'staff', 'giocatore'];
 
 export default function AdminScreen() {
   const { membership, session } = useAuth();
+  const { allPlayers } = usePlayers();
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [pending, setPending] = useState<PendingInvite[]>([]);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -25,23 +29,30 @@ export default function AdminScreen() {
   const [rolesBusy, setRolesBusy] = useState(false);
 
   const [confirmRemove, setConfirmRemove] = useState<OrgMember | null>(null);
-  const [roleTarget, setRoleTarget] = useState<OrgMember | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState<PendingInvite | null>(null);
+
+  // Gestione unificata (tocco sul nome): ruolo + collegamento a giocatore/staff
+  const [manageTarget, setManageTarget] = useState<OrgMember | null>(null);
+  const [manageRole, setManageRole] = useState<Role>('staff');
+  const [managePlayerId, setManagePlayerId] = useState<string | null>(null);
+  const [manageStaffMemberId, setManageStaffMemberId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!membership) return;
     setLoading(true);
     try {
-      const [m, p, logo, roles] = await Promise.all([
+      const [m, p, logo, roles, staff] = await Promise.all([
         loadOrgMembers(membership.orgId),
         loadPendingInvites(membership.orgId),
         loadOrgLogoUrl(),
         loadStaffRoleOptions(),
+        loadStaffMembers(),
       ]);
       setMembers(m);
       setPending(p);
       setLogoUrl(logo);
       setStaffRoles(roles);
+      setStaffMembers(staff);
     } catch {
       Alert.alert('Errore', 'Impossibile caricare i dati dello staff.');
     } finally {
@@ -131,15 +142,31 @@ export default function AdminScreen() {
     }
   };
 
-  const handleSetRole = async (role: Role) => {
-    if (!membership || !roleTarget) return;
+  const openManage = (m: OrgMember) => {
+    setManageRole(m.role);
+    setManagePlayerId(m.playerId);
+    setManageStaffMemberId(m.staffMemberId);
+    setManageTarget(m);
+  };
+
+  const closeManage = () => setManageTarget(null);
+
+  const handleSaveManage = async () => {
+    if (!membership || !manageTarget) return;
     setBusy(true);
     try {
-      await updateMemberRole(membership.orgId, roleTarget.userId, role);
-      setRoleTarget(null);
+      if (manageRole !== manageTarget.role) {
+        await updateMemberRole(membership.orgId, manageTarget.userId, manageRole);
+      }
+      const nextPlayerId = manageRole === 'giocatore' ? managePlayerId : null;
+      const nextStaffMemberId = manageRole === 'staff' ? manageStaffMemberId : null;
+      if (nextPlayerId !== manageTarget.playerId || nextStaffMemberId !== manageTarget.staffMemberId) {
+        await setMemberLink(membership.orgId, manageTarget.userId, nextPlayerId, nextStaffMemberId);
+      }
+      closeManage();
       await load();
     } catch {
-      Alert.alert('Errore', 'Impossibile cambiare il ruolo.');
+      Alert.alert('Errore', 'Impossibile salvare le modifiche.');
     } finally {
       setBusy(false);
     }
@@ -241,30 +268,35 @@ export default function AdminScreen() {
         )}
 
         <Text style={styles.sectionTitle}>Membri della squadra ({members.length})</Text>
+        <Text style={styles.cardHint}>Tocca il nome di una persona per cambiarne il ruolo o il collegamento.</Text>
         {members.map((m) => {
           const isMe = m.userId === session?.user?.id;
+          const linkedName = m.role === 'giocatore' ? m.playerName : m.role === 'staff' ? m.staffMemberName : null;
           return (
             <View key={m.userId} style={styles.memberCard}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.memberEmail}>
-                  {m.email}
-                  {isMe ? ' (tu)' : ''}
-                </Text>
+              <Pressable
+                style={{ flex: 1 }}
+                onPress={() => !isMe && openManage(m)}
+                disabled={isMe}
+              >
+                <View style={styles.memberNameRow}>
+                  <Text style={styles.memberEmail}>
+                    {m.email}
+                    {isMe ? ' (tu)' : ''}
+                  </Text>
+                  {!isMe && <Text style={styles.editHint}>✏️</Text>}
+                </View>
                 <Text style={[styles.roleBadge, m.role === 'admin' ? styles.roleAdmin : m.role === 'staff' ? styles.roleStaff : styles.roleGiocatore]}>
                   {ROLE_LABEL[m.role]}
                 </Text>
-                {m.role === 'giocatore' && m.playerName && (
-                  <Text style={styles.linkedPlayer}>Collegato a: {m.playerName}</Text>
-                )}
-                {m.role === 'staff' && m.staffMemberName && (
-                  <Text style={styles.linkedPlayer}>Collegato a: {m.staffMemberName}</Text>
-                )}
-              </View>
+                {linkedName ? (
+                  <Text style={styles.linkedPlayer}>Collegato a: {linkedName}</Text>
+                ) : m.role !== 'admin' ? (
+                  <Text style={[styles.linkedPlayer, { color: '#dc2626' }]}>Non collegato a nessuno</Text>
+                ) : null}
+              </Pressable>
               {!isMe && (
                 <View style={styles.memberActions}>
-                  <Pressable style={styles.memberActionBtn} onPress={() => setRoleTarget(m)} disabled={busy}>
-                    <Text style={styles.memberActionText}>Cambia ruolo</Text>
-                  </Pressable>
                   <Pressable
                     style={[styles.memberActionBtn, styles.memberActionDanger]}
                     onPress={() => setConfirmRemove(m)}
@@ -279,21 +311,73 @@ export default function AdminScreen() {
         })}
       </ScrollView>
 
-      {/* cambia ruolo */}
-      <Modal visible={!!roleTarget} transparent animationType="fade" onRequestClose={() => setRoleTarget(null)}>
+      {/* gestione unificata: ruolo + collegamento */}
+      <Modal visible={!!manageTarget} transparent animationType="fade" onRequestClose={closeManage}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Cambia ruolo di {roleTarget?.email}</Text>
-            <View style={{ gap: 8, marginTop: 8, marginBottom: 16 }}>
-              {ALL_ROLES.filter((r) => r !== roleTarget?.role).map((r) => (
-                <Pressable key={r} style={[styles.btn, styles.btnOutline]} onPress={() => handleSetRole(r)} disabled={busy}>
-                  <Text style={styles.btnOutlineText}>Rendi {ROLE_LABEL[r]}</Text>
+          <View style={[styles.modalBox, { maxHeight: '85%' }]}>
+            <ScrollView>
+              <Text style={styles.modalTitle}>{manageTarget?.email}</Text>
+
+              <Text style={styles.fieldLabel}>Ruolo</Text>
+              <View style={styles.roleChoiceRow}>
+                {ALL_ROLES.map((r) => (
+                  <Pressable
+                    key={r}
+                    style={[styles.roleChoice, manageRole === r && styles.roleChoiceActive]}
+                    onPress={() => setManageRole(r)}
+                  >
+                    <Text style={[styles.roleChoiceText, manageRole === r && styles.roleChoiceTextActive]}>
+                      {ROLE_LABEL[r]}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {manageRole === 'giocatore' && (
+                <>
+                  <Text style={styles.fieldLabel}>Collegato al giocatore</Text>
+                  <Pressable style={styles.linkChoiceRow} onPress={() => setManagePlayerId(null)}>
+                    <View style={[styles.radioDot, !managePlayerId && styles.radioDotActive]} />
+                    <Text style={styles.linkChoiceText}>— Nessuno —</Text>
+                  </Pressable>
+                  {[...allPlayers].sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
+                    <Pressable key={p.id} style={styles.linkChoiceRow} onPress={() => setManagePlayerId(p.id)}>
+                      <View style={[styles.radioDot, managePlayerId === p.id && styles.radioDotActive]} />
+                      <Text style={styles.linkChoiceText}>{p.name}</Text>
+                    </Pressable>
+                  ))}
+                </>
+              )}
+
+              {manageRole === 'staff' && (
+                <>
+                  <Text style={styles.fieldLabel}>Collegato alla persona dello Staff</Text>
+                  <Pressable style={styles.linkChoiceRow} onPress={() => setManageStaffMemberId(null)}>
+                    <View style={[styles.radioDot, !manageStaffMemberId && styles.radioDotActive]} />
+                    <Text style={styles.linkChoiceText}>— Nessuno —</Text>
+                  </Pressable>
+                  {[...staffMembers].sort((a, b) => a.name.localeCompare(b.name)).map((s) => (
+                    <Pressable key={s.id} style={styles.linkChoiceRow} onPress={() => setManageStaffMemberId(s.id)}>
+                      <View style={[styles.radioDot, manageStaffMemberId === s.id && styles.radioDotActive]} />
+                      <Text style={styles.linkChoiceText}>{s.name}</Text>
+                    </Pressable>
+                  ))}
+                </>
+              )}
+
+              {manageRole === 'admin' && (
+                <Text style={styles.cardHint}>Gli Admin non sono collegati a nessuna persona.</Text>
+              )}
+
+              <View style={styles.row}>
+                <Pressable style={[styles.btn, styles.btnOutline]} onPress={closeManage}>
+                  <Text style={styles.btnOutlineText}>Annulla</Text>
                 </Pressable>
-              ))}
-            </View>
-            <Pressable style={styles.backLink} onPress={() => setRoleTarget(null)}>
-              <Text style={styles.backLinkText}>Annulla</Text>
-            </Pressable>
+                <Pressable style={[styles.btn, styles.btnPrimary]} onPress={handleSaveManage} disabled={busy}>
+                  <Text style={styles.btnPrimaryText}>{busy ? 'Salvataggio…' : 'Salva'}</Text>
+                </Pressable>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -387,7 +471,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
+  memberNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   memberEmail: { fontSize: 15, fontWeight: '700', color: '#1e293b', marginBottom: 4 },
+  editHint: { fontSize: 13, marginBottom: 4 },
   linkedPlayer: { fontSize: 12, color: '#64748b', marginTop: 4 },
   inviteCode: { fontSize: 18, fontWeight: '900', letterSpacing: 1, color: '#1b7f3b', marginTop: 6 },
   roleBadge: {
@@ -429,6 +515,32 @@ const styles = StyleSheet.create({
 
   backLink: { marginTop: 4, alignSelf: 'center' },
   backLinkText: { color: '#666', fontSize: 14, fontWeight: '600' },
+
+  fieldLabel: { fontSize: 13, fontWeight: '700', color: '#334155', marginTop: 14, marginBottom: 8 },
+  roleChoiceRow: { flexDirection: 'row', gap: 8 },
+  roleChoice: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  roleChoiceActive: { backgroundColor: '#1b7f3b', borderColor: '#1b7f3b' },
+  roleChoiceText: { fontSize: 13, fontWeight: '700', color: '#475569' },
+  roleChoiceTextActive: { color: '#fff' },
+
+  linkChoiceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  linkChoiceText: { fontSize: 14, color: '#1e293b' },
+  radioDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+  },
+  radioDotActive: { borderColor: '#1b7f3b', backgroundColor: '#1b7f3b' },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalBox: { backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '100%', maxWidth: 420 },

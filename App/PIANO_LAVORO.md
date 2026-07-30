@@ -69,6 +69,14 @@ comportamento della Rosa Giocatori:
   usato per i Giocatori. Una volta collegata, il bottone diventa "✓ Collegato"; lo scollegamento resta
   nella scheda di modifica.
 
+### 2026-07-30 — Nome persona in Dashboard + gestione unificata ruolo/collegamento in Admin
+- **Dashboard**: sotto il nome della squadra, Staff e Giocatore vedono ora anche il proprio nome
+  (dalla persona collegata in Rosa/Staff) — non l'Admin.
+- **Admin**: toccando il nome di un membro si apre un'unica schermata per cambiare ruolo
+  (Admin/Staff/Giocatore) e collegare/scollegare **forzatamente** quell'account a un Giocatore o a
+  una persona dello Staff a scelta — utile per correggere un collegamento sbagliato senza rigenerare
+  un codice. Chi non è collegato lo mostra chiaramente ("Non collegato a nessuno", in rosso).
+
 ### 2026-07-30 — Rifinitura Convocazione + Loghi squadra/avversario
 Dopo il primo giro (vedi voce del 2026-07-29 sotto), Francesco ha provato la Convocazione e segnalato
 5 problemi puntuali, tutti sistemati in questo giro:

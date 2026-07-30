@@ -10,6 +10,8 @@ export type Membership = {
   orgName: string;
   role: 'admin' | 'staff' | 'giocatore';
   playerId: string | null;
+  /** Nome della persona collegata (giocatore o membro dello staff), per mostrarlo in Dashboard. */
+  displayName: string | null;
 };
 
 type AuthResult = { error: string | null };
@@ -40,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const { data, error } = await supabase
       .from('memberships')
-      .select('org_id, role, player_id, organizations(name)')
+      .select('org_id, role, player_id, organizations(name), players(name), staff_members(name)')
       .eq('user_id', userId)
       .limit(1)
       .maybeSingle();
@@ -51,11 +53,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     const orgName = (data.organizations as unknown as { name: string } | null)?.name ?? '';
+    const playerName = (data.players as unknown as { name: string } | null)?.name ?? null;
+    const staffMemberName = (data.staff_members as unknown as { name: string } | null)?.name ?? null;
     setMembership({
       orgId: data.org_id,
       role: data.role as 'admin' | 'staff' | 'giocatore',
       playerId: data.player_id,
       orgName,
+      displayName: playerName ?? staffMemberName ?? null,
     });
     setCurrentOrgId(data.org_id);
   }, []);

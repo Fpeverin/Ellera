@@ -493,6 +493,25 @@ Tutto in `app/index.tsx` (unico file toccato):
   Giocatore diventa un tasto diretto **"Rosa"** (`/squadra/rosa`) — quella pagina per lui mostrerebbe
   comunque solo quella card, quindi si salta il passaggio intermedio.
 
+**Nome della persona in header (2026-07-30)**: sotto il nome della squadra, per i ruoli **Staff** e
+**Giocatore** compare anche il nome della persona collegata (non per l'Admin). `AuthContext.tsx`
+(`loadMembership`) ora fa embed anche di `players(name)`/`staff_members(name)` nella stessa query su
+`memberships` (stesso pattern già usato per `organizations(name)`), calcolando
+`membership.displayName = playerName ?? staffMemberName ?? null`.
+
+**Gestione unificata ruolo + collegamento in Admin (2026-07-30)**: in `app/squadra/staff.tsx`
+("Admin"), toccando il **nome/email** di un membro (icona ✏️, non se stessi) si apre un'unica
+modale con: scelta del ruolo (Admin/Staff/Giocatore, sostituisce il vecchio bottone separato "Cambia
+ruolo") e, in base al ruolo scelto, l'elenco selezionabile (radio) di tutti i Giocatori o di tutte le
+persone dello Staff a cui collegare **forzatamente** quell'account — utile per correggere un
+collegamento sbagliato o sistemare un account entrato senza passare da un invito, senza dover
+rigenerare codici. "Salva" applica insieme `update_member_role` (se il ruolo è cambiato) e la nuova
+RPC `set_member_link` (se il collegamento è cambiato). Un membro senza collegamento (Staff/Giocatore)
+mostra "Non collegato a nessuno" in rosso nell'elenco, per essere subito visibile. Schema:
+`App/supabase/16_schema_admin_member_link.sql` (`set_member_link(org_id, user_id, player_id,
+staff_member_id)`, admin-only, valida che il giocatore/persona esista nella stessa org). Nuovo
+wrapper `setMemberLink` in `app/data/staff.ts`.
+
 ## Fix Import/Export Partite: competizione per-riga, non per filtro (2026-07-29)
 
 - Bug segnalato da Francesco: i bottoni "Esporta/Importa/Modello" in `app/partite.tsx` erano

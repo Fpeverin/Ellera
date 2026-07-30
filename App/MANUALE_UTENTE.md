@@ -40,9 +40,10 @@ diverso collegato alla stessa squadra).
 
 La prima schermata che si vede aprendo l'app.
 
-- **Header**: nome della squadra a sinistra, bottone **👤 Account** a destra — mostra l'account
-  collegato (email, ruolo) e permette di **uscire** (logout). Utile su un dispositivo condiviso da
-  più persone: si esce e si accede con un altro account senza reinstallare nulla.
+- **Header**: nome della squadra a sinistra (per Staff/Giocatore, sotto compare anche il proprio nome
+  collegato), bottone **👤 Account** a destra — mostra l'account collegato (email, ruolo) e permette
+  di **uscire** (logout). Utile su un dispositivo condiviso da più persone: si esce e si accede con
+  un altro account senza reinstallare nulla.
 - **Oggi e domani**: due colonne con gli impegni di oggi e di domani (allenamenti/partite),
   toccabili per aprirli direttamente — il modo più rapido per vedere cosa c'è nell'immediato senza
   scorrere il calendario.
@@ -220,9 +221,13 @@ Visibile solo a chi ha ruolo Admin. Qui si gestisce chi fa parte della squadra s
 - **Inviti in attesa**: elenco dei codici generati (per i Giocatori dalla loro scheda in Rosa, per lo
   Staff dalla sua scheda in Staff) e non ancora usati, con Condividi di nuovo o Revoca.
 - **Membri della squadra**: email e ruolo di ognuno (per i Giocatori il nome collegato in Rosa, per lo
-  Staff il nome collegato in Staff). L'admin può cambiare il ruolo (Admin/Staff/Giocatore) o rimuovere
-  chiunque — **tranne se stesso**, per evitare sia il rischio di restare senza admin sia quello di
-  auto-escludersi per errore.
+  Staff il nome collegato in Staff; se manca, compare "Non collegato a nessuno" in rosso). **Tocca il
+  nome** (icona ✏️) per aprire un'unica schermata dove cambiare il ruolo (Admin/Staff/Giocatore) e/o
+  collegare o scollegare **forzatamente** quell'account a un Giocatore o a una persona dello Staff a
+  scelta — utile per correggere un collegamento sbagliato senza dover generare un nuovo codice.
+  "Rimuovi" resta un bottone a parte per togliere del tutto qualcuno dalla squadra. Nessuna di queste
+  azioni è disponibile **su se stessi**, per evitare sia il rischio di restare senza admin sia quello
+  di auto-escludersi per errore.
 
 ## 7. Scheda giocatore
 
@@ -233,7 +238,7 @@ Si apre toccando un giocatore da Rosa o da altre schermate. Quattro schede:
 - **Allegati**: documenti caricati (referti, certificati...), apribili dall'app.
 
 Da qui si gestiscono anche **foto profilo** (da galleria o fotocamera) e **link esterni** (si aprono
-nel browser integrato dell'app, senza uscire da ElleraApp).
+nel browser integrato dell'app, senza uscire da TeamBoard).
 
 **Dati anagrafici** (Ruolo, Data di nascita — scelta con un mini-calendario, Altezza, Peso), in cima
 alla scheda:

@@ -42,3 +42,19 @@ export async function removeMember(orgId: string, userId: string): Promise<void>
   const { error } = await supabase.rpc('remove_member', { p_org_id: orgId, p_user_id: userId });
   if (error) throw error;
 }
+
+/** Collega/scollega forzatamente un account già membro a un giocatore o a una persona dello Staff. */
+export async function setMemberLink(
+  orgId: string,
+  userId: string,
+  playerId: string | null,
+  staffMemberId: string | null
+): Promise<void> {
+  const { error } = await supabase.rpc('set_member_link', {
+    p_org_id: orgId,
+    p_user_id: userId,
+    p_player_id: playerId,
+    p_staff_member_id: staffMemberId,
+  });
+  if (error) throw error;
+}

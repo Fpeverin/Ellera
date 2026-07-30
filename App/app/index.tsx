@@ -215,7 +215,12 @@ export default function Dashboard() {
         {/* Header + Calendario - fissi, non scrollabili */}
         <View style={styles.topSection}>
         <View style={styles.header}>
-          <Text style={styles.title}>{membership?.orgName || 'TeamBoard'}</Text>
+          <View>
+            <Text style={styles.title}>{membership?.orgName || 'TeamBoard'}</Text>
+            {membership?.displayName && membership.role !== 'admin' && (
+              <Text style={styles.subtitleName}>{membership.displayName}</Text>
+            )}
+          </View>
           <Pressable style={styles.accountBtn} onPress={handleAccountPress}>
             <Text style={styles.accountBtnIcon}>👤</Text>
             <Text style={styles.accountBtnText}>Account</Text>
@@ -325,6 +330,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: { fontSize: 28, fontWeight: '700', color: '#1a202c' },
+  subtitleName: { fontSize: 15, fontWeight: '600', color: '#64748b', marginTop: 2 },
   accountBtn: {
     flexDirection: 'row',
     alignItems: 'center',
