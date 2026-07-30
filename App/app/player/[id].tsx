@@ -258,7 +258,7 @@ export default function PlayerDetail() {
     if (!inviteStatus?.pendingCode) return;
     try {
       await Share.share({
-        message: `Codice personale per collegarti come "${playerName}" su ElleraApp: ${inviteStatus.pendingCode}`,
+        message: `Codice personale per collegarti come "${playerName}" su TeamBoard (squadra "${membership?.orgName}"): ${inviteStatus.pendingCode}`,
       });
     } catch {}
   };

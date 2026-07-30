@@ -81,7 +81,7 @@ export default function Staff() {
 
   const shareCode = async (code: string, label: string) => {
     try {
-      await Share.share({ message: `Codice personale per ${label} su ElleraApp: ${code}` });
+      await Share.share({ message: `Codice personale per ${label} su TeamBoard (squadra "${membership?.orgName}"): ${code}` });
     } catch {}
   };
 

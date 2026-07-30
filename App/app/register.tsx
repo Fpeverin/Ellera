@@ -60,7 +60,7 @@ export default function Register() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <View style={styles.content}>
           <Text style={styles.title}>Crea un account</Text>
-          <Text style={styles.subtitle}>Registrati per accedere a ElleraApp</Text>
+          <Text style={styles.subtitle}>Registrati per accedere a TeamBoard</Text>
 
           <TextInput
             style={styles.input}

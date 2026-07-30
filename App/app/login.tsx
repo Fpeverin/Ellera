@@ -32,7 +32,7 @@ export default function Login() {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <View style={styles.content}>
-          <Text style={styles.title}>ElleraApp</Text>
+          <Text style={styles.title}>TeamBoard</Text>
           <Text style={styles.subtitle}>Accedi al tuo account</Text>
 
           <TextInput
