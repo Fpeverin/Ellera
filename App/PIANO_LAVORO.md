@@ -21,38 +21,40 @@ prossima idea non appena viene in mente.
 
 ## Backlog
 
-- **Portare l'app anche su iOS** (richiesta di Francesco del 2026-07-30, priorità in cima al
-  backlog): oggi l'app gira solo su Android. Analisi fatta il 2026-07-30: **nessun blocco di codice
-  trovato** — il progetto è rimasto in Continuous Native
-  Generation senza mai personalizzare nativo, `app.json` ha già un blocco `ios` valido
-  (`bundleIdentifier`, `supportsTablet`), e tutte le dipendenze (Expo modules + react-native-
-  reanimated/gesture-handler/screens/webview/view-shot/calendars/picker) supportano iOS. Il grosso
-  del lavoro è **processo, non sviluppo**:
-  1. **Account Apple Developer** (99$/anno, da attivare a nome di Francesco/Ellera — passo che devo
-     chiedergli di fare lui, non posso farlo io) — senza questo non si può generare un build iOS
-     reale (solo il simulatore, inutile per un test su telefono vero).
-  2. **Build cloud via EAS** (stesso comando già usato per Android, `eas build -p ios`): **non serve
-     un Mac**, EAS builda in cloud e può gestire da solo i certificati di firma.
-  3. **Distribuzione ai test** più macchinosa che su Android (lì basta un link/APK): niente "sideload"
-     libero su iOS. Opzione consigliata: **TestFlight interno** (una volta creato il record su App
-     Store Connect, si invitano i testatori per email, senza revisione Apple per i test interni) —
-     riceverebbero comunque gli aggiornamenti OTA (`expo-updates`) sopra al build come già oggi.
-     Alternativa più scomoda: Ad Hoc, che richiede registrare ogni singolo iPhone (UDID) prima del
-     build.
-  4. **Da sistemare nel codice** (piccolo): testi personalizzati per i permessi Foto/Fotocamera
-     (`NSPhotoLibraryUsageDescription`/`NSCameraUsageDescription` in `app.json` → `ios.infoPlist`,
-     oggi assenti — su iOS senza descrizione l'app rifiuta la richiesta invece di mostrare solo un
-     testo generico in inglese) — usati da upload foto giocatore/loghi/allegati.
-  5. **Da verificare a occhio una volta buildato** (nessun bug noto, solo mai testato su iOS): le
-     schermate con form/modali che non usano `KeyboardAvoidingView` (solo login/registrati/onboarding
-     lo fanno oggi) potrebbero far coprire il campo dal tastierino — su iOS è più comune che su
-     Android, che spesso si arrangia da solo; aspetto visivo dei `Picker` nativi (a rotellina su iOS,
-     tendina su Android — non un bug, solo diverso); il browser interno (`react-native-webview`) e
-     l'export PDF/condivisione.
-  6. **Prova gratuita e immediata, prima di spendere nulla**: installare **Expo Go** dall'App Store su
-     un iPhone e aprire il progetto (`npx expo start` + QR code) — tutte le librerie usate sono
-     compatibili con Expo Go, quindi si vede già la quasi totalità dell'app funzionare su iOS senza
-     alcun account Apple Developer né build. Buon primo passo per farsi un'idea prima di procedere.
+- **Web app per PC e per chi ha iPhone** (decisione presa da Francesco il 2026-07-30, priorità in
+  cima al backlog — **punti principali su cui lavorare per primi**): invece di un'app nativa iOS
+  (99$/anno di account Apple Developer + distribuzione via TestFlight), si pubblica una versione web
+  dello stesso identico codice — chi ha iPhone la installa da Safari con "Aggiungi a Home" (icona
+  sulla Home come un'app vera, gratis, nessun account Apple); da PC si apre semplicemente l'URL.
+  **L'app Android nativa resta esattamente com'è**, stesso backend Supabase, **nessuna modifica alla
+  logica di funzionamento**: è lo stesso codice (Expo Router + `react-native-web`, già presenti nel
+  progetto) con un target in più, non un progetto parallelo da scrivere e mantenere a parte. Punti
+  principali:
+  1. **Adattamenti tecnici puntuali dove il web si comporta diversamente dal nativo** (nessuna
+     logica di business riscritta, solo l'implementazione tecnica delle singole funzioni che lo
+     richiedono):
+     - Export PDF (Statistiche, Convocazione): `expo-print`+`expo-sharing` funzionano diversamente sul
+       web (niente "condividi" di sistema, serve la stampa/salvataggio del browser).
+     - Link esterni: oggi si aprono in un browser interno (`react-native-webview`, senza senso sul
+       web) → sul web basta un link normale.
+     - Lavagna tattica (screenshot dello schema, `react-native-view-shot`): da verificare/adattare.
+     - Notifiche promemoria: da disattivare o adattare per il web (le notifiche browser funzionano in
+       modo molto diverso da quelle native, e solo col permesso del browser).
+     - Layout responsive: alcune schermate pensate per telefono/tablet vanno riviste per non restare
+       strette su uno schermo desktop largo.
+  2. **Installabilità da iPhone (PWA)**: manifest/icone/meta tag perché "Aggiungi a Home" su Safari
+     dia un'icona propria e un'esperienza a schermo intero (senza barra di Safari), non un semplice
+     segnalibro.
+  3. **Deploy automatico, allineato a come già funziona per Android**: oggi un push su `main`
+     pubblica da solo l'aggiornamento OTA Android (GitHub Action `.github/workflows/eas-update.yml`,
+     a volte fallisce e richiede una pubblicazione manuale di riserva). Per la webapp, **consigliato**
+     collegare il repository direttamente a un hosting con deploy automatico da Git (Vercel, Netlify o
+     Cloudflare Pages — piano gratuito più che sufficiente, e più affidabile di un'altra GitHub Action
+     scritta da zero) invece di un meccanismo custom. Obiettivo: **un solo `git push` aggiorna sia
+     Android (OTA) sia la webapp**, senza nessun comando manuale — Francesco continua a sviluppare
+     rapidamente tramite Claude Code esattamente come oggi.
+  4. **Nessun account Apple Developer necessario** con questa strada — resta comunque un'opzione
+     futura se un giorno servisse un'app nativa vera con icona propria sull'App Store.
 
 - **Sondaggi staff → giocatori**: uno dello staff invia un sondaggio ai giocatori (stato di salute,
   livello di allenamento, quanto si sentono stanchi, infortuni, assenze); le risposte devono generare
