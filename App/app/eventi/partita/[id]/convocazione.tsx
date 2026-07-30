@@ -149,7 +149,8 @@ export default function Convocazione() {
       await patchEventData(matchId, { opponentLogoPath: path });
       setOpponentLogoUrl(url);
     } catch (e: any) {
-      Alert.alert('Errore', `Impossibile salvare il logo avversario.\n\n${e?.message ?? String(e)}`);
+      const dump = JSON.stringify(e, Object.getOwnPropertyNames(e ?? {}), 2);
+      Alert.alert('Errore', `Impossibile salvare il logo avversario.\n\n${dump}`);
     } finally {
       setLogoBusy(false);
     }

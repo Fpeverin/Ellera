@@ -65,7 +65,8 @@ export default function Staff() {
       const publicUrl = await uploadOrgLogo(res.assets[0].uri);
       setLogoUrl(publicUrl);
     } catch (e: any) {
-      Alert.alert('Errore', `Impossibile salvare il logo.\n\n${e?.message ?? String(e)}`);
+      const dump = JSON.stringify(e, Object.getOwnPropertyNames(e ?? {}), 2);
+      Alert.alert('Errore', `Impossibile salvare il logo.\n\n${dump}`);
     } finally {
       setLogoBusy(false);
     }

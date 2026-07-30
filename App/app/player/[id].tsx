@@ -566,8 +566,9 @@ export default function PlayerDetail() {
     try {
       const publicUrl = await uploadPlayerPhoto(id, uri);
       setPhoto(publicUrl);
-    } catch {
-      Alert.alert('Errore', 'Impossibile salvare la foto');
+    } catch (e: any) {
+      const dump = JSON.stringify(e, Object.getOwnPropertyNames(e ?? {}), 2);
+      Alert.alert('Errore', `Impossibile salvare la foto\n\n${dump}`);
     }
   };
   const addAttachment = async () => {
