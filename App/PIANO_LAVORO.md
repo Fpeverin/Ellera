@@ -56,6 +56,15 @@ prossima idea non appena viene in mente.
   4. **Nessun account Apple Developer necessario** con questa strada — resta comunque un'opzione
      futura se un giorno servisse un'app nativa vera con icona propria sull'App Store.
 
+- **Calendario mensile in Dashboard — due migliorie richieste da Francesco (2026-07-30)**:
+  1. **Disattivare il tap su un giorno per creare un evento** (oggi in `app/index.tsx`, per Admin/
+     Staff toccare una cella della griglia apre subito la creazione di un nuovo evento in quella
+     data) — da togliere/rendere non il gesto principale.
+  2. **Scorrimento touch tra mesi** (swipe a destra/sinistra per vedere il mese precedente/successivo):
+     oggi la griglia mensile (`renderMonthGrid` in `app/index.tsx`) mostra **solo il mese corrente**,
+     non esiste nessuna navigazione tra mesi (né frecce né altro) — va introdotto lo stato del mese
+     visualizzato oltre al gesto di swipe.
+
 - **Sondaggi staff → giocatori**: uno dello staff invia un sondaggio ai giocatori (stato di salute,
   livello di allenamento, quanto si sentono stanchi, infortuni, assenze); le risposte devono generare
   una notifica push allo staff. **Nota tecnica**: è una notifica *tra utenti diversi* (il giocatore che
