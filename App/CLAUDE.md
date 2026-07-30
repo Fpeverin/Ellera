@@ -270,9 +270,10 @@ precisa.
   email/ruolo (per i Giocatori il nome collegato in Rosa, per lo Staff il nome collegato in Staff);
   l'admin può cambiare il ruolo (Admin/Staff/Giocatore) o rimuovere chiunque tranne se stesso.
 
-Per il ruolo **Giocatore**: solo la card Rosa è visibile in questa sezione (sola lettura); Moduli,
-Tattiche, Statistiche, Archivio, Staff e Admin non compaiono e le relative schermate mostrano un
-messaggio se raggiunte con un link diretto.
+Per il ruolo **Giocatore**: solo le card Rosa e Staff sono visibili in questa sezione (entrambe in
+sola lettura — vedi "Staff" più sotto, dal 2026-07-30 in sola consultazione anche per il ruolo
+Staff, non solo Giocatore); Moduli, Tattiche, Statistiche, Archivio e Admin non compaiono e le
+relative schermate mostrano un messaggio se raggiunte con un link diretto.
 
 ### Scheda giocatore (`app/player/[id].tsx`)
 - Tab: **Partite** (presenze/statistiche), **Allenamenti** (presenze), **Infortuni** (storico status),
@@ -511,6 +512,15 @@ mostra "Non collegato a nessuno" in rosso nell'elenco, per essere subito visibil
 `App/supabase/16_schema_admin_member_link.sql` (`set_member_link(org_id, user_id, player_id,
 staff_member_id)`, admin-only, valida che il giocatore/persona esista nella stessa org). Nuovo
 wrapper `setMemberLink` in `app/data/staff.ts`.
+
+**Staff sola-consultazione per chi non è Admin (2026-07-30)**: la schermata "Staff"
+(`app/squadra/staffRoster.tsx`) resta visibile a tutti (Admin/Staff/Giocatore, card sbloccata anche
+per il Giocatore in `squadra/index.tsx`), ma aggiungere/modificare/rimuovere persone e generare/
+revocare il codice di accesso sono ora **solo Admin** (prima anche lo Staff poteva farlo). Lato
+server: `App/supabase/17_schema_staff_members_admin_only.sql` cambia le policy di scrittura su
+`staff_members` da `is_staff_or_admin_of` a `is_admin_of` (la lettura resta `is_member_of`, invariata
+per tutti). Lato client: i bottoni "+ Aggiungi"/"Modifica"/"Rimuovi"/"📤 Invita" sono ora dietro
+`isAdmin` invece di essere sempre visibili a chi non è Giocatore.
 
 ## Fix Import/Export Partite: competizione per-riga, non per filtro (2026-07-29)
 

@@ -99,6 +99,13 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
+### 2026-07-30 — Staff in sola consultazione per chi non è Admin
+Su richiesta di Francesco, la schermata "Staff" (Tecnico/Sanitario/Dirigenziale) resta visibile a
+tutti (anche al Giocatore, che prima non la vedeva affatto) ma **solo l'Admin** può aggiungere,
+modificare o rimuovere persone e generare/revocare codici di accesso — prima anche lo Staff poteva
+farlo. Cambiate le policy RLS di scrittura su `staff_members` (ora `is_admin_of`, non più
+`is_staff_or_admin_of`).
+
 ### 2026-07-30 — Sezioni "Admin" e "Staff" + collegamento account per lo Staff
 Le due schermate di gestione staff sotto Gestione Squadra sono state rinominate e allineate al
 comportamento della Rosa Giocatori:

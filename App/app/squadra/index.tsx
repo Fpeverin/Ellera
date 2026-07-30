@@ -123,13 +123,11 @@ export default function GestioneSquadra() {
             </Pressable>
           )}
 
-          {!isGiocatore && (
-            <Pressable style={[styles.navCard, styles.rosterStaffCard]} onPress={() => router.push('/squadra/staffRoster')}>
-              <Text style={styles.navIcon}>🧑‍⚕️</Text>
-              <Text style={styles.navTitle}>Staff</Text>
-              <Text style={styles.navSubtitle}>Tecnico, Sanitario, Dirigenza</Text>
-            </Pressable>
-          )}
+          <Pressable style={[styles.navCard, styles.rosterStaffCard]} onPress={() => router.push('/squadra/staffRoster')}>
+            <Text style={styles.navIcon}>🧑‍⚕️</Text>
+            <Text style={styles.navTitle}>Staff</Text>
+            <Text style={styles.navSubtitle}>Tecnico, Sanitario, Dirigenza</Text>
+          </Pressable>
 
           {isAdmin && (
             <Pressable style={[styles.navCard, styles.staffCard]} onPress={() => router.push('/squadra/staff')}>

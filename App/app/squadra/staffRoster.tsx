@@ -1,11 +1,11 @@
 // app/squadra/staffRoster.tsx
 //
 // "Staff": elenco di persone (Tecnico/Sanitario/Dirigenziale) indipendenti
-// dagli account app, usate dalla Convocazione — funziona come Rosa per i
-// giocatori. Visibile a Staff+Admin (non solo Admin, a differenza di
-// app/squadra/staff.tsx/"Admin" che gestisce gli account). Solo l'Admin può
-// generare/revocare il codice di accesso di una persona (sezione "Accesso
-// account", mirror di app/player/[id].tsx).
+// dagli account app, usate dalla Convocazione. Visibile a tutti i membri
+// (Admin/Staff/Giocatore), ma **sola consultazione per chi non è Admin**:
+// solo l'Admin può aggiungere/modificare/rimuovere persone e generare/
+// revocare il codice di accesso (sezione "Accesso account", mirror di
+// app/player/[id].tsx).
 import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -35,7 +35,6 @@ type InviteStatus = { pendingCode: string | null; claimedEmail: string | null; c
 
 export default function StaffRoster() {
   const { membership } = useAuth();
-  const readOnly = membership?.role === 'giocatore';
   const isAdmin = membership?.role === 'admin';
 
   const [members, setMembers] = useState<StaffMember[]>([]);
@@ -199,14 +198,6 @@ export default function StaffRoster() {
     }
   };
 
-  if (readOnly) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.deniedText}>Non disponibile per il tuo ruolo.</Text>
-      </View>
-    );
-  }
-
   if (loading) {
     return (
       <View style={styles.center}>
@@ -220,9 +211,9 @@ export default function StaffRoster() {
       <ScrollView contentContainerStyle={{ padding: 20 }}>
         <Text style={styles.title}>Staff</Text>
         <Text style={styles.hint}>
-          Persone censite qui (nome + ruolo) sono quelle che compaiono nella Convocazione — non
-          serve un account app, a meno che tu non voglia collegarle una ("📤 Invita" genera e
-          condivide subito il codice personale).
+          {isAdmin
+            ? 'Persone censite qui (nome + ruolo) sono quelle che compaiono nella Convocazione — non serve un account app, a meno che tu non voglia collegarle una ("📤 Invita" genera e condivide subito il codice personale).'
+            : 'Elenco in sola consultazione — solo l\'Admin può aggiungere, modificare o rimuovere persone.'}
         </Text>
 
         {CATEGORIES.map((cat) => {
@@ -231,9 +222,11 @@ export default function StaffRoster() {
             <View key={cat} style={styles.section}>
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>{CATEGORY_LABELS[cat]} ({inCategory.length})</Text>
-                <Pressable style={styles.smallBtn} onPress={() => openAdd(cat)}>
-                  <Text style={styles.smallBtnText}>+ Aggiungi</Text>
-                </Pressable>
+                {isAdmin && (
+                  <Pressable style={styles.smallBtn} onPress={() => openAdd(cat)}>
+                    <Text style={styles.smallBtnText}>+ Aggiungi</Text>
+                  </Pressable>
+                )}
               </View>
 
               {inCategory.length === 0 ? (
@@ -245,12 +238,12 @@ export default function StaffRoster() {
                       <Text style={styles.memberName}>{m.name}</Text>
                       {m.role ? <Text style={styles.memberRole}>{m.role}</Text> : null}
                     </View>
-                    <View style={styles.memberActions}>
-                      <Pressable style={styles.memberActionBtn} onPress={() => openEdit(m)}>
-                        <Text style={styles.memberActionText}>Modifica</Text>
-                      </Pressable>
-                      {isAdmin && (
-                        inviteMap[m.id]?.claimedUserId ? (
+                    {isAdmin && (
+                      <View style={styles.memberActions}>
+                        <Pressable style={styles.memberActionBtn} onPress={() => openEdit(m)}>
+                          <Text style={styles.memberActionText}>Modifica</Text>
+                        </Pressable>
+                        {inviteMap[m.id]?.claimedUserId ? (
                           <Text style={styles.linkedBadge}>✓ Collegato</Text>
                         ) : (
                           <Pressable
@@ -262,12 +255,12 @@ export default function StaffRoster() {
                               {rowBusyId === m.id ? 'Invio…' : '📤 Invita'}
                             </Text>
                           </Pressable>
-                        )
-                      )}
-                      <Pressable style={styles.memberActionBtn} onPress={() => setConfirmRemove(m)}>
-                        <Text style={[styles.memberActionText, { color: '#dc2626' }]}>Rimuovi</Text>
-                      </Pressable>
-                    </View>
+                        )}
+                        <Pressable style={styles.memberActionBtn} onPress={() => setConfirmRemove(m)}>
+                          <Text style={[styles.memberActionText, { color: '#dc2626' }]}>Rimuovi</Text>
+                        </Pressable>
+                      </View>
+                    )}
                   </View>
                 ))
               )}
@@ -363,7 +356,6 @@ export default function StaffRoster() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: '#f8fafc' },
-  deniedText: { fontSize: 16, color: '#64748b', textAlign: 'center' },
 
   title: { fontSize: 24, fontWeight: '800', color: '#1a202c' },
   hint: { fontSize: 13, color: '#64748b', marginTop: 8, marginBottom: 20 },

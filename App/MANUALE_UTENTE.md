@@ -202,15 +202,15 @@ congela in uno storico tutti i dati della stagione (partite, allenamenti, statis
 poi ripulisce i dati correnti per iniziare la stagione successiva da zero. Gli archivi passati
 restano sempre consultabili (e cancellabili singolarmente se serve) da questa stessa sezione.
 
-### Staff (Staff+Admin)
+### Staff (visibile a tutti, sola consultazione per Staff/Giocatore)
 Elenco di persone — **Tecnico**, **Sanitario**, **Dirigenziale** — con nome e ruolo (scelto da un
 menu, es. "Allenatore", "Fisioterapista"; la lista dei ruoli è configurabile in Admin →
 Configurazioni), indipendente dagli account: non serve che quella persona usi mai l'app per comparire
-nelle Convocazioni. Aggiungi/modifica/rimuovi da qui; è la lista da cui la Convocazione di ogni
-partita sceglie chi convocare. **Solo l'Admin** vede anche un terzo bottone "📤 Invita" accanto a
-ogni persona: genera il codice di accesso e lo condivide subito, in un solo tocco (vedi sotto). Una
-volta collegata, il bottone diventa "✓ Collegato"; per scollegare un account già collegato, apri la
-persona in "Modifica".
+nelle Convocazioni. **Solo l'Admin** può aggiungere/modificare/rimuovere persone (Staff e Giocatore
+vedono l'elenco ma senza nessun bottone di modifica). L'Admin vede anche un terzo bottone "📤 Invita"
+accanto a ogni persona: genera il codice di accesso e lo condivide subito, in un solo tocco (vedi
+sotto). Una volta collegata, il bottone diventa "✓ Collegato"; per scollegare un account già
+collegato, apri la persona in "Modifica".
 
 ### Admin (solo Admin)
 Visibile solo a chi ha ruolo Admin. Qui si gestisce chi fa parte della squadra sull'app:
