@@ -57,3 +57,18 @@ export async function uploadOpponentLogo(eventId: string, localUri: string): Pro
 export function opponentLogoUrlFromPath(path: string): string {
   return publicUrlFor(path);
 }
+
+/* ------------------------- Configurazioni squadra -------------------------- */
+
+export async function loadStaffRoleOptions(): Promise<string[]> {
+  const orgId = getCurrentOrgId();
+  const { data, error } = await supabase.from('organizations').select('staff_roles').eq('id', orgId).maybeSingle();
+  if (error) throw error;
+  return (data?.staff_roles as string[] | null) ?? [];
+}
+
+export async function saveStaffRoleOptions(roles: string[]): Promise<void> {
+  const orgId = getCurrentOrgId();
+  const { error } = await supabase.from('organizations').update({ staff_roles: roles }).eq('id', orgId);
+  if (error) throw error;
+}

@@ -55,6 +55,18 @@ prossima idea non appena viene in mente.
 
 ## Completato
 
+### 2026-07-30 — Sezioni "Admin" e "Staff" + collegamento account per lo Staff
+Le due schermate di gestione staff sotto Gestione Squadra sono state rinominate e allineate al
+comportamento della Rosa Giocatori:
+- **"Admin"** (ex "Staff", solo admin): logo squadra, membri/ruoli/revoca invariati, più una nuova
+  sezione **Configurazioni** — per ora contiene l'elenco dei Ruoli disponibili per lo Staff,
+  modificabile liberamente (aggiungi/rimuovi). Rimosso il vecchio invito "a nome libero": ogni invito
+  Staff nasce ora sempre da una persona già censita in "Staff".
+- **"Staff"** (ex "Rosa Staff", Staff+Admin): il Ruolo si sceglie ora da un menu (le opzioni vengono
+  dalla Configurazione sopra) invece di testo libero. Aprendo una persona in modifica, l'Admin vede
+  anche "Genera codice di accesso" — collega quella persona a un account reale esattamente come già
+  avviene per i Giocatori in Rosa (stesso Condividi, stesso "Scollega account").
+
 ### 2026-07-30 — Rifinitura Convocazione + Loghi squadra/avversario
 Dopo il primo giro (vedi voce del 2026-07-29 sotto), Francesco ha provato la Convocazione e segnalato
 5 problemi puntuali, tutti sistemati in questo giro:

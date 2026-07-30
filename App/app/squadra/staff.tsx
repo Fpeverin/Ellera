@@ -5,14 +5,14 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { createStaffInvite, loadPendingInvites, revokeInvite, type PendingInvite } from '../data/invites';
-import { loadOrgLogoUrl, uploadOrgLogo } from '../data/organization';
+import { loadPendingInvites, revokeInvite, type PendingInvite } from '../data/invites';
+import { loadOrgLogoUrl, loadStaffRoleOptions, saveStaffRoleOptions, uploadOrgLogo } from '../data/organization';
 import { loadOrgMembers, removeMember, updateMemberRole, type OrgMember, type Role } from '../data/staff';
 
 const ROLE_LABEL: Record<Role, string> = { admin: 'Admin', staff: 'Staff', giocatore: 'Giocatore' };
 const ALL_ROLES: Role[] = ['admin', 'staff', 'giocatore'];
 
-export default function Staff() {
+export default function AdminScreen() {
   const { membership, session } = useAuth();
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [pending, setPending] = useState<PendingInvite[]>([]);
@@ -20,25 +20,28 @@ export default function Staff() {
   const [busy, setBusy] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoBusy, setLogoBusy] = useState(false);
+  const [staffRoles, setStaffRoles] = useState<string[]>([]);
+  const [newStaffRole, setNewStaffRole] = useState('');
+  const [rolesBusy, setRolesBusy] = useState(false);
 
   const [confirmRemove, setConfirmRemove] = useState<OrgMember | null>(null);
   const [roleTarget, setRoleTarget] = useState<OrgMember | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState<PendingInvite | null>(null);
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviteName, setInviteName] = useState('');
 
   const load = useCallback(async () => {
     if (!membership) return;
     setLoading(true);
     try {
-      const [m, p, logo] = await Promise.all([
+      const [m, p, logo, roles] = await Promise.all([
         loadOrgMembers(membership.orgId),
         loadPendingInvites(membership.orgId),
         loadOrgLogoUrl(),
+        loadStaffRoleOptions(),
       ]);
       setMembers(m);
       setPending(p);
       setLogoUrl(logo);
+      setStaffRoles(roles);
     } catch {
       Alert.alert('Errore', 'Impossibile caricare i dati dello staff.');
     } finally {
@@ -85,19 +88,32 @@ export default function Staff() {
     } catch {}
   };
 
-  const handleCreateStaffInvite = async () => {
-    if (!membership || !inviteName.trim()) return;
-    setBusy(true);
+  const handleAddStaffRole = async () => {
+    const name = newStaffRole.trim();
+    if (!name || staffRoles.includes(name)) return;
+    const next = [...staffRoles, name];
+    setRolesBusy(true);
     try {
-      const code = await createStaffInvite(membership.orgId, inviteName.trim());
-      setShowInviteModal(false);
-      setInviteName('');
-      await load();
-      await shareCode(code, `entrare come Staff (${inviteName.trim()})`);
+      await saveStaffRoleOptions(next);
+      setStaffRoles(next);
+      setNewStaffRole('');
     } catch {
-      Alert.alert('Errore', 'Impossibile creare l\'invito.');
+      Alert.alert('Errore', 'Impossibile salvare il ruolo.');
     } finally {
-      setBusy(false);
+      setRolesBusy(false);
+    }
+  };
+
+  const handleRemoveStaffRole = async (name: string) => {
+    const next = staffRoles.filter((r) => r !== name);
+    setRolesBusy(true);
+    try {
+      await saveStaffRoleOptions(next);
+      setStaffRoles(next);
+    } catch {
+      Alert.alert('Errore', 'Impossibile rimuovere il ruolo.');
+    } finally {
+      setRolesBusy(false);
     }
   };
 
@@ -170,12 +186,32 @@ export default function Staff() {
 
         <Text style={styles.cardHint}>
           Ogni codice di accesso è personale: per un Giocatore si genera dalla sua scheda in Rosa,
-          per lo Staff da qui sotto.
+          per lo Staff dalla sua scheda in Staff.
         </Text>
 
-        <Pressable style={[styles.btn, styles.btnPrimary, { marginBottom: 24 }]} onPress={() => setShowInviteModal(true)}>
-          <Text style={styles.btnPrimaryText}>+ Invita membro staff</Text>
-        </Pressable>
+        <Text style={styles.sectionTitle}>Configurazioni</Text>
+        <View style={styles.section}>
+          <Text style={styles.configLabel}>Ruoli disponibili per lo Staff</Text>
+          {staffRoles.map((role) => (
+            <View key={role} style={styles.roleRow}>
+              <Text style={{ flex: 1 }}>{role}</Text>
+              <Pressable onPress={() => handleRemoveStaffRole(role)} disabled={rolesBusy}>
+                <Text style={{ fontSize: 18 }}>🗑️</Text>
+              </Pressable>
+            </View>
+          ))}
+          <View style={styles.addRow}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginVertical: 0 }]}
+              placeholder="Nuovo ruolo"
+              value={newStaffRole}
+              onChangeText={setNewStaffRole}
+            />
+            <Pressable style={styles.smallBtn} onPress={handleAddStaffRole} disabled={rolesBusy}>
+              <Text style={styles.smallBtnText}>+ Aggiungi</Text>
+            </Pressable>
+          </View>
+        </View>
 
         {pending.length > 0 && (
           <>
@@ -220,6 +256,9 @@ export default function Staff() {
                 {m.role === 'giocatore' && m.playerName && (
                   <Text style={styles.linkedPlayer}>Collegato a: {m.playerName}</Text>
                 )}
+                {m.role === 'staff' && m.staffMemberName && (
+                  <Text style={styles.linkedPlayer}>Collegato a: {m.staffMemberName}</Text>
+                )}
               </View>
               {!isMe && (
                 <View style={styles.memberActions}>
@@ -239,34 +278,6 @@ export default function Staff() {
           );
         })}
       </ScrollView>
-
-      {/* invita membro staff */}
-      <Modal visible={showInviteModal} transparent animationType="fade" onRequestClose={() => setShowInviteModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Invita membro staff</Text>
-            <Text style={styles.modalText}>Inserisci un nome per riconoscerlo (es. "Marco - allenatore in seconda").</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Nome"
-              value={inviteName}
-              onChangeText={setInviteName}
-            />
-            <View style={styles.row}>
-              <Pressable style={[styles.btn, styles.btnOutline]} onPress={() => { setShowInviteModal(false); setInviteName(''); }}>
-                <Text style={styles.btnOutlineText}>Annulla</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.btn, styles.btnPrimary, !inviteName.trim() && styles.btnDisabled]}
-                onPress={handleCreateStaffInvite}
-                disabled={busy || !inviteName.trim()}
-              >
-                <Text style={styles.btnPrimaryText}>{busy ? 'Creazione…' : 'Crea codice'}</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       {/* cambia ruolo */}
       <Modal visible={!!roleTarget} transparent animationType="fade" onRequestClose={() => setRoleTarget(null)}>
@@ -338,6 +349,30 @@ const styles = StyleSheet.create({
   logoPlaceholder: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e5e7eb' },
 
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b', marginBottom: 12, marginTop: 8 },
+
+  section: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  configLabel: { fontSize: 14, fontWeight: '700', color: '#334155', marginBottom: 8 },
+  roleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  addRow: { flexDirection: 'row', gap: 8, marginTop: 10, alignItems: 'center' },
+  smallBtn: { backgroundColor: '#1b7f3b', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8 },
+  smallBtnText: { color: 'white', fontWeight: '700', fontSize: 13 },
 
   memberCard: {
     flexDirection: 'row',

@@ -10,6 +10,8 @@ export type OrgMember = {
   joinedAt: string;
   playerId: string | null;
   playerName: string | null;
+  staffMemberId: string | null;
+  staffMemberName: string | null;
 };
 
 export async function loadOrgMembers(orgId: string): Promise<OrgMember[]> {
@@ -22,6 +24,8 @@ export async function loadOrgMembers(orgId: string): Promise<OrgMember[]> {
     joinedAt: row.joined_at,
     playerId: row.player_id ?? null,
     playerName: row.player_name ?? null,
+    staffMemberId: row.staff_member_id ?? null,
+    staffMemberName: row.staff_member_name ?? null,
   }));
 }
 

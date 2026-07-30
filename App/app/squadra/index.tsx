@@ -126,7 +126,7 @@ export default function GestioneSquadra() {
           {!isGiocatore && (
             <Pressable style={[styles.navCard, styles.rosterStaffCard]} onPress={() => router.push('/squadra/staffRoster')}>
               <Text style={styles.navIcon}>🧑‍⚕️</Text>
-              <Text style={styles.navTitle}>Rosa Staff</Text>
+              <Text style={styles.navTitle}>Staff</Text>
               <Text style={styles.navSubtitle}>Tecnico, Sanitario, Dirigenza</Text>
             </Pressable>
           )}
@@ -134,8 +134,8 @@ export default function GestioneSquadra() {
           {isAdmin && (
             <Pressable style={[styles.navCard, styles.staffCard]} onPress={() => router.push('/squadra/staff')}>
               <Text style={styles.navIcon}>🛡️</Text>
-              <Text style={styles.navTitle}>Staff</Text>
-              <Text style={styles.navSubtitle}>Membri e codice invito</Text>
+              <Text style={styles.navTitle}>Admin</Text>
+              <Text style={styles.navSubtitle}>Logo, configurazioni, account</Text>
             </Pressable>
           )}
         </View>

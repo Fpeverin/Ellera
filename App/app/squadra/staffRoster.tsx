@@ -1,13 +1,20 @@
 // app/squadra/staffRoster.tsx
 //
-// Rosa Staff: elenco di persone (Tecnico/Sanitario/Dirigenziale) indipendenti
-// dagli account app, usate dalla Convocazione. Visibile a Staff+Admin (non
-// solo Admin, a differenza di app/squadra/staff.tsx che gestisce gli account).
+// "Staff": elenco di persone (Tecnico/Sanitario/Dirigenziale) indipendenti
+// dagli account app, usate dalla Convocazione — funziona come Rosa per i
+// giocatori. Visibile a Staff+Admin (non solo Admin, a differenza di
+// app/squadra/staff.tsx/"Admin" che gestisce gli account). Solo l'Admin può
+// generare/revocare il codice di accesso di una persona (sezione "Accesso
+// account", mirror di app/player/[id].tsx).
+import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { createStaffMemberInvite, loadStaffMemberInviteStatus } from '../data/invites';
+import { loadStaffRoleOptions } from '../data/organization';
+import { removeMember } from '../data/staff';
 import {
   addStaffMember,
   loadStaffMembers,
@@ -24,11 +31,15 @@ const CATEGORY_LABELS: Record<StaffCategory, string> = {
 };
 const CATEGORIES: StaffCategory[] = ['TECNICO', 'SANITARIO', 'DIRIGENZIALE'];
 
+type InviteStatus = { pendingCode: string | null; claimedEmail: string | null; claimedUserId: string | null };
+
 export default function StaffRoster() {
   const { membership } = useAuth();
   const readOnly = membership?.role === 'giocatore';
+  const isAdmin = membership?.role === 'admin';
 
   const [members, setMembers] = useState<StaffMember[]>([]);
+  const [roleOptions, setRoleOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -38,10 +49,15 @@ export default function StaffRoster() {
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
 
+  const [inviteStatus, setInviteStatus] = useState<InviteStatus | null>(null);
+  const [inviteBusy, setInviteBusy] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setMembers(await loadStaffMembers());
+      const [staff, roles] = await Promise.all([loadStaffMembers(), loadStaffRoleOptions()]);
+      setMembers(staff);
+      setRoleOptions(roles);
     } catch {
       Alert.alert('Errore', 'Impossibile caricare la Rosa Staff.');
     } finally {
@@ -54,6 +70,7 @@ export default function StaffRoster() {
   const openAdd = (category: StaffCategory) => {
     setName('');
     setRole('');
+    setInviteStatus(null);
     setAddCategory(category);
   };
 
@@ -61,6 +78,10 @@ export default function StaffRoster() {
     setName(member.name);
     setRole(member.role ?? '');
     setEditTarget(member);
+    setInviteStatus(null);
+    if (isAdmin && membership) {
+      loadStaffMemberInviteStatus(membership.orgId, member.id).then(setInviteStatus).catch(() => {});
+    }
   };
 
   const closeModal = () => {
@@ -68,6 +89,57 @@ export default function StaffRoster() {
     setEditTarget(null);
     setName('');
     setRole('');
+    setInviteStatus(null);
+  };
+
+  const handleGenerateInvite = async () => {
+    if (!membership || !editTarget) return;
+    setInviteBusy(true);
+    try {
+      const code = await createStaffMemberInvite(membership.orgId, editTarget.id);
+      setInviteStatus({ pendingCode: code, claimedEmail: null, claimedUserId: null });
+    } catch {
+      Alert.alert('Errore', 'Impossibile generare il codice.');
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
+  const handleShareInvite = async () => {
+    if (!inviteStatus?.pendingCode || !editTarget) return;
+    try {
+      await Share.share({
+        message: `Codice personale per collegarti come Staff ("${editTarget.name}") su TeamBoard (squadra "${membership?.orgName}"): ${inviteStatus.pendingCode}`,
+      });
+    } catch {}
+  };
+
+  const handleUnlinkAccount = () => {
+    if (!inviteStatus?.claimedUserId || !membership || !editTarget) return;
+    const userId = inviteStatus.claimedUserId;
+    const orgId = membership.orgId;
+    Alert.alert(
+      "Scollegare l'account?",
+      `L'account ${inviteStatus.claimedEmail} uscirà dalla squadra e non sarà più collegato a ${editTarget.name}. Potrai generare un nuovo codice di accesso in seguito.`,
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Scollega',
+          style: 'destructive',
+          onPress: async () => {
+            setInviteBusy(true);
+            try {
+              await removeMember(orgId, userId);
+              setInviteStatus({ pendingCode: null, claimedEmail: null, claimedUserId: null });
+            } catch {
+              Alert.alert('Errore', "Impossibile scollegare l'account.");
+            } finally {
+              setInviteBusy(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleSave = async () => {
@@ -121,10 +193,11 @@ export default function StaffRoster() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
-        <Text style={styles.title}>Rosa Staff</Text>
+        <Text style={styles.title}>Staff</Text>
         <Text style={styles.hint}>
           Persone censite qui (nome + ruolo) sono quelle che compaiono nella Convocazione — non
-          serve un account app.
+          serve un account app, a meno che tu non voglia collegarle una (bottone "Genera codice di
+          accesso" quando le apri in modifica).
         </Text>
 
         {CATEGORIES.map((cat) => {
@@ -171,12 +244,44 @@ export default function StaffRoster() {
               {editTarget ? 'Modifica persona' : `Nuova persona — ${addCategory ? CATEGORY_LABELS[addCategory] : ''}`}
             </Text>
             <TextInput style={styles.input} placeholder="Nome" value={name} onChangeText={setName} />
-            <TextInput
-              style={styles.input}
-              placeholder="Ruolo (es. Allenatore, Fisioterapista)"
-              value={role}
-              onChangeText={setRole}
-            />
+
+            <Text style={styles.fieldLabel}>Ruolo</Text>
+            <View style={styles.pickerWrapper}>
+              <Picker selectedValue={role} onValueChange={(v) => setRole(v as string)} style={styles.picker}>
+                <Picker.Item label="— nessuno —" value="" />
+                {roleOptions.map((r) => (
+                  <Picker.Item key={r} label={r} value={r} />
+                ))}
+              </Picker>
+            </View>
+
+            {editTarget && isAdmin && (
+              <View style={styles.inviteSection}>
+                <Text style={styles.fieldLabel}>Accesso account</Text>
+                {inviteStatus === null ? (
+                  <Text style={styles.emptyText}>Caricamento…</Text>
+                ) : inviteStatus.claimedUserId ? (
+                  <>
+                    <Text style={styles.linkedText}>Collegato a: {inviteStatus.claimedEmail}</Text>
+                    <Pressable style={[styles.btn, styles.btnOutline, { marginTop: 8 }]} onPress={handleUnlinkAccount} disabled={inviteBusy}>
+                      <Text style={styles.btnOutlineText}>{inviteBusy ? 'Attendere…' : '🔓 Scollega account'}</Text>
+                    </Pressable>
+                  </>
+                ) : inviteStatus.pendingCode ? (
+                  <>
+                    <Text style={styles.inviteCode}>{inviteStatus.pendingCode}</Text>
+                    <Pressable style={[styles.btn, styles.btnOutline, { marginTop: 8 }]} onPress={handleShareInvite}>
+                      <Text style={styles.btnOutlineText}>Condividi</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <Pressable style={[styles.btn, styles.btnPrimary]} onPress={handleGenerateInvite} disabled={inviteBusy}>
+                    <Text style={styles.btnPrimaryText}>{inviteBusy ? 'Creazione…' : 'Genera codice di accesso'}</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+
             <View style={styles.row}>
               <Pressable style={[styles.btn, styles.btnOutline]} onPress={closeModal}>
                 <Text style={styles.btnOutlineText}>Annulla</Text>
@@ -274,6 +379,20 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
     marginVertical: 8,
   },
+
+  fieldLabel: { fontSize: 13, fontWeight: '700', color: '#334155', marginTop: 8, marginBottom: 4 },
+  pickerWrapper: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    overflow: 'hidden',
+  },
+  picker: { height: 50 },
+
+  inviteSection: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
+  linkedText: { fontSize: 14, color: '#334155' },
+  inviteCode: { fontSize: 20, fontWeight: '900', letterSpacing: 1, color: '#1b7f3b', textAlign: 'center', marginTop: 4 },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalBox: { backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '100%', maxWidth: 420 },

@@ -11,6 +11,7 @@ export type PendingInvite = {
   role: 'staff' | 'giocatore';
   playerId: string | null;
   playerName: string | null;
+  staffMemberId: string | null;
   displayName: string | null;
   code: string;
   createdAt: string;
@@ -25,10 +26,10 @@ export async function createPlayerInvite(orgId: string, playerId: string): Promi
   return data as string;
 }
 
-export async function createStaffInvite(orgId: string, displayName: string): Promise<string> {
-  const { data, error } = await supabase.rpc('create_staff_invite', {
+export async function createStaffMemberInvite(orgId: string, staffMemberId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('create_staff_member_invite', {
     p_org_id: orgId,
-    p_display_name: displayName,
+    p_staff_member_id: staffMemberId,
   });
   if (error) throw error;
   return data as string;
@@ -42,6 +43,7 @@ export async function loadPendingInvites(orgId: string): Promise<PendingInvite[]
     role: row.role,
     playerId: row.player_id ?? null,
     playerName: row.player_name ?? null,
+    staffMemberId: row.staff_member_id ?? null,
     displayName: row.display_name ?? null,
     code: row.code,
     createdAt: row.created_at,
@@ -61,6 +63,21 @@ export async function loadPlayerInviteStatus(
   const [invites, members] = await Promise.all([loadPendingInvites(orgId), loadOrgMembers(orgId)]);
   const pending = invites.find((i) => i.role === 'giocatore' && i.playerId === playerId);
   const claimed = members.find((m) => m.role === 'giocatore' && m.playerId === playerId);
+  return {
+    pendingCode: pending?.code ?? null,
+    claimedEmail: claimed?.email ?? null,
+    claimedUserId: claimed?.userId ?? null,
+  };
+}
+
+/** Stato del collegamento account per una persona della Rosa Staff (solo admin). */
+export async function loadStaffMemberInviteStatus(
+  orgId: string,
+  staffMemberId: string
+): Promise<{ pendingCode: string | null; claimedEmail: string | null; claimedUserId: string | null }> {
+  const [invites, members] = await Promise.all([loadPendingInvites(orgId), loadOrgMembers(orgId)]);
+  const pending = invites.find((i) => i.role === 'staff' && i.staffMemberId === staffMemberId);
+  const claimed = members.find((m) => m.role === 'staff' && m.staffMemberId === staffMemberId);
   return {
     pendingCode: pending?.code ?? null,
     claimedEmail: claimed?.email ?? null,

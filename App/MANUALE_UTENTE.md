@@ -116,7 +116,7 @@ partita a seconda del tipo).
     etichette. **Sono questi i giocatori disponibili in Formazione** — chi non è convocato non può
     essere schierato.
   - **Staff convocato**: diviso in tre categorie — **Tecnico**, **Sanitario**, **Dirigenziale** — con
-    un elenco a spunta sulle persone già censite in **Rosa Staff** (Gestione Squadra → Rosa Staff); se
+    un elenco a spunta sulle persone già censite in **Staff** (Gestione Squadra → Staff); se
     una categoria è vuota, un link porta direttamente lì per aggiungere qualcuno.
   - **Riepilogo**: conteggi per categoria e totale.
   - **📄 Esporta PDF**: prima chiede di confermare/correggere Competizione e giornata, Luogo, Ritrovo,
@@ -201,24 +201,26 @@ congela in uno storico tutti i dati della stagione (partite, allenamenti, statis
 poi ripulisce i dati correnti per iniziare la stagione successiva da zero. Gli archivi passati
 restano sempre consultabili (e cancellabili singolarmente se serve) da questa stessa sezione.
 
-### Rosa Staff (Staff+Admin)
-Elenco di persone — **Tecnico**, **Sanitario**, **Dirigenziale** — con nome e ruolo (es.
-"Allenatore", "Fisioterapista"), indipendente dagli account: non serve che quella persona usi mai
-l'app per comparire nelle Convocazioni. Aggiungi/modifica/rimuovi da qui; è la lista da cui la
-Convocazione di ogni partita sceglie chi convocare.
+### Staff (Staff+Admin)
+Elenco di persone — **Tecnico**, **Sanitario**, **Dirigenziale** — con nome e ruolo (scelto da un
+menu, es. "Allenatore", "Fisioterapista"; la lista dei ruoli è configurabile in Admin →
+Configurazioni), indipendente dagli account: non serve che quella persona usi mai l'app per comparire
+nelle Convocazioni. Aggiungi/modifica/rimuovi da qui; è la lista da cui la Convocazione di ogni
+partita sceglie chi convocare. Toccando una persona già censita, **solo l'Admin** vede anche una
+sezione "Accesso account" per collegarla a un vero account (vedi sotto).
 
-### Staff (solo Admin)
+### Admin (solo Admin)
 Visibile solo a chi ha ruolo Admin. Qui si gestisce chi fa parte della squadra sull'app:
 - **Logo squadra**: in cima alla pagina, si può caricare/cambiare il logo generale della squadra —
   comparirà nel PDF di Convocazione.
-- **"+ Invita membro staff"**: basta un nome per generare subito un codice personale da condividere
-  (bottone "Condividi", usa la condivisione nativa del telefono).
-- **Inviti in attesa**: elenco dei codici generati (per Staff da qui, per Giocatori dalla loro scheda
-  in Rosa) e non ancora usati, con Condividi di nuovo o Revoca.
-- **Membri della squadra**: email e ruolo di ognuno (per i Giocatori anche il nome collegato in
-  rosa). L'admin può cambiare il ruolo (Admin/Staff/Giocatore) o rimuovere chiunque — **tranne se
-  stesso**, per evitare sia il rischio di restare senza admin sia quello di auto-escludersi per
-  errore.
+- **Configurazioni**: per ora contiene l'elenco dei **Ruoli disponibili per lo Staff** (usati nella
+  sezione Staff) — aggiungi o rimuovi voci liberamente.
+- **Inviti in attesa**: elenco dei codici generati (per i Giocatori dalla loro scheda in Rosa, per lo
+  Staff dalla sua scheda in Staff) e non ancora usati, con Condividi di nuovo o Revoca.
+- **Membri della squadra**: email e ruolo di ognuno (per i Giocatori il nome collegato in Rosa, per lo
+  Staff il nome collegato in Staff). L'admin può cambiare il ruolo (Admin/Staff/Giocatore) o rimuovere
+  chiunque — **tranne se stesso**, per evitare sia il rischio di restare senza admin sia quello di
+  auto-escludersi per errore.
 
 ## 7. Scheda giocatore
 
@@ -268,18 +270,13 @@ generato dall'admin per una persona precisa:
   quella persona esatta. Quando lo usa in fase di registrazione, il suo account resta collegato per
   sempre a quel giocatore della rosa — non è possibile "entrare come Giocatore" senza essere legati a
   un giocatore reale già presente in rosa.
-- **Per un membro dello Staff**: da Gestione Squadra → Staff → "+ Invita membro staff", basta dare un
-  nome per riconoscerlo (es. "Marco - allenatore in seconda") e si ottiene subito un codice da
-  condividere con lui.
-
-**Da non confondere**: questo "Staff" è chi ha (o può avere) un account per usare l'app. La **Rosa
-Staff** delle Convocazioni (Tecnico/Sanitario/Dirigenziale — vedi [sezione 5](#5-partite)) è un
-elenco separato di persone (nome, categoria, ruolo) che non richiede nessun account: serve solo per
-dire chi è convocato a una partita, anche per chi non userà mai l'app (es. il fisioterapista).
+- **Per una persona dello Staff**: apri la sua scheda in Gestione Squadra → Staff → "Genera codice di
+  accesso" (solo Admin) — esattamente come per un Giocatore, ma qui non serve che la persona usi mai
+  l'app: se non la collega, comparirà comunque nelle Convocazioni.
 - Chi riceve un codice si registra normalmente nell'app (email + password) e poi, invece di "Crea una
   nuova squadra", sceglie **"Ho un codice personale"** e lo inserisce: entra direttamente con il ruolo
-  giusto, senza altri passaggi.
-- In Gestione Squadra → Staff, l'admin vede anche l'elenco dei codici generati ma non ancora usati
+  giusto, collegato a quella persona/giocatore, senza altri passaggi.
+- In Gestione Squadra → Admin, l'admin vede anche l'elenco dei codici generati ma non ancora usati
   ("Inviti in attesa"), con la possibilità di condividerli di nuovo o revocarli se non servono più.
 
 ## 9. Domande frequenti
@@ -297,4 +294,5 @@ Solo chi è stato invitato (con il codice invito) o ha creato la squadra — ogn
 esclusivamente i propri dati, mai quelli di altre squadre eventualmente registrate sulla stessa app.
 
 **Ho sbagliato a condividere il codice invito, qualcuno di indesiderato potrebbe entrare?**
-Vai su Gestione Squadra → Staff → "Rigenera": il codice vecchio smette immediatamente di funzionare.
+Vai su Gestione Squadra → Admin → "Inviti in attesa" → "Revoca": il codice smette immediatamente di
+funzionare (potrai generarne subito uno nuovo per la stessa persona).

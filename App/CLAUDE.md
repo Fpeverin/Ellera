@@ -171,8 +171,9 @@ precisa.
 | `match_event_proposals` | Gol/cartellini proposti da un Giocatore in una partita Live, in attesa di conferma/rifiuto da Staff/Admin — vedi [proposals.ts](app/data/proposals.ts) |
 | `player_edit_requests` | Modifiche a ruolo/anno/altezza/peso proposte da un Giocatore per il proprio giocatore collegato, in attesa di conferma/rifiuto da Staff/Admin — vedi [playerEdits.ts](app/data/playerEdits.ts) |
 | `competition_rules` | Regole di partecipazione Under/Over per competizione (chiave org+nome competizione), soglie `{anno, minimo giocatori}` — vedi [competitionRules.ts](app/data/competitionRules.ts) |
-| `staff_members` | Rosa Staff (nome, `category` Tecnico/Sanitario/Dirigenziale, `role` libero), indipendente dagli account — vedi [staffRoster.ts](app/data/staffRoster.ts), gestita da [staffRoster.tsx](app/squadra/staffRoster.tsx) |
-| `organizations.logo_path` + bucket Storage `team-logos` | Logo squadra (uno per org, caricato in `app/squadra/staff.tsx`) e logo avversario per singola partita (`events.data.opponentLogoPath`, caricato dal tab Convocazione) — vedi [organization.ts](app/data/organization.ts) |
+| `staff_members` | Anagrafica "Staff" (nome, `category` Tecnico/Sanitario/Dirigenziale, `role` da lista configurabile), indipendente dagli account salvo collegamento opzionale (`memberships.staff_member_id`) — vedi [staffRoster.ts](app/data/staffRoster.ts), gestita da [staffRoster.tsx](app/squadra/staffRoster.tsx) |
+| `organizations.logo_path` + bucket Storage `team-logos` | Logo squadra (uno per org, caricato in "Admin", `app/squadra/staff.tsx`) e logo avversario per singola partita (`events.data.opponentLogoPath`, caricato dal tab Convocazione) — vedi [organization.ts](app/data/organization.ts) |
+| `organizations.staff_roles` | Configurazione: lista dei Ruoli disponibili per lo Staff, editabile da Admin — vedi [organization.ts](app/data/organization.ts) |
 
 ## Funzionalità attive per area
 
@@ -262,14 +263,16 @@ precisa.
 - **Archivio stagioni** (`archivio.tsx` + `archivio/[id]/*`): congela i dati della stagione corrente
   (partite, allenamenti, giocatori con statistiche) in uno storico consultabile per stagioni passate,
   cancellabile singolarmente.
-- **Staff** (`staff.tsx`, card visibile solo se `membership.role === 'admin'`): elenco inviti in attesa
-  (Condividi/Revoca) e membri attivi con email/ruolo (per i Giocatori anche il nome collegato in
-  rosa); l'admin può cambiare il ruolo (Admin/Staff/Giocatore) o rimuovere chiunque tranne se stesso, e
-  invitare un nuovo membro Staff dando solo un nome.
+- **Staff** (`staffRoster.tsx`, card visibile a Staff+Admin): anagrafica Tecnico/Sanitario/
+  Dirigenziale, vedi sezione dedicata più sotto.
+- **Admin** (`staff.tsx`, card visibile solo se `membership.role === 'admin'`): logo squadra,
+  Configurazioni (Ruoli Staff), elenco inviti in attesa (Condividi/Revoca) e membri attivi con
+  email/ruolo (per i Giocatori il nome collegato in Rosa, per lo Staff il nome collegato in Staff);
+  l'admin può cambiare il ruolo (Admin/Staff/Giocatore) o rimuovere chiunque tranne se stesso.
 
 Per il ruolo **Giocatore**: solo la card Rosa è visibile in questa sezione (sola lettura); Moduli,
-Tattiche, Statistiche, Archivio e Staff non compaiono e le relative schermate mostrano un messaggio
-se raggiunte con un link diretto.
+Tattiche, Statistiche, Archivio, Staff e Admin non compaiono e le relative schermate mostrano un
+messaggio se raggiunte con un link diretto.
 
 ### Scheda giocatore (`app/player/[id].tsx`)
 - Tab: **Partite** (presenze/statistiche), **Allenamenti** (presenze), **Infortuni** (storico status),
@@ -632,3 +635,37 @@ nessuno aveva ricaricato una foto giocatore da allora fino a oggi.
 organizzazione, stesso `is_member_of`) su tutti e 4 i bucket. **Da tenere a mente per ogni bucket
 Storage futuro**: servono sempre 4 policy (SELECT + INSERT + UPDATE + DELETE), mai solo le ultime 3,
 anche se il bucket è pubblico.
+
+## Sezioni "Admin" e "Staff" + collegamento account per lo Staff (2026-07-30)
+
+Le due schermate di gestione staff sotto Gestione Squadra sono state rinominate e la Rosa Staff ha
+guadagnato l'ultimo pezzo che aveva solo la Rosa Giocatori: collegare un account a una persona.
+
+- **`app/squadra/staff.tsx` → "Admin"** (invariato: solo `membership.role === 'admin'`): oltre a logo
+  squadra, "Inviti in attesa" e gestione membri (cambio ruolo/rimozione) già esistenti, ha ora una
+  sezione **"Configurazioni"** — per ora contiene solo l'elenco dei **Ruoli disponibili per lo Staff**
+  (editabile: aggiungi/rimuovi, autosalva su `organizations.staff_roles` jsonb), pensata per
+  accogliere altre configurazioni in futuro. Rimosso il vecchio bottone "+ Invita membro staff" (nome
+  libero, non collegato a nessuno): da ora ogni invito Staff nasce sempre da una persona già censita
+  in "Staff", esattamente come già avveniva per i Giocatori.
+- **`app/squadra/staffRoster.tsx` → "Staff"** (invariato: Staff+Admin, `!readOnly`): il campo Ruolo
+  nella modale aggiungi/modifica è ora un `Picker` (le opzioni vengono da
+  `loadStaffRoleOptions()`, configurabili da Admin) invece di testo libero. Aprendo una persona già
+  esistente in modifica, **solo l'Admin** vede una nuova sezione "Accesso account" — mirror 1:1 del
+  blocco già presente in `app/player/[id].tsx` per i Giocatori: genera codice di accesso
+  (`create_staff_member_invite`), condividi, oppure — se già collegata — "Collegato a: {email}" +
+  "Scollega account" (`removeMember`, stesso RPC già usato per i Giocatori).
+- **Schema** — `App/supabase/15_schema_staff_invites_and_config.sql`: `memberships.staff_member_id`
+  e `invites.staff_member_id` (entrambi fk a `staff_members`, mirror di `player_id`),
+  `organizations.staff_roles` (jsonb, seed: Allenatore/Vice-Allenatore/Preparatore Atletico/
+  Preparatore Portieri/Direttore Sportivo/Fisioterapista), nuovo RPC `create_staff_member_invite`
+  (mirror di `create_player_invite`, idempotente), `redeem_invite`/`list_org_members`/
+  `list_pending_invites` ridefinite per propagare/esporre anche `staff_member_id`/
+  `staff_member_name`. Il vecchio `create_staff_invite` (nome libero) resta nel database inutilizzato,
+  stessa convenzione già seguita per `join_organization`.
+- `app/data/organization.ts`: `loadStaffRoleOptions`/`saveStaffRoleOptions`. `app/data/invites.ts`:
+  `createStaffMemberInvite`/`loadStaffMemberInviteStatus` (rimosso `createStaffInvite`, non più
+  chiamato). `app/data/staff.ts`: `OrgMember` esteso con `staffMemberId`/`staffMemberName`.
+
+Nessuna dipendenza nuova (`@react-native-picker/picker` già presente) → arriva via OTA. Richiede
+l'esecuzione di `App/supabase/15_schema_staff_invites_and_config.sql` su Supabase.

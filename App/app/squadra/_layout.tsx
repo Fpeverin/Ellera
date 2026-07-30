@@ -10,8 +10,8 @@ export default function SquadraLayout() {
       <Stack.Screen name="archivio" options={{ title: 'Archivio Stagioni' }} />
       <Stack.Screen name="archivio/[id]/index" options={{ title: 'Stagione' }} />
       <Stack.Screen name="archivio/[id]/match" options={{ title: 'Partita Archiviata' }} />
-      <Stack.Screen name="staff" options={{ title: 'Staff' }} />
-      <Stack.Screen name="staffRoster" options={{ title: 'Rosa Staff' }} />
+      <Stack.Screen name="staff" options={{ title: 'Admin' }} />
+      <Stack.Screen name="staffRoster" options={{ title: 'Staff' }} />
     </Stack>
   );
 }
