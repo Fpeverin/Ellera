@@ -39,6 +39,11 @@ prossima idea non appena viene in mente.
   quando un giocatore propone un gol/cartellino da Live, notifica push allo staff/admin di quella
   squadra. Stessa nota tecnica: serve il push token per-utente.
 
+- **Impaginazione del PDF Convocazione più fedele all'originale** (richiesta di Francesco del
+  2026-07-30): l'attuale PDF è funzionale (solo convocati, loghi, dati partita) ma l'impaginazione va
+  rifatta per assomigliare di più allo "Scheda Convocazione Ellera.xlsx" condiviso all'inizio — da
+  rivedere font/layout/stile delle tabelle, non solo il contenuto.
+
 - **Menu pranzo configurabile in Convocazione** (rimosso dalla UI il 2026-07-30 su richiesta di
   Francesco, da riprogettare): piatti disponibili e scelta per ciascun convocato. Deve essere "molto
   più configurabile" di come era stato costruito la prima volta — da ridiscutere il design prima di
