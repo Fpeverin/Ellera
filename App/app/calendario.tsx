@@ -43,7 +43,7 @@ export default function Calendario() {
             style={styles.eventCard}
             onPress={() =>
               item.type === 'PARTITA'
-                ? router.push(`/eventi/partita/${item.id}/live`)
+                ? router.push(`/eventi/partita/${item.id}`)
                 : router.push(`/eventi/allenamento/${item.id}`)
             }
           >

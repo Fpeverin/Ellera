@@ -78,7 +78,7 @@ export default function Partite() {
   useFocusEffect(useCallback(() => { refreshEvents(); }, []));
 
   const openPartita = (ev: MatchEventRow) => {
-    router.push({ pathname: '/eventi/partita/[id]/live', params: { id: ev.id } });
+    router.push({ pathname: '/eventi/partita/[id]', params: { id: ev.id } });
   };
 
   const competitions = useMemo(() => {
