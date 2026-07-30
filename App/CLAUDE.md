@@ -609,3 +609,26 @@ liste convocati e riepilogo pranzo), condiviso da Francesco come modello.
 Nessuna dipendenza nuova (`expo-print`/`expo-sharing`/`expo-image-picker` già presenti) → arriva via
 OTA. Richiede l'esecuzione di `App/supabase/12_schema_convocazione.sql` e
 `App/supabase/13_schema_logos.sql` su Supabase.
+
+## Fix critico: upload su Storage bloccato da RLS (2026-07-30)
+
+**Sintomo**: dopo aver aggiunto il logo avversario, ogni upload su Storage falliva con
+`StorageApiError` / `403` / "new row violates row-level security policy" — non solo il logo nuovo,
+ma anche la foto profilo giocatore (`playerMedia.ts`, funzione esistente da mesi, mai toccata in
+questo giro). Diagnosticato per esclusione: dati di membership corretti, testo delle policy
+verificato carattere per carattere, salvataggi Postgrest (testi/dati) funzionanti normalmente,
+riavvio del progetto Supabase ineffettivo.
+
+**Causa reale**: ogni bucket immagine (`player-photos`, `player-attachments`, `tactic-previews`,
+`team-logos`) aveva policy di INSERT/UPDATE/DELETE su `storage.objects` ma **nessuna policy di
+SELECT** — il flag `public: true` del bucket copre solo la lettura via URL pubblico (CDN), non la
+verifica interna che il servizio Storage fa per decidere se un file esiste già quando si carica con
+`upsert: true` (usato ovunque nell'app). Senza una policy SELECT che la copra, quella verifica
+interna viene rifiutata da RLS e l'intero upload fallisce — bug preesistente da quando
+`8_schema_roles.sql` (2026-07-28) ha separato le policy in lettura/scrittura, mai emerso prima perché
+nessuno aveva ricaricato una foto giocatore da allora fino a oggi.
+
+**Fix**: `App/supabase/14_schema_storage_select_fix.sql` aggiunge una policy SELECT (scoped per
+organizzazione, stesso `is_member_of`) su tutti e 4 i bucket. **Da tenere a mente per ogni bucket
+Storage futuro**: servono sempre 4 policy (SELECT + INSERT + UPDATE + DELETE), mai solo le ultime 3,
+anche se il bucket è pubblico.
