@@ -1,12 +1,13 @@
 // app/data/convocazione.ts
 //
-// Convocazione partita: chi tra giocatori/staff è convocato, il ritrovo e il
-// menu pranzo. Vive nella colonna "convocazione" di match_live (stesso
-// pattern di goals/subs/cards/lineup — vedi app/data/matchLive.ts), qui
-// esposta con logica di più alto livello (valore di default, template dalla
-// convocazione precedente, pruning di campo/panchina quando cambiano i
-// convocati).
-import { loadEvents } from './events';
+// Convocazione partita: chi tra giocatori/staff è convocato e il ritrovo.
+// Vive nella colonna "convocazione" di match_live (stesso pattern di
+// goals/subs/cards/lineup — vedi app/data/matchLive.ts), qui esposta con
+// logica di più alto livello (valore di default, pruning di campo/panchina
+// quando cambiano i convocati). Il menu pranzo (menuItems/meals nel tipo
+// ConvocazioneData) è temporaneamente fuori dalla UI — vedi TO DO in
+// PIANO_LAVORO.md — ma i campi restano nel tipo/colonna per non richiedere
+// una migrazione quando tornerà.
 import {
   ConvocazioneData,
   ConvocazioneMenuItem,
@@ -33,32 +34,6 @@ export async function loadConvocazione(eventId: string): Promise<ConvocazioneDat
 
 export async function saveConvocazione(eventId: string, data: ConvocazioneData): Promise<void> {
   await saveConvocazioneRemote(eventId, data);
-}
-
-/**
- * Cerca, tra le partite passate (per data), la convocazione più recente con
- * un menu già impostato, da usare come base per una convocazione nuova —
- * su richiesta di Francesco i piatti disponibili e le scelte di ciascuno
- * devono ripartire da quelli dell'ultima volta, non da zero.
- */
-export async function loadPreviousMenuTemplate(
-  currentEventId: string
-): Promise<{ menuItems: ConvocazioneMenuItem[]; meals: Record<string, string> } | null> {
-  const events = await loadEvents();
-  const current = events.find((e) => e.id === currentEventId);
-  const currentDate = current?.date ?? '9999-99-99';
-
-  const pastMatches = events
-    .filter((e) => e.type === 'PARTITA' && e.id !== currentEventId && e.date < currentDate)
-    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)); // più recente prima
-
-  for (const ev of pastMatches) {
-    const conv = await loadConvocazioneRemote(ev.id);
-    if (conv && conv.menuItems && conv.menuItems.length > 0) {
-      return { menuItems: conv.menuItems, meals: conv.meals ?? {} };
-    }
-  }
-  return null;
 }
 
 /**

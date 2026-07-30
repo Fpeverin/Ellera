@@ -171,6 +171,8 @@ precisa.
 | `match_event_proposals` | Gol/cartellini proposti da un Giocatore in una partita Live, in attesa di conferma/rifiuto da Staff/Admin — vedi [proposals.ts](app/data/proposals.ts) |
 | `player_edit_requests` | Modifiche a ruolo/anno/altezza/peso proposte da un Giocatore per il proprio giocatore collegato, in attesa di conferma/rifiuto da Staff/Admin — vedi [playerEdits.ts](app/data/playerEdits.ts) |
 | `competition_rules` | Regole di partecipazione Under/Over per competizione (chiave org+nome competizione), soglie `{anno, minimo giocatori}` — vedi [competitionRules.ts](app/data/competitionRules.ts) |
+| `staff_members` | Rosa Staff (nome, `category` Tecnico/Sanitario/Dirigenziale, `role` libero), indipendente dagli account — vedi [staffRoster.ts](app/data/staffRoster.ts), gestita da [staffRoster.tsx](app/squadra/staffRoster.tsx) |
+| `organizations.logo_path` + bucket Storage `team-logos` | Logo squadra (uno per org, caricato in `app/squadra/staff.tsx`) e logo avversario per singola partita (`events.data.opponentLogoPath`, caricato dal tab Convocazione) — vedi [organization.ts](app/data/organization.ts) |
 
 ## Funzionalità attive per area
 
@@ -561,35 +563,49 @@ liste convocati e riepilogo pranzo), condiviso da Francesco come modello.
 - **`app/data/matchLive.ts`**: nuova coppia `loadConvocazione`/`saveConvocazione` (get/set sulla
   colonna `convocazione`, stesso `getColumn`/`setColumn` di tutte le altre).
 - **`app/data/convocazione.ts`** (nuovo, livello più alto): `loadConvocazione`/`saveConvocazione`
-  (con default vuoto), `loadPreviousMenuTemplate(eventId)` (cerca la partita passata più recente con
-  un menu già impostato, per prepopolare piatti e scelte di una convocazione nuova — richiesta
-  esplicita di Francesco), `saveConvocatiPlayerIds(eventId, ids)` (setter condiviso: salva
+  (con default vuoto), `saveConvocatiPlayerIds(eventId, ids)` (setter condiviso: salva
   `convocazione.playerIds` **e** pota `lineup.field`/`lineup.bench` togliendo ogni id non più
   convocato — stesso comportamento che prima viveva nella modale CONVOCATI di `formazione.tsx`).
 - **`app/components/partite/ConvocatiPlayersModal.tsx`** (nuovo, condiviso): checklist giocatori con
   tetto massimo (default 20), usata sia dal tab Convocazione sia dalla modifica "ultimo secondo" in
   Live.
 - **`app/eventi/partita/[id]/convocazione.tsx`** (nuovo): intestazione partita (letta da
-  `loadEvents()`) + campo Ritrovo, checklist giocatori (alfabetico, tramite la modale condivisa),
-  staff diviso nelle 3 categorie con aggiunta rapida di nuove persone al roster, riepilogo conteggi
-  per categoria, sezione menu pranzo (piatti disponibili editabili + scelta per convocato, con
-  riepilogo pasti calcolato lato client), bottone "📄 Esporta PDF" (stesso pattern HTML →
-  `Print.printToFileAsync` → `Sharing.shareAsync` di `app/squadra/statistiche.tsx`). Tutto autosalva,
-  nessun bottone "Salva" esplicito (stesso stile di `formazione.tsx`).
+  `loadEvents()`) + campo Ritrovo, checklist giocatori (alfabetico, tramite la modale condivisa,
+  riepilogo a chip), staff diviso nelle 3 categorie (checklist read-only sulla Rosa Staff, nessuna
+  aggiunta rapida qui — si fa da `app/squadra/staffRoster.tsx`), riepilogo conteggi per categoria,
+  upload logo avversario, bottone "📄 Esporta PDF" che apre prima una modale (Competizione/Giornata,
+  Luogo, Ritrovo, Data/Ora, prepopolati dalla partita) e genera un PDF con **solo i convocati** (non
+  l'intera rosa) e i due loghi in intestazione (stesso pattern HTML → `Print.printToFileAsync` →
+  `Sharing.shareAsync` di `app/squadra/statistiche.tsx`). Tutto autosalva, nessun bottone "Salva"
+  esplicito (stesso stile di `formazione.tsx`).
 - **`app/eventi/partita/[id]/formazione.tsx`**: non gestisce più i convocati in proprio — rimossi
   `convocatiIds`/`MAX_CONVOCATI`/la modale "CONVOCATI" interna. Ora legge (sola lettura)
   `loadConvocazione(matchId).playerIds` per filtrare `availablePlayers`; se vuoto mostra un banner
   d'avviso con link al tab Convocazione.
-- **`app/eventi/partita/[id]/live.tsx`**: nuova card "🗒️ CONVOCAZIONE" (link al tab) sempre visibile
-  per Staff/Admin, più una card "✏️ MODIFICA CONVOCATI" visibile solo **prima di Start** (modifica
+- **`app/eventi/partita/[id]/index.tsx`**: non è più un semplice `<Redirect>` a Live. Se la partita è
+  già avviata (`loadStarted`) o l'utente è Giocatore va dritto su Live come prima; altrimenti (Staff/
+  Admin, pre-Start) mostra un piccolo chooser con due card, "📋 CONVOCAZIONE" e "🔴 LIVE".
+- **`app/eventi/partita/[id]/live.tsx`**: card "🗒️ CONVOCAZIONE" (link al tab) sempre visibile per
+  Staff/Admin, più una card "✏️ MODIFICA CONVOCATI" visibile solo **prima di Start** (modifica
   "ultimo secondo" richiesta esplicitamente da Francesco) che apre la stessa
   `ConvocatiPlayersModal` e chiama `saveConvocatiPlayerIds` (stessa pruning-logic).
+- **`app/squadra/staffRoster.tsx`** (nuovo): CRUD della Rosa Staff (nome/categoria/ruolo) come
+  schermata propria, visibile a Staff+Admin (`!readOnly`, non solo Admin come `staff.tsx` che gestisce
+  gli account) — voce "Rosa Staff" in Gestione Squadra.
+- **Loghi**: `organizations.logo_path` (logo squadra, uno per org, caricato in `app/squadra/staff.tsx`
+  da chi è admin) ed `events.data.opponentLogoPath` (logo avversario, per singola partita, caricato dal
+  tab Convocazione) — bucket Storage pubblico `team-logos`, stesso schema di autorizzazione di
+  `player-photos`/`player-attachments`. Vedi [organization.ts](app/data/organization.ts).
 
-**Cosa NON è in questo giro** (scelte di scope esplicite, concordate prima di iniziare):
+**Cosa NON è (ancora) inclusa**:
 - Nessuna **notifica push** ai convocati — richiede un'infrastruttura di push token per-utente non
   ancora costruita (nota già presente nel Backlog di `PIANO_LAVORO.md` su altri punti simili).
 - Nessun **collegamento account↔staff roster** (l'equivalente di `memberships.player_id` per i
   Giocatori) — lo staff roster resta dato puro, non collegato a nessun account.
+- **Menu pranzo**: rimosso dalla UI il 2026-07-30 su richiesta di Francesco ("deve essere molto più
+  configurabile"), da riprogettare — i campi `menuItems`/`meals` restano nella colonna dati di ogni
+  partita per non richiedere una migrazione quando tornerà (vedi Backlog in `PIANO_LAVORO.md`).
 
-Nessuna dipendenza nuova (`expo-print`/`expo-sharing` già presenti) → arriva via OTA. Richiede
-l'esecuzione di `App/supabase/12_schema_convocazione.sql` su Supabase.
+Nessuna dipendenza nuova (`expo-print`/`expo-sharing`/`expo-image-picker` già presenti) → arriva via
+OTA. Richiede l'esecuzione di `App/supabase/12_schema_convocazione.sql` e
+`App/supabase/13_schema_logos.sql` su Supabase.

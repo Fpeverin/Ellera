@@ -2,26 +2,25 @@
 //
 // Scheda Convocazione della partita — solo staff (Admin/Staff), visibile
 // come tab autonomo accanto a Formazione/Tattiche/Live. Sceglie chi tra
-// giocatori e staff è convocato, il ritrovo e il menu pranzo, e produce un
-// PDF (stesso pattern di app/squadra/statistiche.tsx). I giocatori convocati
-// qui alimentano Formazione (vedi app/data/convocazione.ts).
-import { useLocalSearchParams, useRouter } from 'expo-router';
+// giocatori e staff (censito in Rosa Staff) è convocato e il ritrovo, e
+// produce un PDF (stesso pattern di app/squadra/statistiche.tsx) con solo i
+// convocati. I giocatori convocati qui alimentano Formazione (vedi
+// app/data/convocazione.ts). Il Menu pranzo è temporaneamente rimosso dalla
+// UI (TO DO futuro, vedi PIANO_LAVORO.md) — i campi restano nella colonna
+// dati per non richiedere una migrazione quando tornerà.
+import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ConvocatiPlayersModal from '../../../components/partite/ConvocatiPlayersModal';
 import { useAuth } from '../../../context/AuthContext';
-import {
-  ConvocazioneMenuItem,
-  loadConvocazione,
-  loadPreviousMenuTemplate,
-  saveConvocatiPlayerIds,
-  saveConvocazione,
-} from '../../../data/convocazione';
-import { CalendarEvent, loadEvents } from '../../../data/events';
-import { loadStaffMembers, StaffCategory, StaffMember, addStaffMember } from '../../../data/staffRoster';
+import { loadConvocazione, saveConvocatiPlayerIds, saveConvocazione } from '../../../data/convocazione';
+import { CalendarEvent, loadEvents, patchEventData } from '../../../data/events';
+import { loadOrgLogoUrl, opponentLogoUrlFromPath, uploadOpponentLogo } from '../../../data/organization';
+import { loadStaffMembers, StaffCategory, StaffMember } from '../../../data/staffRoster';
 import { usePlayers } from '../../../hooks/usePlayers';
 
 const MAX_CONVOCATI = 20;
@@ -44,6 +43,14 @@ function formatMatchTitle(ev: CalendarEvent | null): string {
   return ha === 'TRASFERTA' ? `${opp} - Ellera` : `Ellera - ${opp}`;
 }
 
+type ExportForm = {
+  competizione: string;
+  luogo: string;
+  ritrovo: string;
+  data: string;
+  ora: string;
+};
+
 export default function Convocazione() {
   const { id: matchId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -59,49 +66,37 @@ export default function Convocazione() {
   const [ritrovo, setRitrovo] = useState('');
   const [playerIds, setPlayerIds] = useState<string[]>([]);
   const [staffIds, setStaffIds] = useState<string[]>([]);
-  const [menuItems, setMenuItems] = useState<ConvocazioneMenuItem[]>([]);
-  const [meals, setMeals] = useState<Record<string, string>>({});
 
   const [playersModalOpen, setPlayersModalOpen] = useState(false);
-  const [newDish, setNewDish] = useState('');
-  const [newStaffName, setNewStaffName] = useState<Record<StaffCategory, string>>({
-    TECNICO: '',
-    SANITARIO: '',
-    DIRIGENZIALE: '',
-  });
-  const [newStaffRole, setNewStaffRole] = useState<Record<StaffCategory, string>>({
-    TECNICO: '',
-    SANITARIO: '',
-    DIRIGENZIALE: '',
-  });
+
+  const [orgLogoUrl, setOrgLogoUrl] = useState<string | null>(null);
+  const [opponentLogoUrl, setOpponentLogoUrl] = useState<string | null>(null);
+  const [logoBusy, setLogoBusy] = useState(false);
+
+  const [exportForm, setExportForm] = useState<ExportForm | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   // --- caricamento iniziale ---
   useEffect(() => {
     (async () => {
       if (!matchId) return;
       try {
-        const [events, staff, conv] = await Promise.all([
+        const [events, staff, conv, orgLogo] = await Promise.all([
           loadEvents(),
           loadStaffMembers(),
           loadConvocazione(matchId),
+          loadOrgLogoUrl(),
         ]);
-        setEvent(events.find((e) => e.id === matchId) ?? null);
+        const ev = events.find((e) => `${e.id}` === `${matchId}`) ?? null;
+        setEvent(ev);
         setStaffMembers(staff);
-
-        let { menuItems: mi, meals: me } = conv;
-        if (mi.length === 0) {
-          const template = await loadPreviousMenuTemplate(matchId);
-          if (template) {
-            mi = template.menuItems;
-            me = template.meals;
-          }
-        }
+        setOrgLogoUrl(orgLogo);
+        const opponentLogoPath = (ev as any)?.opponentLogoPath;
+        setOpponentLogoUrl(opponentLogoPath ? opponentLogoUrlFromPath(opponentLogoPath) : null);
 
         setRitrovo(conv.ritrovo);
         setPlayerIds(conv.playerIds);
         setStaffIds(conv.staffIds);
-        setMenuItems(mi);
-        setMeals(me);
       } catch {
         Alert.alert('Errore', 'Impossibile caricare la convocazione.');
       } finally {
@@ -111,15 +106,15 @@ export default function Convocazione() {
     })();
   }, [matchId]);
 
-  // --- autosalvataggio (tutto tranne playerIds, che ha il suo percorso dedicato) ---
+  // --- autosalvataggio ---
   useEffect(() => {
     if (!loadedRef.current || !matchId) return;
     (async () => {
       try {
-        await saveConvocazione(matchId, { ritrovo, playerIds, staffIds, menuItems, meals });
+        await saveConvocazione(matchId, { ritrovo, playerIds, staffIds, menuItems: [], meals: {} });
       } catch {}
     })();
-  }, [matchId, ritrovo, staffIds, menuItems, meals]);
+  }, [matchId, ritrovo, staffIds]);
 
   const handleConfirmPlayers = async (ids: string[]) => {
     if (!matchId) return;
@@ -135,141 +130,126 @@ export default function Convocazione() {
     setStaffIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  const handleAddStaff = async (category: StaffCategory) => {
-    const name = newStaffName[category].trim();
-    if (!name) return;
-    try {
-      const member = await addStaffMember({ name, category, role: newStaffRole[category].trim() || undefined });
-      setStaffMembers((prev) => [...prev, member].sort((a, b) => a.name.localeCompare(b.name)));
-      setStaffIds((prev) => [...prev, member.id]);
-      setNewStaffName((prev) => ({ ...prev, [category]: '' }));
-      setNewStaffRole((prev) => ({ ...prev, [category]: '' }));
-    } catch {
-      Alert.alert('Errore', 'Impossibile aggiungere la persona.');
+  const pickOpponentLogo = async () => {
+    if (!matchId) return;
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
+      return;
     }
-  };
-
-  const addDish = () => {
-    const name = newDish.trim();
-    if (!name) return;
-    const item: ConvocazioneMenuItem = { id: `dish-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name };
-    setMenuItems((prev) => [...prev, item]);
-    setNewDish('');
-  };
-
-  const removeDish = (id: string) => {
-    setMenuItems((prev) => prev.filter((m) => m.id !== id));
-    setMeals((prev) => {
-      const next = { ...prev };
-      for (const key of Object.keys(next)) {
-        if (next[key] === id) delete next[key];
-      }
-      return next;
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.9,
     });
-  };
-
-  const chooseMeal = (personId: string, menuItemId: string) => {
-    setMeals((prev) => ({ ...prev, [personId]: menuItemId }));
+    if (res.canceled) return;
+    setLogoBusy(true);
+    try {
+      const { path, url } = await uploadOpponentLogo(matchId, res.assets[0].uri);
+      await patchEventData(matchId, { opponentLogoPath: path });
+      setOpponentLogoUrl(url);
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare il logo avversario.');
+    } finally {
+      setLogoBusy(false);
+    }
   };
 
   // --- persone convocate (giocatori + staff) ---
   const convocatedPlayers = players.filter((p) => playerIds.includes(p.id));
   const convocatedStaff = staffMembers.filter((s) => staffIds.includes(s.id));
-  const convocatedPeople = [
-    ...convocatedPlayers.map((p) => ({ id: p.id, name: p.name })),
-    ...convocatedStaff.map((s) => ({ id: s.id, name: s.name })),
-  ];
 
   const staffCountByCategory = (cat: StaffCategory) =>
     staffMembers.filter((s) => s.category === cat && staffIds.includes(s.id)).length;
   const totale = playerIds.length + staffIds.length;
 
-  const mealCounts = menuItems.map((item) => ({
-    item,
-    count: convocatedPeople.filter((p) => meals[p.id] === item.id).length,
-  }));
-  const totalMeals = convocatedPeople.filter((p) => meals[p.id]).length;
-
   // --- PDF ---
-  const exportPdf = async () => {
-    const giocatoriRows = players
-      .map((p) => `<tr><td>${esc(p.name)}</td><td>${playerIds.includes(p.id) ? '✔' : ''}</td></tr>`)
-      .join('');
+  const openExportModal = () => {
+    setExportForm({
+      competizione: (event as any)?.competition || '',
+      luogo: event?.location || '',
+      ritrovo,
+      data: event?.date || '',
+      ora: event?.time || '',
+    });
+  };
 
-    const staffSectionHtml = CATEGORIES.map((cat) => {
-      const rows = staffMembers
-        .filter((s) => s.category === cat)
-        .map(
-          (s) =>
-            `<tr><td>${esc(s.name)}${s.role ? ` — ${esc(s.role)}` : ''}</td><td>${staffIds.includes(s.id) ? '✔' : ''}</td></tr>`
-        )
+  const runExport = async () => {
+    if (!exportForm) return;
+    setExporting(true);
+    try {
+      const giocatoriRows = convocatedPlayers
+        .map((p) => `<tr><td>${esc(p.name)}</td></tr>`)
         .join('');
-      if (!rows) return '';
-      return `<h3>${esc(CATEGORY_LABELS[cat])}</h3><table>${rows}</table>`;
-    }).join('');
 
-    const mealRows = mealCounts.map((m) => `<tr><td>${esc(m.item.name)}</td><td>${m.count}</td></tr>`).join('');
+      const staffSectionHtml = CATEGORIES.map((cat) => {
+        const rows = convocatedStaff
+          .filter((s) => s.category === cat)
+          .map((s) => `<tr><td>${esc(s.name)}${s.role ? ` — ${esc(s.role)}` : ''}</td></tr>`)
+          .join('');
+        if (!rows) return '';
+        return `<h3>${esc(CATEGORY_LABELS[cat])}</h3><table>${rows}</table>`;
+      }).join('');
 
-    const styles = `
-      <style>
-        body { font-family: system-ui, Roboto, Arial; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-        td, th { border: 1px solid #e5e7eb; padding: 6px; }
-        h1 { margin-bottom: 4px; }
-        h2 { margin-top: 24px; }
-        h3 { margin-bottom: 4px; }
-      </style>
-    `;
+      const logosHtml = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div>${orgLogoUrl ? `<img src="${esc(orgLogoUrl)}" style="height:64px;" />` : ''}</div>
+          <div>${opponentLogoUrl ? `<img src="${esc(opponentLogoUrl)}" style="height:64px;" />` : ''}</div>
+        </div>
+      `;
 
-    const html = `
-      <html>
-        <head>${styles}</head>
-        <body>
-          <h1>Scheda Convocazione</h1>
-          <p><strong>${esc(formatMatchTitle(event))}</strong></p>
-          <p>${esc((event as any)?.competition || '')}</p>
-          <p>${esc(event?.date || '')} — ${esc(event?.time || '')}</p>
-          <p>${esc(event?.location || '')}</p>
-          <p>Ritrovo: ${esc(ritrovo || '—')}</p>
+      const styles = `
+        <style>
+          body { font-family: system-ui, Roboto, Arial; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+          td, th { border: 1px solid #e5e7eb; padding: 6px; }
+          h1 { margin-bottom: 4px; }
+          h2 { margin-top: 24px; }
+          h3 { margin-bottom: 4px; }
+        </style>
+      `;
 
-          <h2>Giocatori convocati</h2>
-          <table>${giocatoriRows}</table>
+      const html = `
+        <html>
+          <head>${styles}</head>
+          <body>
+            ${logosHtml}
+            <h1>Scheda Convocazione</h1>
+            <p><strong>${esc(formatMatchTitle(event))}</strong></p>
+            <p>${esc(exportForm.competizione)}</p>
+            <p>${esc(exportForm.data)} — ${esc(exportForm.ora)}</p>
+            <p>${esc(exportForm.luogo)}</p>
+            <p>Ritrovo: ${esc(exportForm.ritrovo || '—')}</p>
 
-          <h2>Staff</h2>
-          ${staffSectionHtml}
+            <h2>Giocatori convocati (${convocatedPlayers.length})</h2>
+            <table>${giocatoriRows}</table>
 
-          <h2>Riepilogo</h2>
-          <table>
-            <tr><td>Giocatori</td><td>${playerIds.length}</td></tr>
-            <tr><td>Staff Tecnico</td><td>${staffCountByCategory('TECNICO')}</td></tr>
-            <tr><td>Staff Sanitario</td><td>${staffCountByCategory('SANITARIO')}</td></tr>
-            <tr><td>Dirigenza</td><td>${staffCountByCategory('DIRIGENZIALE')}</td></tr>
-            <tr><td><strong>Totale</strong></td><td><strong>${totale}</strong></td></tr>
-          </table>
+            <h2>Staff</h2>
+            ${staffSectionHtml}
 
-          <h2>Riepilogo pranzo</h2>
-          <table>
-            <tr><td><strong>Totale pasti</strong></td><td><strong>${totalMeals}</strong></td></tr>
-            ${mealRows}
-          </table>
-        </body>
-      </html>
-    `;
+            <h2>Riepilogo</h2>
+            <table>
+              <tr><td>Giocatori</td><td>${playerIds.length}</td></tr>
+              <tr><td>Staff Tecnico</td><td>${staffCountByCategory('TECNICO')}</td></tr>
+              <tr><td>Staff Sanitario</td><td>${staffCountByCategory('SANITARIO')}</td></tr>
+              <tr><td>Dirigenza</td><td>${staffCountByCategory('DIRIGENZIALE')}</td></tr>
+              <tr><td><strong>Totale</strong></td><td><strong>${totale}</strong></td></tr>
+            </table>
+          </body>
+        </html>
+      `;
 
-    if (typeof window !== 'undefined' && (window as any)?.print) {
-      const w = window.open('', '', 'width=1200,height=800');
-      if (!w) return;
-      w.document.write(html);
-      w.document.close();
-      w.print();
-      w.close();
-    } else {
       const { uri } = await Print.printToFileAsync({ html });
+      setExportForm(null);
       try {
         await Sharing.shareAsync(uri);
       } catch {
         Alert.alert('PDF creato', `File salvato in:\n${uri}`);
       }
+    } catch {
+      Alert.alert('Errore', 'Impossibile generare il PDF.');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -301,6 +281,20 @@ export default function Convocazione() {
         {event?.location ? <Text style={styles.matchSub}>{event.location}</Text> : null}
 
         <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Logo avversario</Text>
+            <Pressable style={styles.smallBtn} onPress={pickOpponentLogo} disabled={logoBusy}>
+              <Text style={styles.smallBtnText}>{logoBusy ? 'Caricamento…' : opponentLogoUrl ? 'Cambia' : '+ Carica'}</Text>
+            </Pressable>
+          </View>
+          {opponentLogoUrl ? (
+            <Image source={{ uri: opponentLogoUrl }} style={styles.opponentLogoPreview} resizeMode="contain" />
+          ) : (
+            <Text style={styles.previewText}>Nessun logo caricato</Text>
+          )}
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ritrovo</Text>
           <TextInput
             style={styles.input}
@@ -319,9 +313,17 @@ export default function Convocazione() {
               <Text style={styles.smallBtnText}>✏️ Modifica</Text>
             </Pressable>
           </View>
-          <Text style={styles.previewText}>
-            {convocatedPlayers.length > 0 ? convocatedPlayers.map((p) => p.name).join(', ') : 'Nessun giocatore convocato'}
-          </Text>
+          {convocatedPlayers.length > 0 ? (
+            <View style={styles.chipsRow}>
+              {convocatedPlayers.map((p) => (
+                <View key={p.id} style={styles.playerChip}>
+                  <Text style={styles.playerChipText}>{p.name}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.previewText}>Nessun giocatore convocato</Text>
+          )}
         </View>
 
         {CATEGORIES.map((cat) => {
@@ -331,37 +333,28 @@ export default function Convocazione() {
               <Text style={styles.sectionTitle}>
                 {CATEGORY_LABELS[cat]} ({staffCountByCategory(cat)})
               </Text>
-              {inCategory.map((s) => {
-                const checked = staffIds.includes(s.id);
-                return (
-                  <Pressable key={s.id} style={styles.ckRow} onPress={() => toggleStaff(s.id)}>
-                    <View style={[styles.ckBox, checked && styles.ckBoxOn]}>
-                      {checked ? <Text style={{ color: 'white' }}>✓</Text> : null}
-                    </View>
-                    <Text style={{ flex: 1 }}>
-                      {s.name}
-                      {s.role ? ` — ${s.role}` : ''}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-              <View style={styles.addRow}>
-                <TextInput
-                  style={[styles.input, { flex: 1 }]}
-                  placeholder="Nome"
-                  value={newStaffName[cat]}
-                  onChangeText={(v) => setNewStaffName((prev) => ({ ...prev, [cat]: v }))}
-                />
-                <TextInput
-                  style={[styles.input, { flex: 1 }]}
-                  placeholder="Ruolo (es. Allenatore)"
-                  value={newStaffRole[cat]}
-                  onChangeText={(v) => setNewStaffRole((prev) => ({ ...prev, [cat]: v }))}
-                />
-                <Pressable style={styles.smallBtn} onPress={() => handleAddStaff(cat)}>
-                  <Text style={styles.smallBtnText}>+ Aggiungi</Text>
+              {inCategory.length === 0 ? (
+                <Pressable onPress={() => router.push('/squadra/staffRoster')}>
+                  <Text style={styles.linkText}>
+                    Nessuno in {CATEGORY_LABELS[cat]} — aggiungilo da Rosa Staff
+                  </Text>
                 </Pressable>
-              </View>
+              ) : (
+                inCategory.map((s) => {
+                  const checked = staffIds.includes(s.id);
+                  return (
+                    <Pressable key={s.id} style={styles.ckRow} onPress={() => toggleStaff(s.id)}>
+                      <View style={[styles.ckBox, checked && styles.ckBoxOn]}>
+                        {checked ? <Text style={{ color: 'white' }}>✓</Text> : null}
+                      </View>
+                      <Text style={{ flex: 1 }}>
+                        {s.name}
+                        {s.role ? ` — ${s.role}` : ''}
+                      </Text>
+                    </Pressable>
+                  );
+                })
+              )}
             </View>
           );
         })}
@@ -375,63 +368,7 @@ export default function Convocazione() {
           <Text style={[styles.summaryLine, { fontWeight: '800' }]}>Totale: {totale}</Text>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Menu pranzo</Text>
-          {menuItems.map((item) => (
-            <View key={item.id} style={styles.dishRow}>
-              <Text style={{ flex: 1 }}>{item.name}</Text>
-              <Pressable onPress={() => removeDish(item.id)}>
-                <Text style={{ fontSize: 18 }}>🗑️</Text>
-              </Pressable>
-            </View>
-          ))}
-          <View style={styles.addRow}>
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              placeholder="Nuovo piatto"
-              value={newDish}
-              onChangeText={setNewDish}
-            />
-            <Pressable style={styles.smallBtn} onPress={addDish}>
-              <Text style={styles.smallBtnText}>+ Aggiungi</Text>
-            </Pressable>
-          </View>
-
-          {menuItems.length > 0 && convocatedPeople.length > 0 && (
-            <>
-              <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Scelte</Text>
-              {convocatedPeople.map((p) => (
-                <View key={p.id} style={styles.mealRow}>
-                  <Text style={styles.mealName}>{p.name}</Text>
-                  <View style={styles.chipsRow}>
-                    {menuItems.map((item) => {
-                      const active = meals[p.id] === item.id;
-                      return (
-                        <Pressable
-                          key={item.id}
-                          style={[styles.chip, active && styles.chipActive]}
-                          onPress={() => chooseMeal(p.id, item.id)}
-                        >
-                          <Text style={[styles.chipText, active && styles.chipTextActive]}>{item.name}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              ))}
-
-              <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Riepilogo pranzo</Text>
-              <Text style={styles.summaryLine}>Totale pasti: {totalMeals}</Text>
-              {mealCounts.map((m) => (
-                <Text key={m.item.id} style={styles.summaryLine}>
-                  {m.item.name}: {m.count}
-                </Text>
-              ))}
-            </>
-          )}
-        </View>
-
-        <Pressable style={styles.pdfBtn} onPress={exportPdf}>
+        <Pressable style={styles.pdfBtn} onPress={openExportModal}>
           <Text style={styles.pdfBtnText}>📄 Esporta PDF</Text>
         </Pressable>
       </ScrollView>
@@ -444,6 +381,55 @@ export default function Convocazione() {
         onClose={() => setPlayersModalOpen(false)}
         onConfirm={handleConfirmPlayers}
       />
+
+      {/* pre-export: conferma/aggiusta i dati che vanno sul PDF */}
+      <Modal visible={!!exportForm} transparent animationType="fade" onRequestClose={() => setExportForm(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Dati per il PDF</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Competizione / Giornata"
+              value={exportForm?.competizione ?? ''}
+              onChangeText={(v) => setExportForm((f) => (f ? { ...f, competizione: v } : f))}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Luogo"
+              value={exportForm?.luogo ?? ''}
+              onChangeText={(v) => setExportForm((f) => (f ? { ...f, luogo: v } : f))}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Ritrovo"
+              value={exportForm?.ritrovo ?? ''}
+              onChangeText={(v) => setExportForm((f) => (f ? { ...f, ritrovo: v } : f))}
+            />
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Data"
+                value={exportForm?.data ?? ''}
+                onChangeText={(v) => setExportForm((f) => (f ? { ...f, data: v } : f))}
+              />
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Ora"
+                value={exportForm?.ora ?? ''}
+                onChangeText={(v) => setExportForm((f) => (f ? { ...f, ora: v } : f))}
+              />
+            </View>
+            <View style={styles.row}>
+              <Pressable style={[styles.btn, styles.btnOutline]} onPress={() => setExportForm(null)}>
+                <Text style={styles.btnOutlineText}>Annulla</Text>
+              </Pressable>
+              <Pressable style={[styles.btn, styles.btnPrimary]} onPress={runExport} disabled={exporting}>
+                <Text style={styles.btnPrimaryText}>{exporting ? 'Creazione…' : 'Esporta'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -468,6 +454,9 @@ const styles = StyleSheet.create({
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a202c', marginBottom: 8 },
   previewText: { fontSize: 13, color: '#64748b' },
+  linkText: { fontSize: 13, color: '#2563eb', fontWeight: '600' },
+
+  opponentLogoPreview: { width: 64, height: 64, marginTop: 4 },
 
   input: {
     borderWidth: 1,
@@ -477,6 +466,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     backgroundColor: '#f9fafb',
     fontSize: 14,
+    marginBottom: 8,
   },
 
   smallBtn: { backgroundColor: '#1b7f3b', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
@@ -505,33 +495,16 @@ const styles = StyleSheet.create({
   },
   ckBoxOn: { backgroundColor: '#1b7f3b', borderColor: '#1b7f3b' },
 
-  addRow: { flexDirection: 'row', gap: 8, marginTop: 8, alignItems: 'center' },
-
   summaryLine: { fontSize: 14, color: '#334155', marginBottom: 2 },
 
-  dishRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-
-  mealRow: { marginBottom: 12 },
-  mealName: { fontWeight: '700', marginBottom: 6 },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: {
+  playerChip: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#dcfce7',
   },
-  chipActive: { backgroundColor: '#1b7f3b', borderColor: '#1b7f3b' },
-  chipText: { fontSize: 12, color: '#334155', fontWeight: '600' },
-  chipTextActive: { color: 'white' },
+  playerChipText: { fontSize: 13, color: '#166534', fontWeight: '600' },
 
   pdfBtn: {
     backgroundColor: '#1b4f7f',
@@ -541,4 +514,15 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   pdfBtnText: { color: 'white', fontWeight: '800', fontSize: 16 },
+
+  row: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  btn: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  btnPrimary: { backgroundColor: '#1b7f3b' },
+  btnPrimaryText: { color: '#fff', fontWeight: '700' },
+  btnOutline: { backgroundColor: '#f1f5f9' },
+  btnOutlineText: { color: '#475569', fontWeight: '700' },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalBox: { backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '100%', maxWidth: 420 },
+  modalTitle: { fontSize: 17, fontWeight: '800', color: '#1a202c', marginBottom: 8, textAlign: 'center' },
 });

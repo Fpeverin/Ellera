@@ -39,11 +39,39 @@ prossima idea non appena viene in mente.
   quando un giocatore propone un gol/cartellino da Live, notifica push allo staff/admin di quella
   squadra. Stessa nota tecnica: serve il push token per-utente.
 
+- **Menu pranzo configurabile in Convocazione** (rimosso dalla UI il 2026-07-30 su richiesta di
+  Francesco, da riprogettare): piatti disponibili e scelta per ciascun convocato. Deve essere "molto
+  più configurabile" di come era stato costruito la prima volta — da ridiscutere il design prima di
+  reintrodurlo (i campi `menuItems`/`meals` restano comunque nella colonna dati di ogni partita).
+
 ## In corso
 
 *(vuoto — si popola quando iniziamo davvero il prossimo punto del backlog)*
 
 ## Completato
+
+### 2026-07-30 — Rifinitura Convocazione + Loghi squadra/avversario
+Dopo il primo giro (vedi voce del 2026-07-29 sotto), Francesco ha provato la Convocazione e segnalato
+5 problemi puntuali, tutti sistemati in questo giro:
+1. **Chooser Convocazione/Live**: aprendo una partita non ancora avviata (Staff/Admin) compare ora una
+   schermata con due card, "Convocazione" e "Live" — dopo lo Start (o da un account Giocatore) si va
+   dritti su Live come prima.
+2. **Riepilogo giocatori più leggibile**: la vecchia stringa `nome, nome, nome` è diventata un elenco
+   di chip.
+3. **Staff convocabile solo dalla Rosa Staff**: rimossa la possibilità di aggiungere staff al volo
+   dentro Convocazione — ora si fa dalla nuova schermata dedicata **Rosa Staff** (Gestione Squadra →
+   Rosa Staff, visibile a Staff/Admin), che gestisce nome/categoria/ruolo con la stessa logica di
+   prima ma in un posto suo.
+4. **Menu pranzo rimosso dalla UI** (vedi Backlog: da riprogettare per essere più configurabile) — i
+   dati restano nella colonna, nessuna migrazione.
+5. **PDF rifatto**: corretto un bug (`e.id === matchId` senza coercizione di tipo) che lasciava vuota
+   l'intestazione partita; il bottone "Esporta PDF" apre ora una modale con Competizione/Giornata,
+   Luogo, Ritrovo, Data/Ora (prepopolati dalla partita, tutti modificabili prima di generare); il PDF
+   elenca **solo i convocati** (non più l'intera rosa con spunta).
+
+**Novità aggiuntiva**: primi loghi nell'app. Un **logo squadra** generale (caricato dall'admin in
+Gestione Squadra → Staff) e un **logo avversario** per singola partita (caricato dal tab
+Convocazione) — entrambi compaiono nell'header del PDF Convocazione.
 
 ### 2026-07-29 — Scollega account giocatore
 Sulla scheda di un giocatore già collegato a un account, l'Admin ora vede anche un bottone "🔓

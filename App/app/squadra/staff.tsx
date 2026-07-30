@@ -1,10 +1,12 @@
 // app/squadra/staff.tsx
 import { useFocusEffect } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { createStaffInvite, loadPendingInvites, revokeInvite, type PendingInvite } from '../data/invites';
+import { loadOrgLogoUrl, uploadOrgLogo } from '../data/organization';
 import { loadOrgMembers, removeMember, updateMemberRole, type OrgMember, type Role } from '../data/staff';
 
 const ROLE_LABEL: Record<Role, string> = { admin: 'Admin', staff: 'Staff', giocatore: 'Giocatore' };
@@ -16,6 +18,8 @@ export default function Staff() {
   const [pending, setPending] = useState<PendingInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoBusy, setLogoBusy] = useState(false);
 
   const [confirmRemove, setConfirmRemove] = useState<OrgMember | null>(null);
   const [roleTarget, setRoleTarget] = useState<OrgMember | null>(null);
@@ -27,12 +31,14 @@ export default function Staff() {
     if (!membership) return;
     setLoading(true);
     try {
-      const [m, p] = await Promise.all([
+      const [m, p, logo] = await Promise.all([
         loadOrgMembers(membership.orgId),
         loadPendingInvites(membership.orgId),
+        loadOrgLogoUrl(),
       ]);
       setMembers(m);
       setPending(p);
+      setLogoUrl(logo);
     } catch {
       Alert.alert('Errore', 'Impossibile caricare i dati dello staff.');
     } finally {
@@ -41,6 +47,29 @@ export default function Staff() {
   }, [membership]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const pickLogo = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.9,
+    });
+    if (res.canceled) return;
+    setLogoBusy(true);
+    try {
+      const publicUrl = await uploadOrgLogo(res.assets[0].uri);
+      setLogoUrl(publicUrl);
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare il logo.');
+    } finally {
+      setLogoBusy(false);
+    }
+  };
 
   if (membership && membership.role !== 'admin') {
     return (
@@ -125,6 +154,20 @@ export default function Staff() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
+        <Text style={styles.sectionTitle}>Logo squadra</Text>
+        <View style={styles.logoRow}>
+          {logoUrl ? (
+            <Image source={{ uri: logoUrl }} style={styles.logoPreview} resizeMode="contain" />
+          ) : (
+            <View style={[styles.logoPreview, styles.logoPlaceholder]}>
+              <Text style={{ fontSize: 28 }}>🛡️</Text>
+            </View>
+          )}
+          <Pressable style={[styles.btn, styles.btnOutline, { flex: 0, paddingHorizontal: 20 }]} onPress={pickLogo} disabled={logoBusy}>
+            <Text style={styles.btnOutlineText}>{logoBusy ? 'Caricamento…' : logoUrl ? 'Cambia logo' : 'Carica logo'}</Text>
+          </Pressable>
+        </View>
+
         <Text style={styles.cardHint}>
           Ogni codice di accesso è personale: per un Giocatore si genera dalla sua scheda in Rosa,
           per lo Staff da qui sotto.
@@ -289,6 +332,10 @@ const styles = StyleSheet.create({
   deniedText: { fontSize: 16, color: '#64748b', textAlign: 'center' },
 
   cardHint: { fontSize: 13, color: '#64748b', marginBottom: 16 },
+
+  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 24 },
+  logoPreview: { width: 64, height: 64, borderRadius: 12, backgroundColor: '#f1f5f9' },
+  logoPlaceholder: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e5e7eb' },
 
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b', marginBottom: 12, marginTop: 8 },
 

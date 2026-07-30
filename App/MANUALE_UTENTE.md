@@ -99,25 +99,34 @@ partita a seconda del tipo).
   stato di ogni soglia; in **Live**, "Start" e le sostituzioni vengono **bloccati con un messaggio
   chiaro** se il risultato non rispetta le regole attive per quella competizione. Un giocatore
   espulso (cartellino rosso) continua a contare come se fosse ancora in campo.
-- Toccando una partita si entra nella sua gestione, con queste sotto-sezioni (solo Staff/Admin,
-  Giocatore non la vede):
+- Toccando una partita non ancora avviata (solo Staff/Admin — un account Giocatore va sempre
+  direttamente su Live) compare prima una scelta tra due sezioni:
+
+  ### Convocazione / Live: cosa scegliere
+  - **📋 CONVOCAZIONE**: la pagina per decidere chi convocare (sotto).
+  - **🔴 LIVE**: la gestione partita vera e propria (sotto). Una volta premuto "Start" in Live, toccare
+    di nuovo la partita porta sempre dritti su Live — la scelta compare solo prima dell'inizio.
 
   ### Convocazione
   Riproduce la scheda di convocazione cartacea. Solo Staff/Admin.
+  - **Logo avversario**: si può caricare per questa partita, comparirà nel PDF.
   - **Ritrovo**: testo libero (luogo/orario di ritrovo pre-partita).
   - **Giocatori convocati**: elenco Rosa in ordine alfabetico, fino a 20, con un bottone "✏️
-    Modifica" che apre la selezione a spunta. **Sono questi i giocatori disponibili in Formazione** —
-    chi non è convocato non può essere schierato.
-  - **Staff convocato**: diviso in tre categorie — **Tecnico**, **Sanitario**, **Dirigenziale** —
-    ciascuna con un elenco a spunta e un modo rapido per aggiungere una nuova persona (nome + ruolo,
-    es. "Allenatore", "Fisioterapista") che resta poi disponibile per le convocazioni future.
+    Modifica" che apre la selezione a spunta; l'elenco di chi è convocato compare come lista di
+    etichette. **Sono questi i giocatori disponibili in Formazione** — chi non è convocato non può
+    essere schierato.
+  - **Staff convocato**: diviso in tre categorie — **Tecnico**, **Sanitario**, **Dirigenziale** — con
+    un elenco a spunta sulle persone già censite in **Rosa Staff** (Gestione Squadra → Rosa Staff); se
+    una categoria è vuota, un link porta direttamente lì per aggiungere qualcuno.
   - **Riepilogo**: conteggi per categoria e totale.
-  - **Menu pranzo**: piatti disponibili (aggiungibili/rimovibili) e scelta del piatto per ciascun
-    convocato — tutto **precompilato dall'ultima convocazione fatta**, da correggere solo se serve.
-  - **📄 Esporta PDF**: genera la scheda completa da condividere/stampare.
+  - **📄 Esporta PDF**: prima chiede di confermare/correggere Competizione e giornata, Luogo, Ritrovo,
+    Data e Ora (precompilati dai dati della partita), poi genera un PDF con **solo i convocati**
+    (giocatori e staff) e i loghi (squadra + avversario, quando caricati).
   - **Modifica dell'ultimo secondo**: dalla schermata **Live**, finché la partita non è ancora
     iniziata (prima di "Start"), un bottone "✏️ Modifica convocati" permette di correggere al volo
     l'elenco giocatori anche senza tornare in questa sezione.
+  - *(In arrivo)* Il menu pranzo è stato tolto temporaneamente per essere riprogettato in modo più
+    configurabile.
 
   ### Formazione
   Scelta del **modulo** (es. 3-4-2-1, anche moduli personalizzati creati in "Gestione Squadra") e
@@ -192,8 +201,16 @@ congela in uno storico tutti i dati della stagione (partite, allenamenti, statis
 poi ripulisce i dati correnti per iniziare la stagione successiva da zero. Gli archivi passati
 restano sempre consultabili (e cancellabili singolarmente se serve) da questa stessa sezione.
 
+### Rosa Staff (Staff+Admin)
+Elenco di persone — **Tecnico**, **Sanitario**, **Dirigenziale** — con nome e ruolo (es.
+"Allenatore", "Fisioterapista"), indipendente dagli account: non serve che quella persona usi mai
+l'app per comparire nelle Convocazioni. Aggiungi/modifica/rimuovi da qui; è la lista da cui la
+Convocazione di ogni partita sceglie chi convocare.
+
 ### Staff (solo Admin)
 Visibile solo a chi ha ruolo Admin. Qui si gestisce chi fa parte della squadra sull'app:
+- **Logo squadra**: in cima alla pagina, si può caricare/cambiare il logo generale della squadra —
+  comparirà nel PDF di Convocazione.
 - **"+ Invita membro staff"**: basta un nome per generare subito un codice personale da condividere
   (bottone "Condividi", usa la condivisione nativa del telefono).
 - **Inviti in attesa**: elenco dei codici generati (per Staff da qui, per Giocatori dalla loro scheda

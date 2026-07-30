@@ -67,6 +67,20 @@ function eventToRow(ev: CalendarEvent, orgId: string) {
   };
 }
 
+/**
+ * Aggiorna solo alcuni campi dinamici (colonna "data") di un evento senza
+ * toccare il resto — più sicuro di saveEvents (che riscrive l'intero
+ * elenco) quando serve patchare un singolo campo da una schermata che non
+ * ha già in memoria tutti gli eventi.
+ */
+export async function patchEventData(eventId: string, patch: Record<string, any>): Promise<void> {
+  const { data, error } = await supabase.from('events').select('data').eq('id', eventId).single();
+  if (error) throw error;
+  const merged = { ...(data?.data ?? {}), ...patch };
+  const { error: updateError } = await supabase.from('events').update({ data: merged }).eq('id', eventId);
+  if (updateError) throw updateError;
+}
+
 export async function loadEvents(): Promise<CalendarEvent[]> {
   const orgId = getCurrentOrgId();
   const { data, error } = await supabase.from('events').select('*').eq('org_id', orgId);

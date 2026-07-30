@@ -123,6 +123,14 @@ export default function GestioneSquadra() {
             </Pressable>
           )}
 
+          {!isGiocatore && (
+            <Pressable style={[styles.navCard, styles.rosterStaffCard]} onPress={() => router.push('/squadra/staffRoster')}>
+              <Text style={styles.navIcon}>🧑‍⚕️</Text>
+              <Text style={styles.navTitle}>Rosa Staff</Text>
+              <Text style={styles.navSubtitle}>Tecnico, Sanitario, Dirigenza</Text>
+            </Pressable>
+          )}
+
           {isAdmin && (
             <Pressable style={[styles.navCard, styles.staffCard]} onPress={() => router.push('/squadra/staff')}>
               <Text style={styles.navIcon}>🛡️</Text>
@@ -170,6 +178,7 @@ const styles = StyleSheet.create({
   infoCard: { borderLeftWidth: 4, borderLeftColor: '#0ea5e9' },
   archiveCard: { borderLeftWidth: 4, borderLeftColor: '#7c3aed' },
   staffCard: { borderLeftWidth: 4, borderLeftColor: '#0f766e' },
+  rosterStaffCard: { borderLeftWidth: 4, borderLeftColor: '#0891b2' },
 
   navIcon: { fontSize: 32, marginBottom: 8 },
   navTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 4 },
