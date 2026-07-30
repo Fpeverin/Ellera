@@ -217,8 +217,11 @@ export default function Dashboard() {
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>{membership?.orgName || 'TeamBoard'}</Text>
-            {membership?.displayName && membership.role !== 'admin' && (
-              <Text style={styles.subtitleName}>{membership.displayName}</Text>
+            {membership && membership.role !== 'admin' && (
+              <Text style={styles.subtitleName}>
+                {membership.displayName ? `${membership.displayName} · ` : ''}
+                {membership.role === 'staff' ? 'Staff' : 'Giocatore'}
+              </Text>
             )}
           </View>
           <Pressable style={styles.accountBtn} onPress={handleAccountPress}>
