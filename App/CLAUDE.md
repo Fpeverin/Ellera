@@ -650,11 +650,15 @@ guadagnato l'ultimo pezzo che aveva solo la Rosa Giocatori: collegare un account
   in "Staff", esattamente come già avveniva per i Giocatori.
 - **`app/squadra/staffRoster.tsx` → "Staff"** (invariato: Staff+Admin, `!readOnly`): il campo Ruolo
   nella modale aggiungi/modifica è ora un `Picker` (le opzioni vengono da
-  `loadStaffRoleOptions()`, configurabili da Admin) invece di testo libero. Aprendo una persona già
-  esistente in modifica, **solo l'Admin** vede una nuova sezione "Accesso account" — mirror 1:1 del
-  blocco già presente in `app/player/[id].tsx` per i Giocatori: genera codice di accesso
-  (`create_staff_member_invite`), condividi, oppure — se già collegata — "Collegato a: {email}" +
-  "Scollega account" (`removeMember`, stesso RPC già usato per i Giocatori).
+  `loadStaffRoleOptions()`, configurabili da Admin) invece di testo libero. **Solo l'Admin** vede
+  anche un terzo bottone per persona nell'elenco, "📤 Invita" (accanto a Modifica/Rimuovi): genera il
+  codice (`create_staff_member_invite`, idempotente) e lo condivide **subito** in un solo tocco
+  (`Share.share`) — un solo passaggio, più rapido del flusso a due passi (genera poi condividi
+  separatamente) usato per i Giocatori, su richiesta esplicita di Francesco. Una volta collegata, il
+  bottone diventa una scritta "✓ Collegato" (non cliccabile); lo scollegamento resta nella modale di
+  modifica (sezione "Accesso account": stato + "Scollega account", `removeMember` — stesso RPC dei
+  Giocatori). Lo stato di tutti gli inviti/collegamenti viene caricato in blocco una volta sola
+  all'apertura della schermata (non per-persona), per popolare i bottoni della lista senza N chiamate.
 - **Schema** — `App/supabase/15_schema_staff_invites_and_config.sql`: `memberships.staff_member_id`
   e `invites.staff_member_id` (entrambi fk a `staff_members`, mirror di `player_id`),
   `organizations.staff_roles` (jsonb, seed: Allenatore/Vice-Allenatore/Preparatore Atletico/

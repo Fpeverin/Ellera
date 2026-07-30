@@ -63,9 +63,11 @@ comportamento della Rosa Giocatori:
   modificabile liberamente (aggiungi/rimuovi). Rimosso il vecchio invito "a nome libero": ogni invito
   Staff nasce ora sempre da una persona già censita in "Staff".
 - **"Staff"** (ex "Rosa Staff", Staff+Admin): il Ruolo si sceglie ora da un menu (le opzioni vengono
-  dalla Configurazione sopra) invece di testo libero. Aprendo una persona in modifica, l'Admin vede
-  anche "Genera codice di accesso" — collega quella persona a un account reale esattamente come già
-  avviene per i Giocatori in Rosa (stesso Condividi, stesso "Scollega account").
+  dalla Configurazione sopra) invece di testo libero. L'Admin vede un terzo bottone "📤 Invita"
+  direttamente nell'elenco (accanto a Modifica/Rimuovi): genera il codice **e lo condivide subito**
+  in un solo tocco — su feedback di Francesco, più rapido del doppio passaggio "genera poi condividi"
+  usato per i Giocatori. Una volta collegata, il bottone diventa "✓ Collegato"; lo scollegamento resta
+  nella scheda di modifica.
 
 ### 2026-07-30 — Rifinitura Convocazione + Loghi squadra/avversario
 Dopo il primo giro (vedi voce del 2026-07-29 sotto), Francesco ha provato la Convocazione e segnalato

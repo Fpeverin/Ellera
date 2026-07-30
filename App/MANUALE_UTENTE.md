@@ -206,8 +206,10 @@ Elenco di persone — **Tecnico**, **Sanitario**, **Dirigenziale** — con nome 
 menu, es. "Allenatore", "Fisioterapista"; la lista dei ruoli è configurabile in Admin →
 Configurazioni), indipendente dagli account: non serve che quella persona usi mai l'app per comparire
 nelle Convocazioni. Aggiungi/modifica/rimuovi da qui; è la lista da cui la Convocazione di ogni
-partita sceglie chi convocare. Toccando una persona già censita, **solo l'Admin** vede anche una
-sezione "Accesso account" per collegarla a un vero account (vedi sotto).
+partita sceglie chi convocare. **Solo l'Admin** vede anche un terzo bottone "📤 Invita" accanto a
+ogni persona: genera il codice di accesso e lo condivide subito, in un solo tocco (vedi sotto). Una
+volta collegata, il bottone diventa "✓ Collegato"; per scollegare un account già collegato, apri la
+persona in "Modifica".
 
 ### Admin (solo Admin)
 Visibile solo a chi ha ruolo Admin. Qui si gestisce chi fa parte della squadra sull'app:
@@ -270,9 +272,9 @@ generato dall'admin per una persona precisa:
   quella persona esatta. Quando lo usa in fase di registrazione, il suo account resta collegato per
   sempre a quel giocatore della rosa — non è possibile "entrare come Giocatore" senza essere legati a
   un giocatore reale già presente in rosa.
-- **Per una persona dello Staff**: apri la sua scheda in Gestione Squadra → Staff → "Genera codice di
-  accesso" (solo Admin) — esattamente come per un Giocatore, ma qui non serve che la persona usi mai
-  l'app: se non la collega, comparirà comunque nelle Convocazioni.
+- **Per una persona dello Staff**: in Gestione Squadra → Staff (solo Admin), il bottone "📤 Invita"
+  accanto al suo nome genera il codice e lo condivide subito in un solo tocco — qui non serve che la
+  persona usi mai l'app: se non la collega, comparirà comunque nelle Convocazioni.
 - Chi riceve un codice si registra normalmente nell'app (email + password) e poi, invece di "Crea una
   nuova squadra", sceglie **"Ho un codice personale"** e lo inserisce: entra direttamente con il ruolo
   giusto, collegato a quella persona/giocatore, senza altri passaggi.

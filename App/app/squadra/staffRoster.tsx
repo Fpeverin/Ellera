@@ -12,9 +12,9 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { createStaffMemberInvite, loadStaffMemberInviteStatus } from '../data/invites';
+import { createStaffMemberInvite, loadPendingInvites, loadStaffMemberInviteStatus } from '../data/invites';
 import { loadStaffRoleOptions } from '../data/organization';
-import { removeMember } from '../data/staff';
+import { loadOrgMembers, removeMember } from '../data/staff';
 import {
   addStaffMember,
   loadStaffMembers,
@@ -40,6 +40,8 @@ export default function StaffRoster() {
 
   const [members, setMembers] = useState<StaffMember[]>([]);
   const [roleOptions, setRoleOptions] = useState<string[]>([]);
+  const [inviteMap, setInviteMap] = useState<Record<string, InviteStatus>>({});
+  const [rowBusyId, setRowBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -58,12 +60,30 @@ export default function StaffRoster() {
       const [staff, roles] = await Promise.all([loadStaffMembers(), loadStaffRoleOptions()]);
       setMembers(staff);
       setRoleOptions(roles);
+
+      if (isAdmin && membership) {
+        const [invites, orgMembers] = await Promise.all([
+          loadPendingInvites(membership.orgId),
+          loadOrgMembers(membership.orgId),
+        ]);
+        const map: Record<string, InviteStatus> = {};
+        for (const s of staff) {
+          const pending = invites.find((i) => i.role === 'staff' && i.staffMemberId === s.id);
+          const claimed = orgMembers.find((m) => m.role === 'staff' && m.staffMemberId === s.id);
+          map[s.id] = {
+            pendingCode: pending?.code ?? null,
+            claimedEmail: claimed?.email ?? null,
+            claimedUserId: claimed?.userId ?? null,
+          };
+        }
+        setInviteMap(map);
+      }
     } catch {
       Alert.alert('Errore', 'Impossibile caricare la Rosa Staff.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin, membership]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -92,16 +112,20 @@ export default function StaffRoster() {
     setInviteStatus(null);
   };
 
-  const handleGenerateInvite = async () => {
-    if (!membership || !editTarget) return;
-    setInviteBusy(true);
+  /** Genera (o ritrova) il codice e lo condivide subito, in un solo tocco dalla lista. */
+  const handleQuickInvite = async (member: StaffMember) => {
+    if (!membership) return;
+    setRowBusyId(member.id);
     try {
-      const code = await createStaffMemberInvite(membership.orgId, editTarget.id);
-      setInviteStatus({ pendingCode: code, claimedEmail: null, claimedUserId: null });
+      const code = await createStaffMemberInvite(membership.orgId, member.id);
+      setInviteMap((prev) => ({ ...prev, [member.id]: { pendingCode: code, claimedEmail: null, claimedUserId: null } }));
+      await Share.share({
+        message: `Codice personale per collegarti come Staff ("${member.name}") su TeamBoard (squadra "${membership.orgName}"): ${code}`,
+      });
     } catch {
       Alert.alert('Errore', 'Impossibile generare il codice.');
     } finally {
-      setInviteBusy(false);
+      setRowBusyId(null);
     }
   };
 
@@ -131,6 +155,7 @@ export default function StaffRoster() {
             try {
               await removeMember(orgId, userId);
               setInviteStatus({ pendingCode: null, claimedEmail: null, claimedUserId: null });
+              setInviteMap((prev) => ({ ...prev, [editTarget.id]: { pendingCode: null, claimedEmail: null, claimedUserId: null } }));
             } catch {
               Alert.alert('Errore', "Impossibile scollegare l'account.");
             } finally {
@@ -196,8 +221,8 @@ export default function StaffRoster() {
         <Text style={styles.title}>Staff</Text>
         <Text style={styles.hint}>
           Persone censite qui (nome + ruolo) sono quelle che compaiono nella Convocazione — non
-          serve un account app, a meno che tu non voglia collegarle una (bottone "Genera codice di
-          accesso" quando le apri in modifica).
+          serve un account app, a meno che tu non voglia collegarle una ("📤 Invita" genera e
+          condivide subito il codice personale).
         </Text>
 
         {CATEGORIES.map((cat) => {
@@ -224,6 +249,21 @@ export default function StaffRoster() {
                       <Pressable style={styles.memberActionBtn} onPress={() => openEdit(m)}>
                         <Text style={styles.memberActionText}>Modifica</Text>
                       </Pressable>
+                      {isAdmin && (
+                        inviteMap[m.id]?.claimedUserId ? (
+                          <Text style={styles.linkedBadge}>✓ Collegato</Text>
+                        ) : (
+                          <Pressable
+                            style={styles.memberActionBtn}
+                            onPress={() => handleQuickInvite(m)}
+                            disabled={rowBusyId === m.id}
+                          >
+                            <Text style={[styles.memberActionText, { color: '#1b7f3b' }]}>
+                              {rowBusyId === m.id ? 'Invio…' : '📤 Invita'}
+                            </Text>
+                          </Pressable>
+                        )
+                      )}
                       <Pressable style={styles.memberActionBtn} onPress={() => setConfirmRemove(m)}>
                         <Text style={[styles.memberActionText, { color: '#dc2626' }]}>Rimuovi</Text>
                       </Pressable>
@@ -271,13 +311,14 @@ export default function StaffRoster() {
                   <>
                     <Text style={styles.inviteCode}>{inviteStatus.pendingCode}</Text>
                     <Pressable style={[styles.btn, styles.btnOutline, { marginTop: 8 }]} onPress={handleShareInvite}>
-                      <Text style={styles.btnOutlineText}>Condividi</Text>
+                      <Text style={styles.btnOutlineText}>Condividi di nuovo</Text>
                     </Pressable>
                   </>
                 ) : (
-                  <Pressable style={[styles.btn, styles.btnPrimary]} onPress={handleGenerateInvite} disabled={inviteBusy}>
-                    <Text style={styles.btnPrimaryText}>{inviteBusy ? 'Creazione…' : 'Genera codice di accesso'}</Text>
-                  </Pressable>
+                  <Text style={styles.emptyText}>
+                    Nessun codice generato — usa il bottone "📤 Invita" nell'elenco per generarlo e
+                    condividerlo subito.
+                  </Text>
                 )}
               </View>
             )}
@@ -360,6 +401,7 @@ const styles = StyleSheet.create({
   memberActions: { gap: 6, alignItems: 'flex-end' },
   memberActionBtn: { paddingVertical: 4, paddingHorizontal: 8 },
   memberActionText: { fontSize: 13, fontWeight: '700', color: '#2563eb' },
+  linkedBadge: { fontSize: 12, fontWeight: '700', color: '#1b7f3b', paddingVertical: 4, paddingHorizontal: 8 },
 
   row: { flexDirection: 'row', gap: 12, marginTop: 4 },
   btn: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
