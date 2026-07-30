@@ -21,6 +21,39 @@ prossima idea non appena viene in mente.
 
 ## Backlog
 
+- **Portare l'app anche su iOS** (richiesta di Francesco del 2026-07-30, priorità in cima al
+  backlog): oggi l'app gira solo su Android. Analisi fatta il 2026-07-30: **nessun blocco di codice
+  trovato** — il progetto è rimasto in Continuous Native
+  Generation senza mai personalizzare nativo, `app.json` ha già un blocco `ios` valido
+  (`bundleIdentifier`, `supportsTablet`), e tutte le dipendenze (Expo modules + react-native-
+  reanimated/gesture-handler/screens/webview/view-shot/calendars/picker) supportano iOS. Il grosso
+  del lavoro è **processo, non sviluppo**:
+  1. **Account Apple Developer** (99$/anno, da attivare a nome di Francesco/Ellera — passo che devo
+     chiedergli di fare lui, non posso farlo io) — senza questo non si può generare un build iOS
+     reale (solo il simulatore, inutile per un test su telefono vero).
+  2. **Build cloud via EAS** (stesso comando già usato per Android, `eas build -p ios`): **non serve
+     un Mac**, EAS builda in cloud e può gestire da solo i certificati di firma.
+  3. **Distribuzione ai test** più macchinosa che su Android (lì basta un link/APK): niente "sideload"
+     libero su iOS. Opzione consigliata: **TestFlight interno** (una volta creato il record su App
+     Store Connect, si invitano i testatori per email, senza revisione Apple per i test interni) —
+     riceverebbero comunque gli aggiornamenti OTA (`expo-updates`) sopra al build come già oggi.
+     Alternativa più scomoda: Ad Hoc, che richiede registrare ogni singolo iPhone (UDID) prima del
+     build.
+  4. **Da sistemare nel codice** (piccolo): testi personalizzati per i permessi Foto/Fotocamera
+     (`NSPhotoLibraryUsageDescription`/`NSCameraUsageDescription` in `app.json` → `ios.infoPlist`,
+     oggi assenti — su iOS senza descrizione l'app rifiuta la richiesta invece di mostrare solo un
+     testo generico in inglese) — usati da upload foto giocatore/loghi/allegati.
+  5. **Da verificare a occhio una volta buildato** (nessun bug noto, solo mai testato su iOS): le
+     schermate con form/modali che non usano `KeyboardAvoidingView` (solo login/registrati/onboarding
+     lo fanno oggi) potrebbero far coprire il campo dal tastierino — su iOS è più comune che su
+     Android, che spesso si arrangia da solo; aspetto visivo dei `Picker` nativi (a rotellina su iOS,
+     tendina su Android — non un bug, solo diverso); il browser interno (`react-native-webview`) e
+     l'export PDF/condivisione.
+  6. **Prova gratuita e immediata, prima di spendere nulla**: installare **Expo Go** dall'App Store su
+     un iPhone e aprire il progetto (`npx expo start` + QR code) — tutte le librerie usate sono
+     compatibili con Expo Go, quindi si vede già la quasi totalità dell'app funzionare su iOS senza
+     alcun account Apple Developer né build. Buon primo passo per farsi un'idea prima di procedere.
+
 - **Sondaggi staff → giocatori**: uno dello staff invia un sondaggio ai giocatori (stato di salute,
   livello di allenamento, quanto si sentono stanchi, infortuni, assenze); le risposte devono generare
   una notifica push allo staff. **Nota tecnica**: è una notifica *tra utenti diversi* (il giocatore che
