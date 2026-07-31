@@ -20,6 +20,7 @@ import {
   resendSurveyNow,
   setSurveyActive,
   updateSurvey,
+  type PlayerTargetConfig,
   type ScheduleMode,
   type Survey,
   type SurveyQuestion,
@@ -27,6 +28,7 @@ import {
   type SurveyResponseWithPlayer,
   type SurveySend,
 } from '../../data/surveys';
+import { usePlayers } from '../../hooks/usePlayers';
 
 function uid() {
   return `q-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -44,10 +46,16 @@ const SCHEDULE_MODES: { value: ScheduleMode; label: string }[] = [
   { value: 'recurring', label: 'Ricorrente' },
 ];
 
+const PLAYER_TARGET_MODES: { value: PlayerTargetConfig['mode']; label: string }[] = [
+  { value: 'all', label: 'Tutti i giocatori' },
+  { value: 'selected', label: 'Solo alcuni' },
+];
+
 export default function SondaggioEditor() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
   const isEditing = !!id;
+  const { players } = usePlayers();
 
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
@@ -59,6 +67,7 @@ export default function SondaggioEditor() {
   const [scheduledDate, setScheduledDate] = useState(''); // AAAA-MM-GG
   const [scheduledTime, setScheduledTime] = useState('09:00');
   const [recurrenceDays, setRecurrenceDays] = useState('7');
+  const [playerTargets, setPlayerTargets] = useState<PlayerTargetConfig>({ mode: 'all', playerIds: [] });
   const [notify, setNotify] = useState<NotifyConfig>({ mode: 'admin_only', staffIds: [] });
   const [active, setActive] = useState(true);
 
@@ -83,6 +92,7 @@ export default function SondaggioEditor() {
           setQuestions(survey.questions);
           setScheduleMode(survey.scheduleMode);
           setActive(survey.active);
+          setPlayerTargets(survey.playerTargets);
           setNotify(survey.notify);
           if (survey.nextRunAt) {
             const d = new Date(survey.nextRunAt);
@@ -152,6 +162,10 @@ export default function SondaggioEditor() {
       Alert.alert('Data richiesta', "Indica quando inviare il sondaggio.");
       return;
     }
+    if (playerTargets.mode === 'selected' && playerTargets.playerIds.length === 0) {
+      Alert.alert('Nessun giocatore scelto', 'Seleziona almeno un giocatore, oppure passa a "Tutti i giocatori".');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -161,6 +175,7 @@ export default function SondaggioEditor() {
         scheduleMode,
         scheduledAt: buildScheduledAt(),
         recurrenceDays: scheduleMode === 'recurring' ? Number(recurrenceDays) || 7 : null,
+        playerTargets,
         notify,
       };
       if (isEditing && id) {
@@ -352,6 +367,48 @@ export default function SondaggioEditor() {
           </View>
         )}
 
+        <Text style={styles.sectionTitle}>Destinatari</Text>
+        <Text style={styles.hint}>A chi va inviato questo sondaggio.</Text>
+        <View style={styles.typeRow}>
+          {PLAYER_TARGET_MODES.map((m) => (
+            <Pressable
+              key={m.value}
+              style={[styles.typeBtn, playerTargets.mode === m.value && styles.typeBtnActive]}
+              onPress={() => setPlayerTargets((p) => ({ ...p, mode: m.value }))}
+            >
+              <Text style={[styles.typeBtnText, playerTargets.mode === m.value && styles.typeBtnTextActive]}>{m.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {playerTargets.mode === 'selected' && (
+          <View style={{ marginTop: 8 }}>
+            {players.length === 0 ? (
+              <Text style={styles.hint}>Nessun giocatore in Rosa.</Text>
+            ) : (
+              players.map((p) => {
+                const checked = playerTargets.playerIds.includes(p.id);
+                return (
+                  <Pressable
+                    key={p.id}
+                    style={styles.playerRow}
+                    onPress={() =>
+                      setPlayerTargets((prev) => ({
+                        ...prev,
+                        playerIds: checked ? prev.playerIds.filter((x) => x !== p.id) : [...prev.playerIds, p.id],
+                      }))
+                    }
+                  >
+                    <View style={[styles.checkbox, checked && styles.checkboxOn]}>
+                      {checked ? <Text style={styles.checkboxMark}>✓</Text> : null}
+                    </View>
+                    <Text style={styles.playerName}>{p.name}</Text>
+                  </Pressable>
+                );
+              })
+            )}
+          </View>
+        )}
+
         <Text style={styles.sectionTitle}>Notifiche risposte</Text>
         <NotifyRecipientsPicker
           label="Chi viene avvisato quando un giocatore risponde"
@@ -450,6 +507,21 @@ const styles = StyleSheet.create({
   optionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   addOptionBtn: { alignSelf: 'flex-start' },
   addOptionBtnText: { color: '#2563eb', fontWeight: '700', fontSize: 13 },
+
+  playerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  checkboxOn: { backgroundColor: '#1b7f3b', borderColor: '#1b7f3b' },
+  checkboxMark: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  playerName: { flex: 1, fontSize: 14, color: '#1a202c' },
 
   addQuestionRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 4 },
   smallBtn: { backgroundColor: '#1b7f3b', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },

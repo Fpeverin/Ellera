@@ -67,8 +67,13 @@ Prima infrastruttura di notifiche push **verso un altro utente** (finora solo pr
   l'app aperta), non con un controllo "al prossimo che apre l'app". Ogni invio è un `survey_sends`
   a parte (i ricorrenti non mescolano le risposte tra un'occorrenza e l'altra). Notifica allo staff
   scelto (per sondaggio) quando un giocatore risponde.
-- **Da fare (Francesco)**: eseguire in ordine su Supabase SQL Editor gli script `19`, `20`, `21`, `22`
-  (il `22` attiva le estensioni `pg_cron`/`pg_net` — se il comando desse un permission error, il
+- **Aggiunto dopo il primo test di Francesco (2026-07-31)**: non era chiaro "a chi arriva" il
+  sondaggio — aggiunto un selettore **Destinatari** per sondaggio (Tutti i giocatori, comportamento
+  di prima e default, oppure Solo alcuni scelti alla creazione), `App/supabase/
+  23_schema_survey_recipients.sql` (colonne `notify_players_mode`/`notify_players_ids`, ridefinisce
+  anche `process_due_surveys()` per rispettarle nei sondaggi programmati/ricorrenti).
+- **Da fare (Francesco)**: eseguire in ordine su Supabase SQL Editor gli script `19`, `20`, `21`, `22`,
+  `23` (il `22` attiva le estensioni `pg_cron`/`pg_net` — se il comando desse un permission error, il
   commento nello script indica il fallback da Dashboard → Database → Extensions).
 - **Da verificare dal vero** (prima volta che questa app invia un push remoto, non solo locale):
   registrazione token su un dispositivo reale, notifica Convocazione, proposta Live con destinatari

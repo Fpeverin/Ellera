@@ -12,6 +12,10 @@ export type SurveyQuestionType = 'text' | 'scale' | 'choice';
 export type SurveyQuestion = { id: string; text: string; type: SurveyQuestionType; options?: string[] };
 export type ScheduleMode = 'immediate' | 'once' | 'recurring';
 
+/** A chi va inviato il sondaggio: tutti i giocatori, oppure solo alcuni scelti alla creazione. */
+export type PlayerTargetMode = 'all' | 'selected';
+export type PlayerTargetConfig = { mode: PlayerTargetMode; playerIds: string[] };
+
 export type Survey = {
   id: string;
   title: string;
@@ -19,6 +23,7 @@ export type Survey = {
   scheduleMode: ScheduleMode;
   nextRunAt: string | null;
   recurrenceDays: number | null;
+  playerTargets: PlayerTargetConfig;
   notify: NotifyConfig;
   active: boolean;
   createdAt: string;
@@ -40,6 +45,7 @@ function surveyFromRow(row: any): Survey {
     scheduleMode: row.schedule_mode,
     nextRunAt: row.next_run_at,
     recurrenceDays: row.recurrence_days,
+    playerTargets: { mode: row.notify_players_mode ?? 'all', playerIds: row.notify_players_ids ?? [] },
     notify: { mode: row.notify_mode, staffIds: row.notify_staff_ids ?? [] },
     active: row.active,
     createdAt: row.created_at,
@@ -64,10 +70,11 @@ export type SurveyInput = {
   scheduleMode: ScheduleMode;
   scheduledAt?: string | null; // ISO — richiesto per 'once'/'recurring' (prima occorrenza)
   recurrenceDays?: number | null; // richiesto per 'recurring'
+  playerTargets: PlayerTargetConfig;
   notify: NotifyConfig;
 };
 
-async function sendSurveyNow(surveyId: string, orgId: string, title: string): Promise<void> {
+async function sendSurveyNow(surveyId: string, orgId: string, title: string, playerTargets: PlayerTargetConfig): Promise<void> {
   const { data: send, error } = await supabase
     .from('survey_sends')
     .insert({ survey_id: surveyId, org_id: orgId })
@@ -75,7 +82,11 @@ async function sendSurveyNow(surveyId: string, orgId: string, title: string): Pr
     .single();
   if (error) throw error;
 
-  const { data: tokens, error: tokensError } = await supabase.rpc('get_org_player_tokens', { p_org_id: orgId });
+  const { data: tokens, error: tokensError } = await supabase.rpc('get_survey_player_tokens', {
+    p_org_id: orgId,
+    p_mode: playerTargets.mode,
+    p_player_ids: playerTargets.playerIds,
+  });
   if (tokensError) throw tokensError;
 
   await sendExpoPush(tokens ?? [], 'Nuovo sondaggio', title, { surveyId, sendId: send.id });
@@ -95,6 +106,8 @@ export async function createSurvey(input: SurveyInput): Promise<Survey> {
     schedule_mode: input.scheduleMode,
     next_run_at: nextRunAt,
     recurrence_days: input.scheduleMode === 'recurring' ? input.recurrenceDays ?? null : null,
+    notify_players_mode: input.playerTargets.mode,
+    notify_players_ids: input.playerTargets.playerIds,
     notify_mode: input.notify.mode,
     notify_staff_ids: input.notify.staffIds,
     created_by: userData.user?.id,
@@ -102,7 +115,7 @@ export async function createSurvey(input: SurveyInput): Promise<Survey> {
   if (error) throw error;
 
   if (input.scheduleMode === 'immediate') {
-    await sendSurveyNow(id, orgId, input.title);
+    await sendSurveyNow(id, orgId, input.title, input.playerTargets);
   }
 
   const created = await loadSurvey(id);
@@ -120,6 +133,8 @@ export async function updateSurvey(id: string, input: SurveyInput): Promise<void
       schedule_mode: input.scheduleMode,
       next_run_at: nextRunAt,
       recurrence_days: input.scheduleMode === 'recurring' ? input.recurrenceDays ?? null : null,
+      notify_players_mode: input.playerTargets.mode,
+      notify_players_ids: input.playerTargets.playerIds,
       notify_mode: input.notify.mode,
       notify_staff_ids: input.notify.staffIds,
       updated_at: new Date().toISOString(),
@@ -133,7 +148,7 @@ export async function resendSurveyNow(id: string): Promise<void> {
   const orgId = getCurrentOrgId();
   const survey = await loadSurvey(id);
   if (!survey) throw new Error('Sondaggio non trovato.');
-  await sendSurveyNow(id, orgId, survey.title);
+  await sendSurveyNow(id, orgId, survey.title, survey.playerTargets);
 }
 
 export async function setSurveyActive(id: string, active: boolean): Promise<void> {

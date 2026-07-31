@@ -286,9 +286,17 @@ Nuova sezione **"Sondaggi"** sotto Gestione Squadra (`app/squadra/sondaggi/index
 - **Risposte** (`survey_responses`, un giocatore risponde solo per il proprio `player_id`, upsert):
   visibili nell'editor in modalità modifica, raggruppate per invio. Notifica configurabile
   (per-sondaggio, stesso `NotifyRecipientsPicker`) a chi dello staff quando arriva una risposta.
+- **Destinatari del sondaggio** (`App/supabase/23_schema_survey_recipients.sql`, aggiunto dopo il
+  primo test — non era ovvio "a chi arriva"): sezione **Destinatari** nell'editor — Tutti i
+  giocatori (default, comportamento di prima) oppure Solo alcuni scelti alla creazione
+  (`surveys.notify_players_mode`/`notify_players_ids`). Nuova RPC `get_survey_player_tokens` per
+  l'invio "subito" dal client; `process_due_surveys()` ridefinita per rispettare lo stesso targeting
+  nei sondaggi programmati/ricorrenti (il job pg_cron esistente non cambia, richiama la stessa
+  funzione).
 
 **Da fare (Francesco)**: eseguire in ordine su Supabase `19_schema_push_tokens.sql`,
-`20_schema_notify_config.sql`, `21_schema_surveys.sql`, `22_schema_surveys_cron.sql`.
+`20_schema_notify_config.sql`, `21_schema_surveys.sql`, `22_schema_surveys_cron.sql`,
+`23_schema_survey_recipients.sql`.
 **Da verificare dal vero** (primo invio push remoto reale di questa app — i promemoria di prima erano
 solo locali): registrazione token su dispositivo fisico, ognuna delle notifiche sopra, e in particolare
 un sondaggio "programmato" chiudendo completamente l'app per confermare che `pg_cron`/`pg_net`
