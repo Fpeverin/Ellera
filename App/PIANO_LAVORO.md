@@ -127,6 +127,15 @@ ancora testato in produzione).
   quello disattivato al punto sopra, che riguardava solo il tap sulla griglia Dashboard).
 - **Non incluso in questo giro**: reattività al resize della finestra per lavagna tattica/moduli
   (vedi voce a parte nel Backlog qui sopra — cosa diversa, non toccata).
+- **Chiarimento di Francesco (2026-07-31)**: sull'allenamento il comportamento era già corretto
+  (Staff/Admin modifica il tema, Giocatore vede tutto in sola lettura incluso il tema). Sulla
+  **partita** invece no — un account Giocatore che apriva una partita non ancora avviata andava
+  dritto sulla schermata Live (stesso accesso di Staff/Admin dopo lo Start), invece di vedere solo le
+  informazioni essenziali. **Fix**: `app/eventi/partita/[id]/index.tsx` — prima dello Start, un
+  Giocatore vede ora una schermata minimale in sola lettura (loghi squadra/avversario, "Ellera -
+  Avversario" o viceversa in base a casa/trasferta, data/ora, nessun'altra azione); Staff/Admin
+  continuano a vedere il chooser Convocazione/Live come già facevano. Dopo lo Start, tutti vanno su
+  Live come prima (dove il Giocatore può proporre gol/cartellini, comportamento già esistente).
 
 ## Completato
 

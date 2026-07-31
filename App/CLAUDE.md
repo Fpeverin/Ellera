@@ -217,6 +217,17 @@ sopra (che riguardava solo il tap sulla griglia Dashboard).
 **Non incluso**: reattività al resize della finestra per la lavagna tattica/moduli — problema diverso
 (componenti drag&drop a `Dimensions.get('window')` statico), resta in Backlog.
 
+## Accesso Giocatore a una partita non ancora avviata — 2026-07-31
+
+**Aggiorna** il comportamento descritto in "Convocazione partita + Rosa Staff categorizzata" più
+sotto (`app/eventi/partita/[id]/index.tsx`): prima, un account Giocatore che apriva una partita non
+ancora avviata andava dritto sulla schermata Live, con lo stesso accesso che Staff/Admin hanno solo
+dopo lo Start. Ora un Giocatore in quel caso vede una schermata minimale in **sola lettura**: loghi
+squadra/avversario, titolo "Ellera - Avversario" (o l'inverso se in trasferta), data/ora — nessun'altra
+azione (niente Convocazione/Formazione/Live). Staff/Admin continuano a vedere il chooser Convocazione/
+Live come già facevano, invariato. **Dopo lo Start, tutti (compreso il Giocatore) vanno su Live** come
+prima — il Giocatore può proporre gol/cartellini, comportamento già esistente e non toccato.
+
 ## Convenzione script SQL (`App/supabase/`)
 
 Ogni file è numerato con l'ordine in cui va eseguito nell'SQL Editor di Supabase (`1_schema.sql`,

@@ -1,15 +1,19 @@
 // app/eventi/partita/[id]/index.tsx
 //
-// Prima di avviare il live, chi apre una partita (Staff/Admin) sceglie tra
-// Convocazione e Live. Dopo lo Start (o per un account Giocatore, che non ha
-// accesso alla Convocazione), si va dritti su Live.
+// Prima di avviare il live, chi apre una partita:
+// - Staff/Admin sceglie tra Convocazione e Live.
+// - Giocatore vede solo data/ora/avversario + loghi, in sola lettura (niente
+//   Convocazione/Formazione/Live finché la partita non è avviata).
+// Dopo lo Start, tutti vanno dritti su Live (dove il Giocatore può proporre
+// gol/cartellini, come già previsto).
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../../context/AuthContext';
 import { CalendarEvent, loadEvents } from '../../../data/events';
 import { loadStarted } from '../../../data/matchLive';
+import { loadOrgLogoUrl, opponentLogoUrlFromPath } from '../../../data/organization';
 
 export default function PartitaIndexChooser() {
   const { id: matchId } = useLocalSearchParams<{ id: string }>();
@@ -20,14 +24,20 @@ export default function PartitaIndexChooser() {
   const [loading, setLoading] = useState(true);
   const [started, setStarted] = useState(true);
   const [event, setEvent] = useState<CalendarEvent | null>(null);
+  const [orgLogoUrl, setOrgLogoUrl] = useState<string | null>(null);
+  const [opponentLogoUrl, setOpponentLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       if (!matchId) return;
       try {
-        const [isStarted, events] = await Promise.all([loadStarted(matchId), loadEvents()]);
+        const [isStarted, events, orgLogo] = await Promise.all([loadStarted(matchId), loadEvents(), loadOrgLogoUrl()]);
         setStarted(isStarted);
-        setEvent(events.find((e) => `${e.id}` === `${matchId}`) ?? null);
+        const ev = events.find((e) => `${e.id}` === `${matchId}`) ?? null;
+        setEvent(ev);
+        setOrgLogoUrl(orgLogo);
+        const opponentLogoPath = (ev as any)?.opponentLogoPath;
+        setOpponentLogoUrl(opponentLogoPath ? opponentLogoUrlFromPath(opponentLogoPath) : null);
       } catch {
         setStarted(true);
       } finally {
@@ -44,8 +54,31 @@ export default function PartitaIndexChooser() {
     );
   }
 
-  if (started || readOnly) {
+  if (started) {
     return <Redirect href={{ pathname: '/eventi/partita/[id]/live', params: { id: matchId } }} />;
+  }
+
+  if (readOnly) {
+    const homeAway = (event as any)?.homeAway as 'CASA' | 'TRASFERTA' | undefined;
+    const opponent = event?.opponent || 'Avversario';
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.preMatchInfo}>
+          <View style={styles.preMatchLogos}>
+            {orgLogoUrl ? <Image source={{ uri: orgLogoUrl }} style={styles.preMatchLogo} /> : <View style={styles.preMatchLogo} />}
+            <Text style={styles.preMatchVs}>vs</Text>
+            {opponentLogoUrl ? <Image source={{ uri: opponentLogoUrl }} style={styles.preMatchLogo} /> : <View style={styles.preMatchLogo} />}
+          </View>
+          <Text style={styles.title}>{homeAway === 'TRASFERTA' ? `${opponent} - Ellera` : `Ellera - ${opponent}`}</Text>
+          {(event?.date || event?.time) && (
+            <Text style={styles.subtitle}>
+              {event?.date} {event?.time ? `· ${event.time}` : ''}
+            </Text>
+          )}
+          <Text style={styles.preMatchHint}>La partita non è ancora iniziata.</Text>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -87,6 +120,12 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f7fa' },
   title: { fontSize: 20, fontWeight: '800', color: '#1a202c' },
   subtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
+
+  preMatchInfo: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  preMatchLogos: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16 },
+  preMatchLogo: { width: 64, height: 64, borderRadius: 8, backgroundColor: '#e5e7eb' },
+  preMatchVs: { fontSize: 14, fontWeight: '700', color: '#94a3b8' },
+  preMatchHint: { fontSize: 13, color: '#94a3b8', marginTop: 20 },
 
   cardsRow: { flexDirection: 'row', gap: 12, marginTop: 28 },
   actionCard: {
