@@ -96,6 +96,17 @@ La Action ha bisogno di 3 valori configurati su GitHub (repo `Fpeverin/Ellera` �
 Una volta impostati questi 3 valori, ogni push su `main` che tocca file dentro `App/` pubblica da
 solo l'aggiornamento OTA — verificabile dalla tab **Actions** del repository su GitHub.
 
+**Fix 2026-07-31 — virgolette nel messaggio di commit rompevano la Action**: il comando
+`eas-cli update --message "${{ github.event.head_commit.message }}"` interpolava il messaggio di
+commit **direttamente** nella riga di comando della shell — un commit con virgolette al suo interno
+(es. testo tra `"…"` nel corpo del messaggio) le chiude anticipatamente, e il resto del messaggio
+viene letto come argomenti sbagliati (`Unexpected arguments: ...`, la Action fallisce silenziosamente
+in rosso). **Fix**: il messaggio ora passa tramite una variabile d'ambiente (`COMMIT_MESSAGE`) invece
+di essere interpolato — stesso principio di sicurezza raccomandato da GitHub per qualsiasi input non
+fidato (`${{ github.event.* }}`) dentro un `run:` di shell. **Da tenere presente per il futuro**:
+qualunque altro valore preso da `${{ github.event.* }}` va sempre passato via `env:` + `$NOME_VAR`,
+mai interpolato a testo nella riga di comando.
+
 ### Collegamento GitHub↔EAS Workflows (confermato attivo, ma non usato per l'OTA)
 Il repository GitHub risulta correttamente collegato al progetto Expo (`Fpeverin/Ellera`, confermato
 il 2026-07-29 su expo.dev → progetto → tab **GitHub**) — questo collegamento resta utile per lanciare

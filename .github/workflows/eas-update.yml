@@ -32,9 +32,13 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          # Passato via env invece che interpolato direttamente nel comando: un
+          # messaggio di commit con virgolette al suo interno (es. testo tra "")
+          # altrimenti rompe il parsing della shell (visto il 2026-07-31).
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: >
           npx eas-cli update
           --branch preview
           --platform android
           --non-interactive
-          --message "${{ github.event.head_commit.message }}"
+          --message "$COMMIT_MESSAGE"
