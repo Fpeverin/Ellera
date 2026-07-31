@@ -5,12 +5,10 @@
 // (match per nome, case-insensitive). I giocatori attivi assenti dal file
 // vengono solo segnalati (planRosterImport), mai toccati automaticamente —
 // la decisione finale spetta all'utente (vedi RosterImportReviewModal).
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 import * as XLSX from 'xlsx';
 import { getCurrentOrgId } from '../lib/currentOrg';
 import { supabase } from '../lib/supabase';
+import { pickFileAsBase64, saveOrShareFile } from '../utils/webExport';
 import { Player, Role } from './players';
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -50,9 +48,7 @@ export async function exportRosterToXlsx(active: Player[], ex: Player[]): Promis
   XLSX.utils.book_append_sheet(book, sheet, 'Rosa');
   const base64 = XLSX.write(book, { type: 'base64', bookType: 'xlsx' });
 
-  const fileUri = FileSystem.cacheDirectory + 'rosa.xlsx';
-  await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
-  await Sharing.shareAsync(fileUri, { mimeType: XLSX_MIME, dialogTitle: 'Esporta rosa' });
+  await saveOrShareFile({ content: base64, encoding: 'base64', filename: 'rosa.xlsx', mimeType: XLSX_MIME, dialogTitle: 'Esporta rosa' });
 }
 
 /** Genera e condivide un file XLSX di esempio, con le colonne attese dall'import e righe di esempio già compilate. */
@@ -76,9 +72,7 @@ export async function downloadRosterTemplate(): Promise<void> {
   XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(istruzioni), 'Istruzioni');
   const base64 = XLSX.write(book, { type: 'base64', bookType: 'xlsx' });
 
-  const fileUri = FileSystem.cacheDirectory + 'modello-rosa.xlsx';
-  await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
-  await Sharing.shareAsync(fileUri, { mimeType: XLSX_MIME, dialogTitle: 'Modello Rosa' });
+  await saveOrShareFile({ content: base64, encoding: 'base64', filename: 'modello-rosa.xlsx', mimeType: XLSX_MIME, dialogTitle: 'Modello Rosa' });
 }
 
 export type RosterFileRow = {
@@ -92,15 +86,9 @@ export type RosterFileRow = {
 
 /** Apre il selettore file e legge un XLSX di rosa. Ritorna null se l'utente annulla. */
 export async function pickAndParseRosterXlsx(): Promise<RosterFileRow[] | null> {
-  const res = await DocumentPicker.getDocumentAsync({
-    type: [XLSX_MIME, 'application/vnd.ms-excel'],
-    copyToCacheDirectory: true,
-  });
-  if (res.canceled || !res.assets?.length) return null;
+  const base64 = await pickFileAsBase64([XLSX_MIME, 'application/vnd.ms-excel']);
+  if (!base64) return null;
 
-  const base64 = await FileSystem.readAsStringAsync(res.assets[0].uri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
   const book = XLSX.read(base64, { type: 'base64' });
   const sheet = book.Sheets[book.SheetNames[0]];
   const raw = XLSX.utils.sheet_to_json<any>(sheet);

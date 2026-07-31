@@ -64,6 +64,11 @@ function reminderBody(ev: CalendarEvent): string {
  * modificati/rimossi in calendario.
  */
 export async function scheduleEventReminders(events: CalendarEvent[]): Promise<void> {
+  // Sul web non esiste uno scheduler di notifiche locali affidabile come sui
+  // dispositivi nativi (dipende dal permesso del browser e resta attivo solo
+  // a pagina aperta) — disattivato per ora, vedi Backlog in PIANO_LAVORO.md.
+  if (Platform.OS === 'web') return;
+
   const granted = await ensurePermission();
   if (!granted) return;
 
@@ -91,5 +96,6 @@ export async function scheduleEventReminders(events: CalendarEvent[]): Promise<v
 }
 
 export async function clearEventReminders(): Promise<void> {
+  if (Platform.OS === 'web') return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 }

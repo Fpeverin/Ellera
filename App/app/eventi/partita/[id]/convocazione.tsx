@@ -9,15 +9,14 @@
 // UI (TO DO futuro, vedi PIANO_LAVORO.md) — i campi restano nella colonna
 // dati per non richiedere una migrazione quando tornerà.
 import * as ImagePicker from 'expo-image-picker';
-import * as Print from 'expo-print';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import * as Sharing from 'expo-sharing';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ConvocatiPlayersModal from '../../../components/partite/ConvocatiPlayersModal';
 import { useAuth } from '../../../context/AuthContext';
 import { loadConvocazione, saveConvocatiPlayerIds, saveConvocazione } from '../../../data/convocazione';
+import { printOrShareHtml } from '../../../utils/webExport';
 import { CalendarEvent, loadEvents, patchEventData } from '../../../data/events';
 import { loadOrgLogoUrl, opponentLogoUrlFromPath, uploadOpponentLogo } from '../../../data/organization';
 import { loadStaffMembers, StaffCategory, StaffMember } from '../../../data/staffRoster';
@@ -239,13 +238,8 @@ export default function Convocazione() {
         </html>
       `;
 
-      const { uri } = await Print.printToFileAsync({ html });
+      await printOrShareHtml(html);
       setExportForm(null);
-      try {
-        await Sharing.shareAsync(uri);
-      } catch {
-        Alert.alert('PDF creato', `File salvato in:\n${uri}`);
-      }
     } catch {
       Alert.alert('Errore', 'Impossibile generare il PDF.');
     } finally {

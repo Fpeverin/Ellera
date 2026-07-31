@@ -10,10 +10,8 @@
 // (l'avversario di solito non cambia, mentre data/ora/luogo sono proprio i
 // campi che tipicamente vengono corretti/riprogrammati). Per gli allenamenti:
 // data + ora.
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 import * as XLSX from 'xlsx';
+import { pickFileAsBase64, saveOrShareFile } from '../utils/webExport';
 import { CalendarEvent, loadEvents, saveEvents } from './events';
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -23,9 +21,7 @@ async function writeAndShare(fileName: string, rows: Record<string, any>[], shee
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, sheet, sheetName);
   const base64 = XLSX.write(book, { type: 'base64', bookType: 'xlsx' });
-  const fileUri = FileSystem.cacheDirectory + fileName;
-  await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
-  await Sharing.shareAsync(fileUri, { mimeType: XLSX_MIME, dialogTitle: fileName });
+  await saveOrShareFile({ content: base64, encoding: 'base64', filename: fileName, mimeType: XLSX_MIME, dialogTitle: fileName });
 }
 
 async function writeTemplateAndShare(
@@ -39,20 +35,12 @@ async function writeTemplateAndShare(
   XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(dataRows), dataSheetName);
   XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(istruzioni), 'Istruzioni');
   const base64 = XLSX.write(book, { type: 'base64', bookType: 'xlsx' });
-  const fileUri = FileSystem.cacheDirectory + fileName;
-  await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
-  await Sharing.shareAsync(fileUri, { mimeType: XLSX_MIME, dialogTitle });
+  await saveOrShareFile({ content: base64, encoding: 'base64', filename: fileName, mimeType: XLSX_MIME, dialogTitle });
 }
 
 async function pickAndReadXlsx(): Promise<any[] | null> {
-  const res = await DocumentPicker.getDocumentAsync({
-    type: [XLSX_MIME, 'application/vnd.ms-excel'],
-    copyToCacheDirectory: true,
-  });
-  if (res.canceled || !res.assets?.length) return null;
-  const base64 = await FileSystem.readAsStringAsync(res.assets[0].uri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
+  const base64 = await pickFileAsBase64([XLSX_MIME, 'application/vnd.ms-excel']);
+  if (!base64) return null;
   const book = XLSX.read(base64, { type: 'base64' });
   const sheet = book.Sheets[book.SheetNames[0]];
   return XLSX.utils.sheet_to_json<any>(sheet);

@@ -33,7 +33,9 @@ Ci sono solo due scenari:
 1. **Modifica normale (99% dei casi)** — hai cambiato una schermata, una logica, un testo, uno stile.
    → Fai commit e push su GitHub del branch `main`. Basta questo: in 1-2 minuti chi ha già l'app
    installata riceve l'aggiornamento **da solo**, senza reinstallare nulla (aggiornamento OTA via
-   `.github/workflows/eas-update.yml`, vedi sotto). Non serve lanciare nessun comando.
+   `.github/workflows/eas-update.yml`, vedi sotto) — **e**, dal 2026-07-31, lo stesso push pubblica da
+   solo anche la nuova versione della webapp su Vercel (vedi sezione "Webapp (Vercel)" più sotto). Non
+   serve lanciare nessun comando.
 
    **Nota (2026-07-29)**: il meccanismo pensato originariamente — `App/.eas/workflows/update-on-push.yml`,
    una EAS Workflow nativa attivata dal collegamento GitHub su expo.dev — non è mai partito da solo
@@ -99,6 +101,74 @@ Il repository GitHub risulta correttamente collegato al progetto Expo (`Fpeverin
 il 2026-07-29 su expo.dev → progetto → tab **GitHub**) — questo collegamento resta utile per lanciare
 build manuali dalla dashboard ("Build from GitHub"), ma **non** per l'OTA automatico: quel compito è
 passato alla GitHub Action descritta sopra.
+
+## Webapp (Vercel) — 2026-07-31
+
+Stesso identico codice dell'app Android (Expo Router + `react-native-web`, già presenti nel
+progetto), pubblicato anche come webapp: da PC si apre l'URL, da iPhone si installa da Safari con
+"Aggiungi a Home" (icona propria, schermo intero, nessun account Apple Developer). **Nessuna
+modifica alla logica di funzionamento nativa** — solo adattamenti tecnici puntuali dove il web si
+comporta diversamente, elencati sotto.
+
+### Modalità di export: `single` (SPA), non `static`
+`app.json` → `expo.web.output` è **`"single"`** (client-side rendering puro, come una normale SPA),
+non `"static"`. **Non cambiare senza motivo**: la modalità `"static"` pre-renderizza ogni pagina
+lato server durante l'export, e questo crasha con `ReferenceError: window is not defined` — il
+client Supabase (`app/lib/supabase.ts`) legge la sessione da `localStorage` al caricamento, che non
+esiste in quell'ambiente Node. Con `"single"` non c'è pre-rendering: va bene per un'app come questa,
+100% client-side, dietro login, senza bisogno di SEO.
+
+**Di conseguenza `app/+html.tsx` non ha alcun effetto** (si applica solo alla modalità `"static"`):
+il template HTML root per la modalità `"single"` è invece `App/public/index.html` (letto da Expo
+al posto del suo template di default se presente — placeholder `%LANG_ISO_CODE%`/`%WEB_TITLE%` da
+non toccare, sostituiti automaticamente). Contiene i tag PWA (manifest, theme-color, icone Apple)
+descritti sotto.
+
+### Installabilità PWA
+- `App/public/manifest.json`: nome "TeamBoard", `display: "standalone"`, colore brand `#1b7f3b`.
+- `App/public/icons/` (`icon-192.png`, `icon-512.png`, `icon-512-maskable.png`): generate da
+  `assets/images/icon.png` (1024×1024) con un resize una tantum — se l'icona sorgente cambia,
+  vanno rigenerate a mano (nessuno script automatico, non serve una dipendenza in più solo per
+  questo).
+- Nessun service worker (non serve per "Aggiungi a Home" su Safari iOS, obiettivo di questo giro) —
+  possibile miglioria futura per il supporto offline.
+
+### Adattamenti codice per il web
+- **`app/utils/webExport.ts`** (nuovo): helper condivisi con un ramo diverso su `Platform.OS ===
+  'web'` rispetto a nativo, perché `expo-print`/`expo-sharing`/`expo-file-system` non funzionano sul
+  web (niente file-system né share sheet di sistema):
+  - `printOrShareHtml(html)`: su web apre una finestra e usa `window.print()` (stampa/salva PDF del
+    browser), su nativo `Print.printToFileAsync` + `Sharing.shareAsync` come prima. Usato da
+    `app/squadra/statistiche.tsx` e `app/eventi/partita/[id]/convocazione.tsx`.
+  - `saveOrShareFile(...)` / `pickFileAsBase64(...)`: su web scaricano/leggono un file via `Blob`
+    del browser, su nativo stesso comportamento di prima (`FileSystem.cacheDirectory` +
+    `Sharing.shareAsync` / `DocumentPicker`). Usati da `app/data/rosterFile.ts` e
+    `app/data/calendarFile.ts` per l'export/import Excel.
+- **`app/utils/eventReminders.ts`**: `scheduleEventReminders`/`clearEventReminders` sono no-op su
+  web (`Platform.OS === 'web'`) — non esiste sul browser uno scheduler di notifiche locali
+  affidabile come sui dispositivi nativi. Nessun impatto sull'app nativa.
+- **Non richiedono modifiche**: `expo-web-browser`/`expo-image-picker`/`expo-document-picker` (link
+  esterni, foto, allegati) hanno già un comportamento ragionevole di default sul web.
+- **Nota**: la lavagna tattica (`react-native-view-shot`, screenshot dello schema) ha già un
+  try/catch che salva senza preview se la generazione fallisce — da verificare dal vero nel browser,
+  ma non blocca il salvataggio in nessun caso.
+
+### Deploy automatico su Vercel
+`App/vercel.json`: build `npx expo export -p web`, output `dist/`, con un fallback SPA per le route
+(tutte le richieste che non sono asset/manifest/icone vanno a `index.html`, come in ogni SPA con
+`react-navigation`). **Nessuna GitHub Action da scrivere**: a differenza dell'OTA Android, Vercel si
+collega direttamente al repo con la sua GitHub App — un push su `main` che tocca `App/**` fa
+scattare da solo un nuovo deploy.
+
+**Setup una tantum da fare su vercel.com** (non fatto da Claude Code: richiede un account/OAuth
+GitHub tuo):
+1. Account su vercel.com ("Continue with GitHub").
+2. "Add New Project" → importa `Fpeverin/Ellera` → **Root Directory: `App`**.
+3. "Environment Variables" → aggiungi `EXPO_PUBLIC_SUPABASE_URL` e
+   `EXPO_PUBLIC_SUPABASE_ANON_KEY` (stessi valori di `App/.env`/delle GitHub Variables usate da
+   `eas-update.yml`).
+4. Deploy iniziale → Vercel dà un URL tipo `nome-progetto.vercel.app` (dominio personalizzato
+   collegabile dopo, se serve).
 
 ## Convenzione script SQL (`App/supabase/`)
 

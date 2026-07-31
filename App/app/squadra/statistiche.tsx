@@ -4,10 +4,8 @@ import { CalendarEvent, loadEvents } from '@/app/data/events';
 import { loadLineup } from '@/app/data/matchLive';
 import { loadPhotoMap } from '@/app/data/playerMedia';
 import { usePlayers } from '@/app/hooks/usePlayers';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Print from 'expo-print';
+import { printOrShareHtml, saveOrShareFile } from '@/app/utils/webExport';
 import { useFocusEffect } from 'expo-router';
-import * as Sharing from 'expo-sharing';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -429,9 +427,7 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       });
 
       const csv = [header, ...rows].join('\n');
-      const fileUri = FileSystem.cacheDirectory + 'statistiche.csv';
-      await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
-      await Sharing.shareAsync(fileUri);
+      await saveOrShareFile({ content: csv, encoding: 'utf8', filename: 'statistiche.csv', mimeType: 'text/csv' });
     } catch (e) {
       Alert.alert('Errore', 'Impossibile esportare il CSV');
     }
@@ -511,22 +507,7 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       </html>
     `;
 
-    if (typeof window !== 'undefined' && (window as any)?.print) {
-      const w = window.open('', '', 'width=1200,height=800');
-      if (!w) return;
-      w.document.write(html);
-      w.document.close();
-      w.print();
-      w.close();
-    } else {
-      const { uri } = await Print.printToFileAsync({ html });
-      try {
-        await Sharing.shareAsync(uri);
-      } catch (e) {
-        Alert.alert('PDF creato', `File salvato in:
-${uri}`);
-      }
-    }
+    await printOrShareHtml(html);
   };
 
   // ======= UI =======

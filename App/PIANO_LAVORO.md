@@ -21,41 +21,6 @@ prossima idea non appena viene in mente.
 
 ## Backlog
 
-- **Web app per PC e per chi ha iPhone** (decisione presa da Francesco il 2026-07-30, priorità in
-  cima al backlog — **punti principali su cui lavorare per primi**): invece di un'app nativa iOS
-  (99$/anno di account Apple Developer + distribuzione via TestFlight), si pubblica una versione web
-  dello stesso identico codice — chi ha iPhone la installa da Safari con "Aggiungi a Home" (icona
-  sulla Home come un'app vera, gratis, nessun account Apple); da PC si apre semplicemente l'URL.
-  **L'app Android nativa resta esattamente com'è**, stesso backend Supabase, **nessuna modifica alla
-  logica di funzionamento**: è lo stesso codice (Expo Router + `react-native-web`, già presenti nel
-  progetto) con un target in più, non un progetto parallelo da scrivere e mantenere a parte. Punti
-  principali:
-  1. **Adattamenti tecnici puntuali dove il web si comporta diversamente dal nativo** (nessuna
-     logica di business riscritta, solo l'implementazione tecnica delle singole funzioni che lo
-     richiedono):
-     - Export PDF (Statistiche, Convocazione): `expo-print`+`expo-sharing` funzionano diversamente sul
-       web (niente "condividi" di sistema, serve la stampa/salvataggio del browser).
-     - Link esterni: oggi si aprono in un browser interno (`react-native-webview`, senza senso sul
-       web) → sul web basta un link normale.
-     - Lavagna tattica (screenshot dello schema, `react-native-view-shot`): da verificare/adattare.
-     - Notifiche promemoria: da disattivare o adattare per il web (le notifiche browser funzionano in
-       modo molto diverso da quelle native, e solo col permesso del browser).
-     - Layout responsive: alcune schermate pensate per telefono/tablet vanno riviste per non restare
-       strette su uno schermo desktop largo.
-  2. **Installabilità da iPhone (PWA)**: manifest/icone/meta tag perché "Aggiungi a Home" su Safari
-     dia un'icona propria e un'esperienza a schermo intero (senza barra di Safari), non un semplice
-     segnalibro.
-  3. **Deploy automatico, allineato a come già funziona per Android**: oggi un push su `main`
-     pubblica da solo l'aggiornamento OTA Android (GitHub Action `.github/workflows/eas-update.yml`,
-     a volte fallisce e richiede una pubblicazione manuale di riserva). Per la webapp, **consigliato**
-     collegare il repository direttamente a un hosting con deploy automatico da Git (Vercel, Netlify o
-     Cloudflare Pages — piano gratuito più che sufficiente, e più affidabile di un'altra GitHub Action
-     scritta da zero) invece di un meccanismo custom. Obiettivo: **un solo `git push` aggiorna sia
-     Android (OTA) sia la webapp**, senza nessun comando manuale — Francesco continua a sviluppare
-     rapidamente tramite Claude Code esattamente come oggi.
-  4. **Nessun account Apple Developer necessario** con questa strada — resta comunque un'opzione
-     futura se un giorno servisse un'app nativa vera con icona propria sull'App Store.
-
 - **Calendario mensile in Dashboard — due migliorie richieste da Francesco (2026-07-30)**:
   1. **Disattivare il tap su un giorno per creare un evento** (oggi in `app/index.tsx`, per Admin/
      Staff toccare una cella della griglia apre subito la creazione di un nuovo evento in quella
@@ -93,9 +58,41 @@ prossima idea non appena viene in mente.
   più configurabile" di come era stato costruito la prima volta — da ridiscutere il design prima di
   reintrodurlo (i campi `menuItems`/`meals` restano comunque nella colonna dati di ogni partita).
 
+- **Webapp: lavagna tattica/moduli non reattivi al resize della finestra** (emerso lavorando sulla
+  webapp, 2026-07-31): `app/squadra/tattiche/editor.tsx`, `app/moduli/editor.tsx` e
+  `app/eventi/partita/[id]/tattiche.tsx` calcolano le dimensioni del campo una sola volta con
+  `Dimensions.get('window')` al caricamento — su desktop, ridimensionare la finestra del browser
+  dopo aver aperto la lavagna non aggiorna il layout (serve ricaricare la pagina). Non bloccante
+  (il caricamento iniziale prende già la dimensione corretta), ma da rivedere con
+  `useWindowDimensions()` quando si mette mano a queste schermate — richiede però di far passare le
+  dimensioni ai componenti drag&drop del campo (oggi lette da costanti di modulo), non un cambio
+  isolato.
+
 ## In corso
 
-*(vuoto — si popola quando iniziamo davvero il prossimo punto del backlog)*
+### Webapp per PC e per chi ha iPhone (avviata 2026-07-31)
+Vedi la decisione originale del 2026-07-30 più sotto in Completato una volta chiuso il giro. Stato:
+- **Fatto**: `app.json` (`web.output` passato da `static` a `single` — la modalità "static"
+  pre-renderizza ogni pagina lato server e crash con `window is not defined` perché il client
+  Supabase legge `localStorage` al caricamento, non compatibile con un'app 100% client-side come
+  questa), `App/public/index.html` (template HTML custom con manifest/meta PWA — **non** funziona
+  con `app/+html.tsx`, che si applica solo alla modalità "static"), `App/public/manifest.json` +
+  icone 192/512/512-maskable generate da `assets/images/icon.png`, `App/vercel.json` (build
+  `npx expo export -p web`, fallback SPA per le route). Adattamenti codice: nuovo
+  `app/utils/webExport.ts` (helper condivisi `printOrShareHtml`/`saveOrShareFile`/
+  `pickFileAsBase64` con ramo web via Blob/download invece di `expo-print`/`expo-sharing`/
+  `expo-file-system`, che su web non funzionano) usato da `statistiche.tsx`, `convocazione.tsx`,
+  `rosterFile.ts`, `calendarFile.ts`; `eventReminders.ts` disattivato su web (`Platform.OS ===
+  'web'` → no-op). Verificato con `npx expo export -p web` + server locale: build senza errori,
+  login si carica correttamente nel browser.
+- **Da fare (Francesco)**: creare account Vercel, collegare il repo `Fpeverin/Ellera` (Root
+  Directory `App`), impostare le variabili d'ambiente — istruzioni in `CLAUDE.md`, sezione
+  "Webapp (Vercel)".
+- **Da verificare dopo il primo deploy** (richiede login, non automatizzabile da qui): dashboard/
+  calendario, export PDF Statistiche+Convocazione, export/import Excel Rosa+Partite, salvataggio
+  lavagna tattica, "Aggiungi a Home" da Safari iPhone.
+- Non incluso in questo giro: reattività al resize della finestra per moduli/tattiche (vedi
+  Backlog qui sopra).
 
 ## Completato
 
