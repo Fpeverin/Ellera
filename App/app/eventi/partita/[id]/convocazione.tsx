@@ -19,8 +19,11 @@ import { loadConvocazione, saveConvocatiPlayerIds, saveConvocazione } from '../.
 import { printOrShareHtml } from '../../../utils/webExport';
 import { CalendarEvent, loadEvents, patchEventData } from '../../../data/events';
 import { loadOrgLogoUrl, opponentLogoUrlFromPath, uploadOpponentLogo } from '../../../data/organization';
+import { sendExpoPush } from '../../../data/pushNotify';
 import { loadStaffMembers, StaffCategory, StaffMember } from '../../../data/staffRoster';
 import { usePlayers } from '../../../hooks/usePlayers';
+import { getCurrentOrgId } from '../../../lib/currentOrg';
+import { supabase } from '../../../lib/supabase';
 
 const MAX_CONVOCATI = 20;
 
@@ -74,6 +77,7 @@ export default function Convocazione() {
 
   const [exportForm, setExportForm] = useState<ExportForm | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [notifying, setNotifying] = useState(false);
 
   // --- caricamento iniziale ---
   useEffect(() => {
@@ -247,6 +251,40 @@ export default function Convocazione() {
     }
   };
 
+  // --- notifica push ai convocati (a parte, non parte dell'export PDF) ---
+  const handleNotifyConvocati = async () => {
+    if (playerIds.length === 0) {
+      Alert.alert('Nessun convocato', 'Convoca almeno un giocatore prima di inviare la notifica.');
+      return;
+    }
+    setNotifying(true);
+    try {
+      const orgId = getCurrentOrgId();
+      const { data: tokens, error } = await supabase.rpc('get_push_tokens_for_players', {
+        p_org_id: orgId,
+        p_player_ids: playerIds,
+      });
+      if (error) throw error;
+
+      const title = `Convocazione — ${formatMatchTitle(event)}`;
+      const when = [event?.date, event?.time].filter(Boolean).join(' · ');
+      const body = [when, ritrovo ? `Ritrovo: ${ritrovo}` : null].filter(Boolean).join(' — ') || 'Controlla i dettagli in app.';
+      await sendExpoPush(tokens ?? [], title, body, { matchId });
+
+      const notified = tokens?.length ?? 0;
+      Alert.alert(
+        'Notifica inviata',
+        notified < playerIds.length
+          ? `Avvisati ${notified} di ${playerIds.length} convocati (gli altri non hanno ancora l'app configurata per le notifiche).`
+          : `Avvisati tutti i ${notified} convocati.`
+      );
+    } catch {
+      Alert.alert('Errore', 'Impossibile inviare la notifica.');
+    } finally {
+      setNotifying(false);
+    }
+  };
+
   if (readOnly) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -361,6 +399,10 @@ export default function Convocazione() {
           <Text style={styles.summaryLine}>Dirigenza: {staffCountByCategory('DIRIGENZIALE')}</Text>
           <Text style={[styles.summaryLine, { fontWeight: '800' }]}>Totale: {totale}</Text>
         </View>
+
+        <Pressable style={styles.notifyBtn} onPress={handleNotifyConvocati} disabled={notifying}>
+          <Text style={styles.notifyBtnText}>{notifying ? 'Invio…' : '🔔 Notifica convocati'}</Text>
+        </Pressable>
 
         <Pressable style={styles.pdfBtn} onPress={openExportModal}>
           <Text style={styles.pdfBtnText}>📄 Esporta PDF</Text>
@@ -505,9 +547,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 12,
   },
   pdfBtnText: { color: 'white', fontWeight: '800', fontSize: 16 },
+
+  notifyBtn: {
+    backgroundColor: '#b45309',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  notifyBtnText: { color: 'white', fontWeight: '800', fontSize: 16 },
 
   row: { flexDirection: 'row', gap: 12, marginTop: 4 },
   btn: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },

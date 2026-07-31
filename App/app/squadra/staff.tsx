@@ -4,19 +4,27 @@ import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import NotifyRecipientsPicker from '../components/NotifyRecipientsPicker';
 import { useAuth } from '../context/AuthContext';
 import { loadPendingInvites, revokeInvite, type PendingInvite } from '../data/invites';
 import {
+  loadNotifyConfig,
   loadOrgLogoUrl,
   loadShowTrainingAttendance,
   loadStaffRoleOptions,
+  loadSurveysEnabled,
+  saveNotifyConfig,
   saveShowTrainingAttendance,
   saveStaffRoleOptions,
+  saveSurveysEnabled,
   uploadOrgLogo,
+  type NotifyConfig,
 } from '../data/organization';
 import { loadOrgMembers, removeMember, setMemberLink, updateMemberRole, type OrgMember, type Role } from '../data/staff';
 import { loadStaffMembers, type StaffMember } from '../data/staffRoster';
 import { usePlayers } from '../hooks/usePlayers';
+
+const DEFAULT_NOTIFY_CONFIG: NotifyConfig = { mode: 'admin_only', staffIds: [] };
 
 const ROLE_LABEL: Record<Role, string> = { admin: 'Admin', staff: 'Staff', giocatore: 'Giocatore' };
 const ALL_ROLES: Role[] = ['admin', 'staff', 'giocatore'];
@@ -36,6 +44,11 @@ export default function AdminScreen() {
   const [rolesBusy, setRolesBusy] = useState(false);
   const [showTrainingAttendance, setShowTrainingAttendance] = useState(true);
   const [attendanceBusy, setAttendanceBusy] = useState(false);
+  const [notifyLiveProposals, setNotifyLiveProposals] = useState<NotifyConfig>(DEFAULT_NOTIFY_CONFIG);
+  const [notifyPlayerEdit, setNotifyPlayerEdit] = useState<NotifyConfig>(DEFAULT_NOTIFY_CONFIG);
+  const [notifyBusy, setNotifyBusy] = useState(false);
+  const [surveysEnabled, setSurveysEnabled] = useState(true);
+  const [surveysBusy, setSurveysBusy] = useState(false);
 
   const [confirmRemove, setConfirmRemove] = useState<OrgMember | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState<PendingInvite | null>(null);
@@ -50,13 +63,16 @@ export default function AdminScreen() {
     if (!membership) return;
     setLoading(true);
     try {
-      const [m, p, logo, roles, staff, showAttendance] = await Promise.all([
+      const [m, p, logo, roles, staff, showAttendance, notifyLive, notifyEdit, surveysOn] = await Promise.all([
         loadOrgMembers(membership.orgId),
         loadPendingInvites(membership.orgId),
         loadOrgLogoUrl(),
         loadStaffRoleOptions(),
         loadStaffMembers(),
         loadShowTrainingAttendance(),
+        loadNotifyConfig('live_proposals'),
+        loadNotifyConfig('player_edit'),
+        loadSurveysEnabled(),
       ]);
       setMembers(m);
       setPending(p);
@@ -64,6 +80,9 @@ export default function AdminScreen() {
       setStaffRoles(roles);
       setStaffMembers(staff);
       setShowTrainingAttendance(showAttendance);
+      setNotifyLiveProposals(notifyLive);
+      setNotifyPlayerEdit(notifyEdit);
+      setSurveysEnabled(surveysOn);
     } catch {
       Alert.alert('Errore', 'Impossibile caricare i dati dello staff.');
     } finally {
@@ -149,6 +168,34 @@ export default function AdminScreen() {
       Alert.alert('Errore', 'Impossibile salvare l\'impostazione.');
     } finally {
       setAttendanceBusy(false);
+    }
+  };
+
+  const handleToggleSurveys = async (value: boolean) => {
+    setSurveysBusy(true);
+    setSurveysEnabled(value);
+    try {
+      await saveSurveysEnabled(value);
+    } catch {
+      setSurveysEnabled(!value);
+      Alert.alert('Errore', 'Impossibile salvare l\'impostazione.');
+    } finally {
+      setSurveysBusy(false);
+    }
+  };
+
+  const handleChangeNotifyConfig = async (kind: 'live_proposals' | 'player_edit', config: NotifyConfig) => {
+    const setState = kind === 'live_proposals' ? setNotifyLiveProposals : setNotifyPlayerEdit;
+    const previous = kind === 'live_proposals' ? notifyLiveProposals : notifyPlayerEdit;
+    setState(config);
+    setNotifyBusy(true);
+    try {
+      await saveNotifyConfig(kind, config);
+    } catch {
+      setState(previous);
+      Alert.alert('Errore', "Impossibile salvare l'impostazione.");
+    } finally {
+      setNotifyBusy(false);
     }
   };
 
@@ -276,6 +323,38 @@ export default function AdminScreen() {
               onValueChange={handleToggleTrainingAttendance}
               disabled={attendanceBusy}
             />
+          </View>
+
+          <View style={styles.switchRow}>
+            <NotifyRecipientsPicker
+              label="Notifiche proposte Live"
+              hint="Chi dello staff viene avvisato quando un giocatore propone un gol/cartellino."
+              value={notifyLiveProposals}
+              onChange={(c) => handleChangeNotifyConfig('live_proposals', c)}
+              staffMembers={staffMembers}
+              disabled={notifyBusy}
+            />
+          </View>
+
+          <View style={styles.switchRow}>
+            <NotifyRecipientsPicker
+              label="Notifiche modifiche giocatore"
+              hint="Chi dello staff viene avvisato quando un giocatore propone una modifica ai propri dati anagrafici."
+              value={notifyPlayerEdit}
+              onChange={(c) => handleChangeNotifyConfig('player_edit', c)}
+              staffMembers={staffMembers}
+              disabled={notifyBusy}
+            />
+          </View>
+
+          <View style={styles.switchRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.configLabel}>Sondaggi</Text>
+              <Text style={styles.cardHint}>
+                Se disattivato, la sezione Sondaggi non compare per nessuno (Staff, Admin, Giocatori).
+              </Text>
+            </View>
+            <Switch value={surveysEnabled} onValueChange={handleToggleSurveys} disabled={surveysBusy} />
           </View>
         </View>
 

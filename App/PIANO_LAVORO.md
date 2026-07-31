@@ -21,24 +21,6 @@ prossima idea non appena viene in mente.
 
 ## Backlog
 
-- **Sondaggi staff → giocatori**: uno dello staff invia un sondaggio ai giocatori (stato di salute,
-  livello di allenamento, quanto si sentono stanchi, infortuni, assenze); le risposte devono generare
-  una notifica push allo staff. **Nota tecnica**: è una notifica *tra utenti diversi* (il giocatore che
-  risponde deve avvisare lo staff, su un altro dispositivo), quindi non basta il meccanismo dei
-  promemoria eventi già fatto (quello è solo locale, ogni dispositivo avvisa se stesso) — serve
-  registrare e salvare su Supabase il push token Expo di ciascun account (`expo-notifications` è già
-  installato) e inviare da client all'API pubblica di Expo (`exp.host/--/api/v2/push/send`) verso i
-  token dello staff, senza bisogno di un server dedicato.
-
-- **Notifica invio convocazione ai giocatori convocati** (rimasto dal punto "Convocazione partita da
-  app", ora completato — vedi Completato — tranne questa parte): quando la convocazione è pronta,
-  notifica push ai giocatori convocati. Stessa nota tecnica del punto sopra: serve il push token
-  per-utente (notifica verso *altri* dispositivi), non i promemoria locali già implementati.
-
-- **Notifica proposte Live all'admin/staff** (richiesta precedente di Francesco, ancora da fare):
-  quando un giocatore propone un gol/cartellino da Live, notifica push allo staff/admin di quella
-  squadra. Stessa nota tecnica: serve il push token per-utente.
-
 - **Impaginazione del PDF Convocazione più fedele all'originale** (richiesta di Francesco del
   2026-07-30): l'attuale PDF è funzionale (solo convocati, loghi, dati partita) ma l'impaginazione va
   rifatta per assomigliare di più allo "Scheda Convocazione Ellera.xlsx" condiviso all'inizio — da
@@ -60,6 +42,38 @@ prossima idea non appena viene in mente.
   isolato.
 
 ## In corso
+
+### Notifiche push tra utenti: Sondaggi, Convocazione, Proposte Live, Modifiche anagrafica (avviata 2026-07-31)
+Prima infrastruttura di notifiche push **verso un altro utente** (finora solo promemoria locali,
+`app/utils/eventReminders.ts`). Stato: **implementato, da eseguire gli script SQL e testare dal vero**
+(nessun invio push remoto è mai stato provato finora su questa app).
+- **Fondamenta**: `memberships.push_token` + RPC `register_push_token`/`get_notification_tokens`/
+  `get_push_tokens_for_players`/`get_org_player_tokens` (`App/supabase/19_schema_push_tokens.sql`).
+  Nuovo `app/data/pushNotify.ts` (`registerPushTokenForCurrentUser`, no-op sul web;
+  `sendExpoPush`, fetch diretto verso l'API di Expo). Il token si registra da `app/index.tsx` per
+  **tutti i ruoli** (non solo Giocatore).
+- **Notifica Convocazione**: nuovo bottone "🔔 Notifica convocati" in Convocazione, separato da
+  "Esporta PDF" come richiesto — invia ai convocati con token registrato.
+- **Notifiche configurabili** (`App/supabase/20_schema_notify_config.sql`): due impostazioni Admin
+  indipendenti in Gestione Squadra → Admin → Configurazioni — "Notifiche proposte Live" e "Notifiche
+  modifiche giocatore" — ciascuna Solo Admin/Tutto lo Staff/Alcuni membri (nuovo componente
+  `NotifyRecipientsPicker`, riusato anche nei sondaggi). Agganciate a `app/data/proposals.ts` e
+  `app/data/playerEdits.ts` (notifica parte dal client di chi propone).
+- **Sondaggi** (`App/supabase/21_schema_surveys.sql` + `22_schema_surveys_cron.sql`): nuova sezione
+  "Sondaggi" in Gestione Squadra (Staff/Admin creano/modificano/vedono le risposte, Giocatore
+  risponde), attivabile/disattivabile da Admin → Configurazioni. Domande a testo libero/scala 1-5/
+  scelta singola. Invio subito (dal client), programmato o ricorrente ("ogni N giorni") — questi
+  ultimi due gestiti **davvero** lato Supabase con `pg_cron`+`pg_net` (scatta anche se nessuno ha
+  l'app aperta), non con un controllo "al prossimo che apre l'app". Ogni invio è un `survey_sends`
+  a parte (i ricorrenti non mescolano le risposte tra un'occorrenza e l'altra). Notifica allo staff
+  scelto (per sondaggio) quando un giocatore risponde.
+- **Da fare (Francesco)**: eseguire in ordine su Supabase SQL Editor gli script `19`, `20`, `21`, `22`
+  (il `22` attiva le estensioni `pg_cron`/`pg_net` — se il comando desse un permission error, il
+  commento nello script indica il fallback da Dashboard → Database → Extensions).
+- **Da verificare dal vero** (prima volta che questa app invia un push remoto, non solo locale):
+  registrazione token su un dispositivo reale, notifica Convocazione, proposta Live con destinatari
+  configurati, sondaggio "subito" e uno "programmato" a pochi minuti (chiudendo l'app per verificare
+  che arrivi comunque via cron), risposta di un giocatore e relativa notifica allo staff.
 
 ### Webapp per PC e per chi ha iPhone (avviata 2026-07-31)
 Vedi la decisione originale del 2026-07-30 più sotto in Completato una volta chiuso il giro. Stato:

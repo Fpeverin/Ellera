@@ -86,3 +86,50 @@ export async function saveShowTrainingAttendance(value: boolean): Promise<void> 
   const { error } = await supabase.from('organizations').update({ show_training_attendance: value }).eq('id', orgId);
   if (error) throw error;
 }
+
+/** Attiva/disattiva l'intera sezione Sondaggi (nascosta a tutti, incluso Admin, se disattivata). */
+export async function loadSurveysEnabled(): Promise<boolean> {
+  const orgId = getCurrentOrgId();
+  const { data, error } = await supabase.from('organizations').select('surveys_enabled').eq('id', orgId).maybeSingle();
+  if (error) throw error;
+  return data?.surveys_enabled ?? true;
+}
+
+export async function saveSurveysEnabled(value: boolean): Promise<void> {
+  const orgId = getCurrentOrgId();
+  const { error } = await supabase.from('organizations').update({ surveys_enabled: value }).eq('id', orgId);
+  if (error) throw error;
+}
+
+/* ---------------- Configurazione destinatari notifiche staff ---------------- */
+
+export type NotifyMode = 'admin_only' | 'all' | 'selected';
+export type NotifyConfig = { mode: NotifyMode; staffIds: string[] };
+export type NotifyKind = 'live_proposals' | 'player_edit';
+
+const NOTIFY_COLUMNS: Record<NotifyKind, { mode: string; ids: string }> = {
+  live_proposals: { mode: 'notify_live_proposals_mode', ids: 'notify_live_proposals_staff_ids' },
+  player_edit: { mode: 'notify_player_edit_mode', ids: 'notify_player_edit_staff_ids' },
+};
+
+/** Chi dello staff riceve la notifica per un certo tipo di evento (proposte Live / modifiche anagrafica). */
+export async function loadNotifyConfig(kind: NotifyKind): Promise<NotifyConfig> {
+  const orgId = getCurrentOrgId();
+  const cols = NOTIFY_COLUMNS[kind];
+  const { data, error } = await supabase.from('organizations').select(`${cols.mode}, ${cols.ids}`).eq('id', orgId).maybeSingle();
+  if (error) throw error;
+  return {
+    mode: ((data as any)?.[cols.mode] as NotifyMode | undefined) ?? 'admin_only',
+    staffIds: ((data as any)?.[cols.ids] as string[] | undefined) ?? [],
+  };
+}
+
+export async function saveNotifyConfig(kind: NotifyKind, config: NotifyConfig): Promise<void> {
+  const orgId = getCurrentOrgId();
+  const cols = NOTIFY_COLUMNS[kind];
+  const { error } = await supabase
+    .from('organizations')
+    .update({ [cols.mode]: config.mode, [cols.ids]: config.staffIds })
+    .eq('id', orgId);
+  if (error) throw error;
+}

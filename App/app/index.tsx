@@ -1,10 +1,11 @@
 // app/index.tsx
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from './context/AuthContext';
 import { CalendarEvent, loadEvents } from './data/events';
+import { registerPushTokenForCurrentUser } from './data/pushNotify';
 import { scheduleEventReminders } from './utils/eventReminders';
 
 /* ------------------ Helpers date in fuso locale (no UTC) ------------------ */
@@ -63,6 +64,15 @@ export default function Dashboard() {
       refreshEvents();
     }, [])
   );
+
+  // Registra il push token del dispositivo per questo account (tutti i ruoli:
+  // Staff/Admin ricevono notifiche di proposte/modifiche/sondaggi, Giocatore
+  // di convocazioni/sondaggi) — una volta per sessione, non a ogni focus.
+  useEffect(() => {
+    if (membership?.orgId) {
+      registerPushTokenForCurrentUser(membership.orgId);
+    }
+  }, [membership?.orgId]);
 
   /* --------------------- Mappa: eventi per data (YYYY-MM-DD) --------------------- */
   const eventsByDate = useMemo(() => {

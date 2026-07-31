@@ -1,8 +1,10 @@
 import { StatsCard } from '@/app/components/StatsCard';
 import { useAuth } from '@/app/context/AuthContext';
 import { Player } from '@/app/data/players';
+import { loadSurveysEnabled } from '@/app/data/organization';
 import { usePlayers } from '@/app/hooks/usePlayers';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 function getPlayerAge(p: Player): number {
@@ -30,6 +32,13 @@ export default function GestioneSquadra() {
   const { membership } = useAuth();
   const isAdmin = membership?.role === 'admin';
   const isGiocatore = membership?.role === 'giocatore';
+  const [surveysEnabled, setSurveysEnabled] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadSurveysEnabled().then(setSurveysEnabled).catch(() => {});
+    }, [])
+  );
 
   // === calcolo responsive: colonne e larghezza card ===
   const SECTION_SIDE_PADDING = 20;
@@ -129,6 +138,16 @@ export default function GestioneSquadra() {
             <Text style={styles.navSubtitle}>Tecnico, Sanitario, Dirigenza</Text>
           </Pressable>
 
+          {surveysEnabled && (
+            <Pressable style={[styles.navCard, styles.surveysCard]} onPress={() => router.push('/squadra/sondaggi')}>
+              <Text style={styles.navIcon}>📊</Text>
+              <Text style={styles.navTitle}>Sondaggi</Text>
+              <Text style={styles.navSubtitle}>
+                {isGiocatore ? 'Rispondi ai sondaggi' : 'Crea e gestisci sondaggi'}
+              </Text>
+            </Pressable>
+          )}
+
           {isAdmin && (
             <Pressable style={[styles.navCard, styles.staffCard]} onPress={() => router.push('/squadra/staff')}>
               <Text style={styles.navIcon}>🛡️</Text>
@@ -177,6 +196,7 @@ const styles = StyleSheet.create({
   archiveCard: { borderLeftWidth: 4, borderLeftColor: '#7c3aed' },
   staffCard: { borderLeftWidth: 4, borderLeftColor: '#0f766e' },
   rosterStaffCard: { borderLeftWidth: 4, borderLeftColor: '#0891b2' },
+  surveysCard: { borderLeftWidth: 4, borderLeftColor: '#ca8a04' },
 
   navIcon: { fontSize: 32, marginBottom: 8 },
   navTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 4 },

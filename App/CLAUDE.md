@@ -228,6 +228,72 @@ azione (niente Convocazione/Formazione/Live). Staff/Admin continuano a vedere il
 Live come già facevano, invariato. **Dopo lo Start, tutti (compreso il Giocatore) vanno su Live** come
 prima — il Giocatore può proporre gol/cartellini, comportamento già esistente e non toccato.
 
+## Notifiche push tra utenti — 2026-07-31
+
+Prima infrastruttura di notifiche push che arrivano a **un altro utente** (finora l'app aveva solo
+promemoria locali, `app/utils/eventReminders.ts` — ogni dispositivo avvisa se stesso). Nessun server
+dedicato: ogni account salva il proprio push token Expo su Supabase, e chi vuole notificare invia via
+`fetch` diretto all'API pubblica di Expo (`exp.host/--/api/v2/push/send`) — eccetto i sondaggi
+programmati/ricorrenti, gestiti da `pg_cron`+`pg_net` (vedi sotto).
+
+### Fondamenta (`App/supabase/19_schema_push_tokens.sql`, `app/data/pushNotify.ts`)
+- `memberships.push_token`: ogni account scrive **solo il proprio** (RPC `register_push_token`,
+  `auth.uid()` nel `where`, non nel parametro — evita di toccare le policy RLS di scrittura esistenti
+  su `memberships`, oggi solo admin).
+- `registerPushTokenForCurrentUser(orgId)`: chiamata da `app/index.tsx` per **tutti i ruoli** (non solo
+  Giocatore — Staff/Admin ricevono notifiche di proposte/modifiche/risposte sondaggi), no-op su
+  `Platform.OS === 'web'` (i push remoti sul web sono un mondo diverso, fuori scope, stesso principio
+  già usato per `eventReminders.ts`).
+- `sendExpoPush(tokens, title, body, data?)`: invio best-effort a chunk di 100 token (limite Expo),
+  errori solo loggati — non deve mai bloccare l'azione di chi ha triggerato la notifica.
+- RPC di risoluzione destinatari (tutte security definer, richiedono solo essere membri dell'org —
+  ritornano solo token opachi, nessun dato personale): `get_notification_tokens(org, mode,
+  staff_ids?)` (per notifiche "verso lo staff": `admin_only`/`all`/`selected`, riusata da proposte
+  Live, modifiche anagrafica, risposte sondaggio), `get_push_tokens_for_players(org, player_ids)`
+  (Convocazione), `get_org_player_tokens(org)` (tutti i giocatori, solo Staff/Admin — invio sondaggi).
+
+### Notifica Convocazione
+`app/eventi/partita/[id]/convocazione.tsx`: bottone **"🔔 Notifica convocati"**, separato dal bottone
+"📄 Esporta PDF" (richiesta esplicita di Francesco — non deve essere lo stesso tasto). Notifica i
+convocati con token registrato, alert onesto su quanti sono stati avvisati rispetto al totale
+convocati (chi non ha ancora aperto l'app/registrato un token non riceve nulla).
+
+### Notifiche configurabili (`App/supabase/20_schema_notify_config.sql`)
+Due impostazioni **indipendenti** su `organizations` (`notify_live_proposals_mode/staff_ids`,
+`notify_player_edit_mode/staff_ids`), stesso pattern di `staff_roles`/`show_training_attendance` —
+nessuna nuova policy RLS. UI in Gestione Squadra → Admin → Configurazioni, nuovo componente condiviso
+`app/components/NotifyRecipientsPicker.tsx` (Solo Admin / Tutto lo Staff / Alcuni membri + checklist).
+Agganciate a `app/data/proposals.ts` (`propose()`) e `app/data/playerEdits.ts`
+(`proposePlayerEdit()`) — la notifica parte dal client di chi propone/richiede (il Giocatore), non
+blocca l'operazione se fallisce (solo loggata).
+
+### Sondaggi (`App/supabase/21_schema_surveys.sql`, `22_schema_surveys_cron.sql`, `app/data/surveys.ts`)
+Nuova sezione **"Sondaggi"** sotto Gestione Squadra (`app/squadra/sondaggi/index.tsx` +
+`editor.tsx`), attivabile/disattivabile da Admin → Configurazioni
+(`organizations.surveys_enabled`, nasconde la card per tutti i ruoli, incluso Admin).
+- **Domande**: tre tipi scelti da chi crea il sondaggio — testo libero, scala 1-5, scelta singola con
+  opzioni personalizzate (`surveys.questions` jsonb).
+- **Invio**: subito (dal client, `createSurvey`/`resendSurveyNow` in `app/data/surveys.ts`),
+  programmato (una data) o ricorrente ("ogni N giorni"). Per programmato/ricorrente **non** basta un
+  controllo lato client al prossimo avvio app (l'orario non sarebbe garantito) — l'invio scatta
+  davvero all'ora prevista tramite `pg_cron` + `pg_net` (entrambe estensioni Postgres incluse in
+  Supabase, **nessun servizio esterno**): la funzione `process_due_surveys()` gira ogni 5 minuti,
+  crea la riga `survey_sends` e chiama direttamente l'API di Expo con `net.http_post`. Se
+  `create extension pg_cron`/`pg_net` desse un permission error sul piano Supabase in uso: Dashboard →
+  Database → Extensions, attivarle da lì.
+- **Ogni invio è un'occorrenza a parte** (`survey_sends`): per i sondaggi ricorrenti le risposte di
+  occorrenze diverse non si mescolano mai.
+- **Risposte** (`survey_responses`, un giocatore risponde solo per il proprio `player_id`, upsert):
+  visibili nell'editor in modalità modifica, raggruppate per invio. Notifica configurabile
+  (per-sondaggio, stesso `NotifyRecipientsPicker`) a chi dello staff quando arriva una risposta.
+
+**Da fare (Francesco)**: eseguire in ordine su Supabase `19_schema_push_tokens.sql`,
+`20_schema_notify_config.sql`, `21_schema_surveys.sql`, `22_schema_surveys_cron.sql`.
+**Da verificare dal vero** (primo invio push remoto reale di questa app — i promemoria di prima erano
+solo locali): registrazione token su dispositivo fisico, ognuna delle notifiche sopra, e in particolare
+un sondaggio "programmato" chiudendo completamente l'app per confermare che `pg_cron`/`pg_net`
+funzionino davvero senza bisogno di nessun client aperto.
+
 ## Convenzione script SQL (`App/supabase/`)
 
 Ogni file è numerato con l'ordine in cui va eseguito nell'SQL Editor di Supabase (`1_schema.sql`,

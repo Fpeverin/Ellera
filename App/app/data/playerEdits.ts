@@ -7,7 +7,9 @@
 // "pending" finche' Staff/Admin non la conferma o rifiuta.
 import { getCurrentOrgId } from '../lib/currentOrg';
 import { supabase } from '../lib/supabase';
+import { loadNotifyConfig } from './organization';
 import { Role } from './players';
+import { sendExpoPush } from './pushNotify';
 
 export type PlayerEditChanges = Partial<{
   role: Role;
@@ -52,6 +54,25 @@ export async function loadPlayerEditRequests(playerId: string): Promise<PlayerEd
   return (data ?? []).map(fromRow);
 }
 
+async function notifyStaffOfPlayerEdit(orgId: string, playerId: string) {
+  try {
+    const [config, { data: player }] = await Promise.all([
+      loadNotifyConfig('player_edit'),
+      supabase.from('players').select('name').eq('id', playerId).maybeSingle(),
+    ]);
+    const { data: tokens, error } = await supabase.rpc('get_notification_tokens', {
+      p_org_id: orgId,
+      p_mode: config.mode,
+      p_staff_member_ids: config.staffIds,
+    });
+    if (error) throw error;
+    const name = player?.name ?? 'un giocatore';
+    await sendExpoPush(tokens ?? [], 'Richiesta modifica anagrafica', `${name} ha proposto una modifica ai propri dati.`);
+  } catch (e) {
+    console.error('Errore notifica modifica anagrafica', e);
+  }
+}
+
 export async function proposePlayerEdit(playerId: string, changes: PlayerEditChanges): Promise<void> {
   const orgId = getCurrentOrgId();
   const { data: userData } = await supabase.auth.getUser();
@@ -63,6 +84,7 @@ export async function proposePlayerEdit(playerId: string, changes: PlayerEditCha
     requested_by: userData.user?.id,
   });
   if (error) throw error;
+  notifyStaffOfPlayerEdit(orgId, playerId);
 }
 
 export async function decidePlayerEdit(id: string, decision: 'approved' | 'rejected'): Promise<void> {

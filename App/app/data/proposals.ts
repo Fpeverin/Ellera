@@ -6,6 +6,8 @@
 import { getCurrentOrgId } from '../lib/currentOrg';
 import { supabase } from '../lib/supabase';
 import { CardItem, GoalItem } from './matchLive';
+import { loadNotifyConfig } from './organization';
+import { sendExpoPush } from './pushNotify';
 
 export type ProposalStatus = 'pending' | 'approved' | 'rejected';
 
@@ -48,6 +50,22 @@ export async function loadProposals(eventId: string): Promise<EventProposal[]> {
   return (data ?? []).map(fromRow);
 }
 
+async function notifyStaffOfProposal(orgId: string, type: 'GOAL' | 'CARD') {
+  try {
+    const config = await loadNotifyConfig('live_proposals');
+    const { data: tokens, error } = await supabase.rpc('get_notification_tokens', {
+      p_org_id: orgId,
+      p_mode: config.mode,
+      p_staff_member_ids: config.staffIds,
+    });
+    if (error) throw error;
+    const label = type === 'GOAL' ? 'un gol' : 'un cartellino';
+    await sendExpoPush(tokens ?? [], 'Nuova proposta Live', `Un giocatore ha proposto ${label} da confermare.`);
+  } catch (e) {
+    console.error('Errore notifica proposta Live', e);
+  }
+}
+
 async function propose(eventId: string, type: 'GOAL' | 'CARD', payload: GoalProposalPayload | CardProposalPayload) {
   const orgId = getCurrentOrgId();
   const { data: userData } = await supabase.auth.getUser();
@@ -60,6 +78,7 @@ async function propose(eventId: string, type: 'GOAL' | 'CARD', payload: GoalProp
     proposed_by: userData.user?.id,
   });
   if (error) throw error;
+  notifyStaffOfProposal(orgId, type);
 }
 
 export const proposeGoal = (eventId: string, payload: GoalProposalPayload) => propose(eventId, 'GOAL', payload);

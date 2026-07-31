@@ -12,6 +12,8 @@ export default function SquadraLayout() {
       <Stack.Screen name="archivio/[id]/match" options={{ title: 'Partita Archiviata' }} />
       <Stack.Screen name="staff" options={{ title: 'Admin' }} />
       <Stack.Screen name="staffRoster" options={{ title: 'Staff' }} />
+      <Stack.Screen name="sondaggi/index" options={{ title: 'Sondaggi' }} />
+      <Stack.Screen name="sondaggi/editor" options={{ title: 'Sondaggio' }} />
     </Stack>
   );
 }
