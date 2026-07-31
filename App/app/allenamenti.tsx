@@ -5,6 +5,7 @@ import { Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Switch, Text
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import EventEditorModal from './components/EventEditorModal';
+import TeamLogo from './components/TeamLogo';
 import { useAuth } from './context/AuthContext';
 import { downloadTrainingsTemplate, exportTrainingsToXlsx, pickAndParseTrainingsXlsx, planTrainingsImport } from './data/calendarFile';
 import { CalendarEvent, loadEvents, saveEvents } from './data/events';
@@ -346,7 +347,10 @@ export default function Allenamenti() {
   return (
     <SafeAreaView style={styles.container} edges={['top','bottom']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Allenamenti</Text>
+        <View style={styles.headerTitleRow}>
+          <TeamLogo size={32} style={{ marginRight: 8 }} />
+          <Text style={styles.title}>Allenamenti</Text>
+        </View>
         <Text style={styles.subtitle}>Gestisci tutti gli allenamenti della squadra</Text>
       </View>
 
@@ -577,6 +581,7 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 24,
   },
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center' },
   title: {
     fontSize: 32,
     fontWeight: '800',

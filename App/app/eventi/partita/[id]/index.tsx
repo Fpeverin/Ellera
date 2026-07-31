@@ -10,6 +10,7 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import TeamLogo from '../../../components/TeamLogo';
 import { useAuth } from '../../../context/AuthContext';
 import { CalendarEvent, loadEvents } from '../../../data/events';
 import { loadStarted } from '../../../data/matchLive';
@@ -84,7 +85,10 @@ export default function PartitaIndexChooser() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={{ padding: 20 }}>
-        <Text style={styles.title}>Ellera{event?.opponent ? ` - ${event.opponent}` : ''}</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Ellera{event?.opponent ? ` - ${event.opponent}` : ''}</Text>
+          <TeamLogo size={28} />
+        </View>
         {(event?.date || event?.time) && (
           <Text style={styles.subtitle}>
             {event?.date} {event?.time ? `· ${event.time}` : ''}
@@ -118,6 +122,7 @@ export default function PartitaIndexChooser() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f7fa' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f7fa' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 20, fontWeight: '800', color: '#1a202c' },
   subtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
 

@@ -3,6 +3,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import TeamLogo from '../../../components/TeamLogo';
 import { useAuth } from '../../../context/AuthContext';
 import { CalendarEvent, loadEvents, saveEvents } from '../../../data/events';
 import {
@@ -265,7 +266,10 @@ export default function TattichePartita() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
         <View style={styles.topBar}>
-          <Text style={styles.title}>Tattiche partita</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={styles.title}>Tattiche partita</Text>
+            <TeamLogo size={24} />
+          </View>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {!readOnly && (
               <Pressable style={[styles.btn, { backgroundColor: '#1b7f3b' }]} onPress={() => setModalOpen(true)}>

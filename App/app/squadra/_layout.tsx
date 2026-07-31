@@ -1,8 +1,9 @@
 import { Stack } from 'expo-router';
+import TeamLogo from '../components/TeamLogo';
 
 export default function SquadraLayout() {
   return (
-    <Stack screenOptions={{ headerShown: true }}>
+    <Stack screenOptions={{ headerShown: true, headerRight: () => <TeamLogo size={28} style={{ marginRight: 12 }} /> }}>
       <Stack.Screen name="index" options={{ title: 'Gestione Squadra' }} />
       <Stack.Screen name="rosa" options={{ title: 'Rosa' }} />
       <Stack.Screen name="formazioni" options={{ title: 'Formazioni' }} />

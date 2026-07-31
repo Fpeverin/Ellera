@@ -7,6 +7,7 @@ import CompetitionModal from './components/partite/CompetitionModal';
 import CompetitionRulesModal from './components/partite/CompetitionRulesModal';
 import ConfirmDeleteModal from './components/partite/ConfirmDeleteModal';
 import MatchEventCard from './components/partite/MatchEventCard';
+import TeamLogo from './components/TeamLogo';
 import { useAuth } from './context/AuthContext';
 import { downloadMatchesTemplate, exportMatchesToXlsx, pickAndParseMatchesXlsx, planMatchesImport } from './data/calendarFile';
 import { CalendarEvent, loadEvents, saveEvents } from './data/events';
@@ -342,7 +343,10 @@ export default function Partite() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top','bottom']}>
-      <Text style={styles.title}>Partite</Text>
+      <View style={styles.titleRow}>
+        <TeamLogo size={32} style={{ marginRight: 8 }} />
+        <Text style={styles.title}>Partite</Text>
+      </View>
 
       {/* Filtri in alto */}
       <View style={styles.filtersRow}>
@@ -615,6 +619,7 @@ function SingleMatchModal({
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+  titleRow: { flexDirection: 'row', alignItems: 'center' },
   title: { fontSize: 22, fontWeight: '700', marginBottom: 12 },
 
   // Filtri

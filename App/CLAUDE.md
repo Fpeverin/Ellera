@@ -313,6 +313,30 @@ solo locali): registrazione token su dispositivo fisico, ognuna delle notifiche 
 un sondaggio "programmato" chiudendo completamente l'app per confermare che `pg_cron`/`pg_net`
 funzionino davvero senza bisogno di nessun client aperto.
 
+## Logo squadra in ogni schermata — 2026-07-31
+
+Il logo squadra (caricato dall'Admin in Gestione Squadra → Admin, `organizations.logo_path`) compare
+ora nell'header di **ogni schermata dell'app** quando è stato caricato (nessuna icona se non c'è
+ancora un logo). Due pezzi:
+- **`app/hooks/useOrgLogo.ts`**: cache in memoria per sessione (una sola query invece di una per
+  ogni schermata visitata) — `invalidateOrgLogoCache()` va chiamata da chi carica un nuovo logo
+  (fatto in `app/squadra/staff.tsx`, `pickLogo`).
+- **`app/components/TeamLogo.tsx`**: `<TeamLogo size={..} />`, non renderizza nulla se il logo non
+  c'è ancora.
+- **Copertura**: `app/squadra/_layout.tsx` (`headerRight` nello `screenOptions` dello Stack — copre
+  in un colpo tutte le schermate sotto Gestione Squadra: Rosa, Moduli, Tattiche, Statistiche,
+  Archivio, Admin, Staff, Sondaggi) più ogni altra schermata "root" (Dashboard, Calendario,
+  Allenamenti, Partite, Moduli, scheda giocatore, dettaglio Allenamento, e le schermate di una
+  partita — chooser pre-Start, Formazione, Tattiche, Convocazione, Live), inserito singolarmente in
+  ciascuna dato che non condividono un header comune (`headerShown: false` a livello root,
+  `app/_layout.tsx` — ogni schermata costruisce il proprio header in JSX).
+- **Non toccate** (nessun contesto squadra ancora disponibile, o pagine non applicabili):
+  login/registrazione, onboarding, `+not-found.tsx`, `app/eventi/nuovo.tsx` (codice morto/
+  irraggiungibile, non collegato da nessuna navigazione).
+- Nella schermata Partita pre-Start per il Giocatore (`app/eventi/partita/[id]/index.tsx`) il logo
+  squadra compare già in modo prominente nel confronto "loghi vs avversario" — non duplicato con
+  `TeamLogo` in quel branch specifico.
+
 ## Convenzione script SQL (`App/supabase/`)
 
 Ogni file è numerato con l'ordine in cui va eseguito nell'SQL Editor di Supabase (`1_schema.sql`,

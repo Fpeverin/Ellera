@@ -21,6 +21,7 @@ import { CalendarEvent, loadEvents, patchEventData } from '../../../data/events'
 import { loadOrgLogoUrl, opponentLogoUrlFromPath, uploadOpponentLogo } from '../../../data/organization';
 import { sendExpoPush } from '../../../data/pushNotify';
 import { loadStaffMembers, StaffCategory, StaffMember } from '../../../data/staffRoster';
+import TeamLogo from '../../../components/TeamLogo';
 import { usePlayers } from '../../../hooks/usePlayers';
 import { getCurrentOrgId } from '../../../lib/currentOrg';
 import { supabase } from '../../../lib/supabase';
@@ -304,7 +305,10 @@ export default function Convocazione() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
-        <Text style={styles.title}>Convocazione</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={styles.title}>Convocazione</Text>
+          <TeamLogo size={28} />
+        </View>
         <Text style={styles.matchTitle}>{formatMatchTitle(event)}</Text>
         <Text style={styles.matchSub}>
           {(event as any)?.competition ? `${(event as any).competition} · ` : ''}

@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import TeamLogo from '../components/TeamLogo';
 import { useAuth } from '../context/AuthContext';
 import { CustomModule, deleteModule, loadModules } from '../data/modules';
 import { MODULES as DEFAULT_MODULES } from '../utils/modules-layout';
@@ -83,7 +84,10 @@ export default function ModuliIndex() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.container}>
         <View style={styles.topBar}>
-          <Text style={styles.title}>Moduli</Text>
+          <View style={styles.topBarTitleRow}>
+            <TeamLogo size={28} style={{ marginRight: 8 }} />
+            <Text style={styles.title}>Moduli</Text>
+          </View>
           <Pressable style={styles.createBtn} onPress={createNew}>
             <Text style={styles.createBtnText}>＋ Crea nuovo modulo</Text>
           </Pressable>
@@ -138,6 +142,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 16, paddingTop: 8, backgroundColor: '#fff' },
 
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  topBarTitleRow: { flexDirection: 'row', alignItems: 'center' },
   title: { fontSize: 22, fontWeight: '800' },
   createBtn: { backgroundColor: '#1b7f3b', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
   createBtnText: { color: 'white', fontWeight: '800' },

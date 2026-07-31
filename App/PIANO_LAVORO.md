@@ -164,6 +164,13 @@ ancora testato in produzione).
   fissa sotto come prima. Nessun impatto nativo: su telefono, dove il contenuto già ci stava, lo
   scroll semplicemente non serve (nessun overflow da scrollare).
 
+### Logo squadra in ogni schermata (2026-07-31)
+Richiesta di Francesco: il logo squadra (caricato dall'Admin) deve comparire nell'header di tutte le
+pagine dell'app, se caricato. Fatto letteralmente ovunque tranne login/registrazione/onboarding
+(nessuna squadra ancora selezionata) e la pagina d'errore 404 — vedi `App/CLAUDE.md`, sezione "Logo
+squadra in ogni schermata", per l'elenco completo e i dettagli tecnici (cache in memoria per non
+rifare la query a ogni schermata, invalidata quando l'Admin carica un nuovo logo).
+
 ## Completato
 
 ### 2026-07-30 — Staff in sola consultazione per chi non è Admin

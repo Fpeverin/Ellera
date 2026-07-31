@@ -6,6 +6,7 @@ import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'r
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import TeamLogo from '../../../components/TeamLogo';
 import { useAuth } from '../../../context/AuthContext';
 import {
   checkLineupAgainstRules,
@@ -411,6 +412,7 @@ export default function Schieramento() {
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Text style={styles.sectionTitle}>Modulo</Text>
               {liveMode ? <Text style={{ color: '#b45309', fontWeight: '800' }}>LIVE: solo drag posizioni</Text> : null}
+              <TeamLogo size={24} />
             </View>
             <View style={[styles.moduleSelectRow, (liveMode || readOnly) && { opacity: 0.6 }]}>
               <Picker

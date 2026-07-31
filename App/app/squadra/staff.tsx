@@ -23,6 +23,7 @@ import {
 import { loadOrgMembers, removeMember, setMemberLink, updateMemberRole, type OrgMember, type Role } from '../data/staff';
 import { loadStaffMembers, type StaffMember } from '../data/staffRoster';
 import { usePlayers } from '../hooks/usePlayers';
+import { invalidateOrgLogoCache } from '../hooks/useOrgLogo';
 
 const DEFAULT_NOTIFY_CONFIG: NotifyConfig = { mode: 'admin_only', staffIds: [] };
 
@@ -108,6 +109,7 @@ export default function AdminScreen() {
     try {
       const publicUrl = await uploadOrgLogo(res.assets[0].uri);
       setLogoUrl(publicUrl);
+      invalidateOrgLogoCache();
     } catch {
       Alert.alert('Errore', 'Impossibile salvare il logo.');
     } finally {

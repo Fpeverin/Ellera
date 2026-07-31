@@ -5,6 +5,7 @@ import { Dimensions, Modal, Pressable, StyleSheet, Text, TextInput, View } from 
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import TeamLogo from '../components/TeamLogo';
 import { loadModules, saveModule } from '../data/modules';
 import { MODULES as DEFAULT_MODULES, type FieldSlot } from '../utils/modules-layout';
 
@@ -189,10 +190,13 @@ export default function ModuleEditor() {
         <View style={styles.container}>
           {/* SINISTRA - Campo */}
           <View style={styles.leftCol}>
-            <Text style={styles.title}>
-              {isEditing ? (title || 'Modifica Modulo') : 'Nuovo Modulo'}
-              {isReadOnly ? ' (solo lettura)' : ''}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TeamLogo size={24} style={{ marginRight: 6 }} />
+              <Text style={styles.title}>
+                {isEditing ? (title || 'Modifica Modulo') : 'Nuovo Modulo'}
+                {isReadOnly ? ' (solo lettura)' : ''}
+              </Text>
+            </View>
 
             <View
               ref={fieldRef}

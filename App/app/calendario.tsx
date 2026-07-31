@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EventEditorModal from './components/EventEditorModal';
+import TeamLogo from './components/TeamLogo';
 import { useAuth } from './context/AuthContext';
 import { CalendarEvent, loadEvents } from './data/events';
 
@@ -28,7 +29,10 @@ export default function Calendario() {
     <SafeAreaView style={styles.container} edges={['top','bottom']}>
       {/* Top bar coerente con le altre pagine */}
       <View style={styles.topBar}>
-        <Text style={styles.title}>Calendario</Text>
+        <View style={styles.topBarTitleRow}>
+          <TeamLogo size={28} style={{ marginRight: 8 }} />
+          <Text style={styles.title}>Calendario</Text>
+        </View>
         {!readOnly && (
           <Pressable style={styles.createBtn} onPress={() => setShowModal(true)}>
             <Text style={styles.createBtnText}>＋ Nuovo</Text>
@@ -73,6 +77,7 @@ export default function Calendario() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 12 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 10 },
+  topBarTitleRow: { flexDirection: 'row', alignItems: 'center' },
   title: { fontSize: 22, fontWeight: '800' },
   createBtn: { backgroundColor: '#1b7f3b', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
   createBtnText: { color: '#fff', fontWeight: '800' },

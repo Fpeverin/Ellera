@@ -49,6 +49,7 @@ import {
 } from '../data/playerEdits';
 import { usePlayers } from '../hooks/usePlayers';
 import DatePickerField from '../components/DatePickerField';
+import TeamLogo from '../components/TeamLogo';
 
 const ROLE_LABELS: Record<Role, string> = {
   PORTIERE: 'Portiere',
@@ -584,6 +585,9 @@ export default function PlayerDetail() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }} edges={['top','bottom']}>
       {/* HEADER FISSO CON OMBRA (safe area top) */}
       <View style={[styles.fixedHeader, { paddingTop: 16 }]}>
+        <View style={styles.headerTopRow}>
+          <TeamLogo size={28} />
+        </View>
         <View style={styles.headerRow}>
           {photo ? (
             <Image source={{ uri: photo }} style={styles.photo} />
@@ -918,6 +922,7 @@ const styles = StyleSheet.create({
     elevation: 6,
     shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
   },
+  headerTopRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 4 },
   headerRow: { flexDirection: 'row', alignItems: 'center' },
 
   quickStatsRow: { flexDirection: 'row', alignItems: 'stretch', justifyContent: 'flex-start', marginTop: 10, gap: 8 },

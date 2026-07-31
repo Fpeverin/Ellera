@@ -3,6 +3,7 @@ import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import TeamLogo from '../../../components/TeamLogo';
 import { useAuth } from '../../../context/AuthContext';
 import { CalendarEvent, loadEvents, saveEvents } from '../../../data/events';
 import { loadShowTrainingAttendance } from '../../../data/organization';
@@ -111,7 +112,10 @@ export default function AllenamentoDettaglio() {
   return (
     <SafeAreaView style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Allenamento</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Allenamento</Text>
+          <TeamLogo size={28} />
+        </View>
         <View style={styles.eventInfo}>
           <Text style={styles.eventDate}>📅 {event.date}</Text>
           <Text style={styles.eventTime}>🕐 {event.time}</Text>
@@ -229,7 +233,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#f8fafc' },
   
   header: { marginBottom: 20 },
-  title: { fontSize: 28, fontWeight: '800', color: '#1e293b', marginBottom: 12 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  title: { fontSize: 28, fontWeight: '800', color: '#1e293b' },
   eventInfo: { gap: 8 },
   eventDate: { fontSize: 16, color: '#475569', fontWeight: '500' },
   eventTime: { fontSize: 16, color: '#475569', fontWeight: '500' },

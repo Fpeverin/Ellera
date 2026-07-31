@@ -20,6 +20,7 @@ import {
   type CompetitionRules,
 } from '../../../data/competitionRules';
 import ConvocatiPlayersModal from '../../../components/partite/ConvocatiPlayersModal';
+import TeamLogo from '../../../components/TeamLogo';
 import { loadConvocazione, saveConvocatiPlayerIds } from '../../../data/convocazione';
 import { loadEvents, saveEvents } from '../../../data/events';
 import {
@@ -1099,6 +1100,9 @@ const yellowCount = new Map<string, number>();
   return (
     <SafeAreaView style={[styles.safeArea, { paddingTop: insets.top, paddingBottom: insets.bottom }]} edges={['top', 'bottom']}>
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 24 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 12, paddingTop: 8 }}>
+          <TeamLogo size={26} />
+        </View>
         {/* HEADER MATCH */}
         <View style={styles.scoreBoard}>
           <View style={[styles.teamSection, ourSide === 'HOME' && styles.ourTeam]}>
