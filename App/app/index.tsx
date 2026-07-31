@@ -1,9 +1,8 @@
 // app/index.tsx
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Alert, Modal, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import EventEditorModal from './components/EventEditorModal';
 import { useAuth } from './context/AuthContext';
 import { CalendarEvent, loadEvents } from './data/events';
 import { scheduleEventReminders } from './utils/eventReminders';
@@ -30,12 +29,18 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function Dashboard() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 700;
   const { session, membership, signOut } = useAuth();
   const isGiocatore = membership?.role === 'giocatore';
 
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [showModal, setShowModal] = useState(false);
-  const [initialDateForModal, setInitialDateForModal] = useState<string | undefined>(undefined);
+  const [viewMonth, setViewMonth] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d;
+  });
+  const [dayPickerEvents, setDayPickerEvents] = useState<CalendarEvent[] | null>(null);
 
   const refreshEvents = async () => {
     const list = await loadEvents();
@@ -120,11 +125,36 @@ export default function Dashboard() {
     </View>
   );
 
+  /* ------------------------- Navigazione mese ------------------------- */
+  const shiftMonth = (delta: number) => {
+    setViewMonth((prev) => {
+      const next = new Date(prev);
+      next.setDate(1);
+      next.setMonth(next.getMonth() + delta);
+      return next;
+    });
+  };
+  const goToCurrentMonth = () => {
+    const d = new Date();
+    d.setDate(1);
+    setViewMonth(d);
+  };
+  const isCurrentMonthShown = fmtYMDLocal(viewMonth).slice(0, 7) === fmtYMDLocal(new Date()).slice(0, 7);
+
+  const handleDayPress = (list: CalendarEvent[]) => {
+    if (list.length === 0) return;
+    if (list.length === 1) {
+      goToEvent(list[0]);
+      return;
+    }
+    setDayPickerEvents(list);
+  };
+
   /* ------------------------- Griglia calendario (6x7) ------------------------- */
   const renderMonthGrid = () => {
     const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
+    const currentMonth = viewMonth.getMonth();
+    const currentYear = viewMonth.getFullYear();
     const firstDay = new Date(currentYear, currentMonth, 1);
     const startDate = new Date(firstDay);
     // settimana che inizia di Lunedì
@@ -148,15 +178,12 @@ export default function Dashboard() {
         <Pressable
           key={dateStr}
           style={[styles.dayCell, !isCurrentMonth && styles.otherMonth, isToday && styles.todayCell]}
-          onPress={() => {
-            if (isGiocatore) return;
-            setInitialDateForModal(dateStr);
-            setShowModal(true);
-          }}
+          onPress={() => handleDayPress(list)}
         >
           <Text
             style={[
               styles.dayNumber,
+              isWide && styles.dayNumberWide,
               !isCurrentMonth && styles.otherMonthText,
               isToday && styles.todayNumber,
             ]}
@@ -167,14 +194,14 @@ export default function Dashboard() {
           <View style={styles.pillsWrap}>
             {topTwo.map((ev) => (
               <View key={ev.id} style={[styles.pill, { backgroundColor: pillColor(ev) }]}>
-                <Text style={styles.pillText} numberOfLines={1}>
+                <Text style={[styles.pillText, isWide && styles.pillTextWide]} numberOfLines={1}>
                   {formatEventPill(ev)}
                 </Text>
               </View>
             ))}
             {more > 0 && (
               <View style={[styles.pill, styles.morePill]}>
-                <Text style={[styles.pillText, { color: '#111' }]}>+{more}</Text>
+                <Text style={[styles.pillText, isWide && styles.pillTextWide, { color: '#111' }]}>+{more}</Text>
               </View>
             )}
           </View>
@@ -186,6 +213,18 @@ export default function Dashboard() {
 
     return cells;
   };
+
+  /* ------------------------- Swipe orizzontale tra mesi ------------------------- */
+  const monthPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_evt, gesture) =>
+        Math.abs(gesture.dx) > 20 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 2,
+      onPanResponderRelease: (_evt, gesture) => {
+        if (gesture.dx < -50) shiftMonth(1);
+        else if (gesture.dx > 50) shiftMonth(-1);
+      },
+    })
+  ).current;
 
   const handleAccountPress = () => {
     const roleLabel = membership ? ROLE_LABELS[membership.role] ?? membership.role : '';
@@ -230,7 +269,7 @@ export default function Dashboard() {
           </Pressable>
         </View>
 
-        <View style={styles.todayTomorrowSection}>
+        <View style={[styles.todayTomorrowSection, isWide && styles.calendarSectionWide]}>
           <Text style={styles.sectionTitle}>Oggi e domani</Text>
           <View style={styles.todayTomorrowCard}>
             {renderDayBlock('Oggi', todayEvents)}
@@ -239,11 +278,24 @@ export default function Dashboard() {
           </View>
         </View>
 
-        <View style={styles.calendarSection}>
+        <View style={[styles.calendarSection, isWide && styles.calendarSectionWide]}>
           <View style={styles.miniCalendar}>
-            <Text style={styles.monthTitle}>
-              {new Date().toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
-            </Text>
+            <View style={styles.monthNavRow}>
+              <Pressable style={styles.monthNavBtn} onPress={() => shiftMonth(-1)} hitSlop={8}>
+                <Text style={styles.monthNavBtnText}>‹</Text>
+              </Pressable>
+              <Text style={styles.monthTitle}>
+                {viewMonth.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+              </Text>
+              <Pressable style={styles.monthNavBtn} onPress={() => shiftMonth(1)} hitSlop={8}>
+                <Text style={styles.monthNavBtnText}>›</Text>
+              </Pressable>
+            </View>
+            {!isCurrentMonthShown && (
+              <Pressable style={styles.todayLinkBtn} onPress={goToCurrentMonth}>
+                <Text style={styles.todayLinkText}>Torna a oggi</Text>
+              </Pressable>
+            )}
 
             {/* Giorni settimana */}
             <View style={styles.weekDays}>
@@ -254,8 +306,8 @@ export default function Dashboard() {
               ))}
             </View>
 
-            {/* Griglia 6x7 */}
-            <View style={styles.daysGrid}>{renderMonthGrid()}</View>
+            {/* Griglia 6x7 (swipe orizzontale per cambiare mese) */}
+            <View style={styles.daysGrid} {...monthPanResponder.panHandlers}>{renderMonthGrid()}</View>
 
             <Text style={styles.calendarInfo}>
               {events.length} eventi totali ·{' '}
@@ -299,14 +351,37 @@ export default function Dashboard() {
       {/* Spazio per la barra di navigazione del sistema */}
       <SafeAreaView edges={['bottom']} />
 
-      {/* Modale Nuovo evento (solo clic sul calendario, con data preselezionata) */}
-      <EventEditorModal
-        visible={showModal}
-        onClose={() => setShowModal(false)}
-        onSaved={refreshEvents}
-        initialDate={initialDateForModal}
-      />
-
+      {/* Scelta evento quando un giorno del calendario ne ha più di uno */}
+      <Modal
+        visible={!!dayPickerEvents}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDayPickerEvents(null)}
+      >
+        <Pressable style={styles.dayPickerOverlay} onPress={() => setDayPickerEvents(null)}>
+          <View style={styles.dayPickerCard}>
+            <Text style={styles.dayPickerTitle}>Eventi del giorno</Text>
+            {dayPickerEvents?.map((ev) => (
+              <Pressable
+                key={ev.id}
+                style={styles.dayPickerItem}
+                onPress={() => {
+                  setDayPickerEvents(null);
+                  goToEvent(ev);
+                }}
+              >
+                <View style={[styles.dayBlockDot, { backgroundColor: pillColor(ev) }]} />
+                <Text style={styles.dayPickerItemText} numberOfLines={1}>
+                  {formatEventPill(ev)}
+                </Text>
+              </Pressable>
+            ))}
+            <Pressable style={styles.dayPickerCancel} onPress={() => setDayPickerEvents(null)}>
+              <Text style={styles.dayPickerCancelText}>Annulla</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -371,6 +446,9 @@ const styles = StyleSheet.create({
 
   // Calendario
   calendarSection: { paddingHorizontal: 16, marginBottom: 24 },
+  // Su schermi larghi (webapp desktop): contenuto centrato a larghezza massima leggibile,
+  // invece della griglia mensile che si allarga a celle enormi
+  calendarSectionWide: { width: '100%', maxWidth: 560, alignSelf: 'center' },
   miniCalendar: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -381,15 +459,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
+  monthNavRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  monthNavBtn: { paddingHorizontal: 14, paddingVertical: 4 },
+  monthNavBtnText: { fontSize: 22, fontWeight: '700', color: '#1b7f3b' },
   monthTitle: {
+    flex: 1,
     fontSize: 18,
     fontWeight: '700',
     color: '#1a202c',
     textAlign: 'center',
-    marginBottom: 16,
     textTransform: 'capitalize',
   },
-  weekDays: { flexDirection: 'row', marginBottom: 8 },
+  todayLinkBtn: { alignSelf: 'center', marginTop: 4, marginBottom: 8 },
+  todayLinkText: { fontSize: 13, fontWeight: '700', color: '#1b7f3b' },
+  weekDays: { flexDirection: 'row', marginBottom: 8, marginTop: 12 },
   weekDay: {
     flex: 1,
     textAlign: 'center',
@@ -408,6 +491,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   dayNumber: { fontSize: 12, color: '#1a202c', fontWeight: '700' },
+  dayNumberWide: { fontSize: 14 },
   todayCell: { borderWidth: 1, borderColor: '#1b7f3b', borderRadius: 8 },
   todayNumber: { color: '#1b7f3b' },
   otherMonth: { opacity: 0.35 },
@@ -416,6 +500,7 @@ const styles = StyleSheet.create({
   pillsWrap: { marginTop: 4, gap: 2 },
   pill: { borderRadius: 4, paddingHorizontal: 4, paddingVertical: 2, minHeight: 18 },
   pillText: { color: 'white', fontSize: 10, fontWeight: '700' },
+  pillTextWide: { fontSize: 11 },
   morePill: { backgroundColor: '#e5e7eb' },
 
   calendarInfo: { fontSize: 14, color: '#666', textAlign: 'center', marginTop: 8 },
@@ -442,4 +527,20 @@ const styles = StyleSheet.create({
   },
   actionIcon: { fontSize: 24, marginBottom: 8 },
   actionText: { fontSize: 14, fontWeight: '600', color: '#1a202c', textAlign: 'center' },
+
+  // Modale scelta evento (giorno con più eventi)
+  dayPickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 },
+  dayPickerCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16 },
+  dayPickerTitle: { fontSize: 16, fontWeight: '700', color: '#1a202c', marginBottom: 8, textAlign: 'center' },
+  dayPickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  dayPickerItemText: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1a202c' },
+  dayPickerCancel: { alignItems: 'center', paddingVertical: 14, marginTop: 4 },
+  dayPickerCancelText: { fontSize: 15, fontWeight: '700', color: '#64748b' },
 });

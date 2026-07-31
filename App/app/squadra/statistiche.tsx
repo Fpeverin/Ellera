@@ -79,16 +79,10 @@ type Totals = {
   subbedOn: number;
   yellows: number;
   reds: number;
-  tr_total: number;
-  tr_present: number;
-  tr_absent: number;
-  tr_inj: number;
-  tr_diff: number;
 };
 
 const EMPTY: Totals = {
   minutes: 0, goals: 0, goalsConceded: 0, starts: 0, bench: 0, notCalled: 0, subbedOff: 0, subbedOn: 0, yellows: 0, reds: 0,
-  tr_total: 0, tr_present: 0, tr_absent: 0, tr_inj: 0, tr_diff: 0,
 };
 
 export default function StatisticheSquadra() {
@@ -97,7 +91,6 @@ export default function StatisticheSquadra() {
   const [loading, setLoading] = useState(false);
   const [competitions, setCompetitions] = useState<string[]>(['Tutte']);
   const [selected, setSelected] = useState<string>('Tutte');
-  const [showTrainings, setShowTrainings] = useState<boolean>(false);
   const [perPlayerTotals, setPerPlayerTotals] = useState<Record<string, Record<string, Totals>>>({});
   const [photos, setPhotos] = useState<Record<string, string | null>>({});
 
@@ -288,11 +281,6 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
             subbedOn: t.subbedOn + (src.subbedOn || 0),
             yellows: t.yellows + (src.yellows || 0),
             reds: t.reds + (src.reds || 0),
-            tr_total: t.tr_total + (src.tr_total || 0),
-            tr_present: t.tr_present + (src.tr_present || 0),
-            tr_absent: t.tr_absent + (src.tr_absent || 0),
-            tr_inj: t.tr_inj + (src.tr_inj || 0),
-            tr_diff: t.tr_diff + (src.tr_diff || 0),
           });
 
           const delta: Partial<Totals> = {
@@ -313,33 +301,6 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
 
           const curAll = ensure(id, allCompKey);
           acc[id][allCompKey] = add(curAll)(delta);
-        }
-      }
-
-      // === ALLENAMENTI ===
-      const trainings = list
-        .filter(ev => ev.type === 'ALLENAMENTO')
-        .sort((a, b) => `${a.date} ${a.time || '00:00'}`.localeCompare(`${b.date} ${b.time || '00:00'}`));
-
-      for (const ev of trainings) {
-        for (const p of allPlayers) {
-          const id = p.id;
-          const s = (ev as any).presenze?.[id];
-          let status: 'presente' | 'assente' | 'infortunato' | 'differenziato' | undefined;
-          if (typeof s === 'boolean') status = s ? 'presente' : 'assente'; else status = s;
-
-          const ensure = (pid: string, key: string) => {
-            acc[pid] = acc[pid] || {};
-            acc[pid]['__ALL__'] = acc[pid]['__ALL__'] || { ...EMPTY };
-            return acc[pid]['__ALL__'];
-          };
-          const cur = ensure(id, '__ALL__');
-          const next: Partial<Totals> = { tr_total: cur.tr_total + 1 };
-          if (status === 'presente') next.tr_present = cur.tr_present + 1;
-          else if (status === 'assente') next.tr_absent = cur.tr_absent + 1;
-          else if (status === 'infortunato') next.tr_inj = cur.tr_inj + 1;
-          else if (status === 'differenziato') next.tr_diff = cur.tr_diff + 1;
-          acc[id]['__ALL__'] = { ...cur, ...next };
         }
       }
 
@@ -401,7 +362,6 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
         'Gol',               // intestazione semplificata
         '🟨','🟥',
         'Min','Titolare','Panchina','Non conv.','Uscito','Entrato',
-        ...(showTrainings ? ['All. tot','Pres.','Ass.','Inj','Diff','% Pres'] : [])
       ].join(';');
 
       const key = (activeCompetition ?? '__ALL__');
@@ -409,7 +369,6 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const rows = allPlayers.map(p => {
         const map = perPlayerTotals[p.id] || {};
         const s = map[key] || EMPTY;
-        const pct = s.tr_total > 0 ? Math.round((s.tr_present / s.tr_total) * 100) : 0;
 
         const golUnico = p.role === 'PORTIERE' ? s.goalsConceded : s.goals;
 
@@ -420,9 +379,6 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
           s.minutes, s.starts, s.bench, s.notCalled, s.subbedOff, s.subbedOn,
         ];
 
-        if (showTrainings) {
-          base.push(s.tr_total, s.tr_present, s.tr_absent, s.tr_inj, s.tr_diff, `${pct}%`);
-        }
         return base.join(';');
       });
 
@@ -448,14 +404,12 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       return y >= pol.first && ((y - pol.first) % pol.step === 0);
     };
 
-    const baseHeaders = [
+    const headers = [
       'Giocatore',
       'Gol',
       '🟨','🟥',
       'Min','Titolare','Panchina','Non conv.','Uscito','Entrato',
     ];
-    const trHeaders = showTrainings ? ['All. tot','Pres.','Ass.','Inj','Diff','% Pres'] : [];
-    const headers = [...baseHeaders, ...trHeaders];
 
     const rowsHtml = allPlayers
       .slice()
@@ -466,7 +420,6 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       })
       .map(p => {
         const s = (perPlayerTotals[p.id]?.[key] || EMPTY);
-        const pct = s.tr_total > 0 ? Math.round((s.tr_present / s.tr_total) * 100) : 0;
         const golUnico = p.role === 'PORTIERE' ? s.goalsConceded : s.goals;
 
         const base = [
@@ -475,8 +428,7 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
           s.yellows, s.reds,
           s.minutes, s.starts, s.bench, s.notCalled, s.subbedOff, s.subbedOn,
         ];
-        const train = showTrainings ? [s.tr_total, s.tr_present, s.tr_absent, s.tr_inj, s.tr_diff, `${pct}%`] : [];
-        const cells = [...base, ...train].map(v => `<td>${esc(v)}</td>`).join('');
+        const cells = base.map(v => `<td>${esc(v)}</td>`).join('');
         const hlClass = shouldHL(s.yellows) ? ' class="hl"' : '';
         return `<tr${hlClass}>${cells}</tr>`;
       })
@@ -552,12 +504,6 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
             );
           })}
         </ScrollView>
-        
-        <Pressable onPress={() => setShowTrainings(v => !v)} style={[styles.toggleBtn, showTrainings && styles.toggleBtnActive]}>
-          <Text style={[styles.toggleText, showTrainings && styles.toggleTextActive]}>
-            {showTrainings ? '✓ Allenamenti' : 'Allenamenti'}
-          </Text>
-        </Pressable>
       </View>
 
       {loading && (
@@ -610,18 +556,6 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
                     </View>
                   </View>
                   
-                  {/* Gruppo Allenamenti */}
-                  {showTrainings && (
-                    <View style={[styles.headerGroup, { width: 280 }]}> {/* 4 celle × 70 = 280 */}
-                      <Text style={styles.groupTitle}>Allenamenti</Text>
-                      <View style={styles.headerRow}>
-                        <View style={styles.headerCell}><Text style={styles.headerText}>Tot</Text></View>
-                        <View style={styles.headerCell}><Text style={styles.headerText}>Pre</Text></View>
-                        <View style={styles.headerCell}><Text style={styles.headerText}>Ass</Text></View>
-                        <View style={styles.headerCell}><Text style={styles.headerText}>%</Text></View>
-                      </View>
-                    </View>
-                  )}
                 </View>
               </ScrollView>
             </View>
@@ -683,7 +617,6 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
                     const map = perPlayerTotals[p.id] || {};
                     const key = (activeCompetition ?? '__ALL__');
                     const s = map[key] || EMPTY;
-                    const pct = s.tr_total > 0 ? Math.round((s.tr_present / s.tr_total) * 100) : 0;
                     const highlight = shouldHighlightRow(s.yellows);
                     const golUnico = p.role === 'PORTIERE' ? s.goalsConceded : s.goals;
                     
@@ -709,16 +642,6 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
                           <Text style={styles.dataCell}>{s.subbedOn}</Text>
                           <Text style={styles.dataCell}>{s.subbedOff}</Text>
                         </View>
-                        
-                        {/* Allenamenti */}
-                        {showTrainings && (
-                          <View style={styles.dataGroup}>
-                            <Text style={styles.dataCell}>{s.tr_total}</Text>
-                            <Text style={styles.dataCell}>{s.tr_present}</Text>
-                            <Text style={styles.dataCell}>{s.tr_absent}</Text>
-                            <Text style={[styles.dataCell, styles.percentStat]}>{pct}%</Text>
-                          </View>
-                        )}
                       </View>
                     );
                   })}

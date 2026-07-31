@@ -72,3 +72,17 @@ export async function saveStaffRoleOptions(roles: string[]): Promise<void> {
   const { error } = await supabase.from('organizations').update({ staff_roles: roles }).eq('id', orgId);
   if (error) throw error;
 }
+
+/** Mostra/nasconde il registro presenze quando si apre un allenamento dal calendario (data/ora/luogo/tema restano sempre visibili). */
+export async function loadShowTrainingAttendance(): Promise<boolean> {
+  const orgId = getCurrentOrgId();
+  const { data, error } = await supabase.from('organizations').select('show_training_attendance').eq('id', orgId).maybeSingle();
+  if (error) throw error;
+  return data?.show_training_attendance ?? true;
+}
+
+export async function saveShowTrainingAttendance(value: boolean): Promise<void> {
+  const orgId = getCurrentOrgId();
+  const { error } = await supabase.from('organizations').update({ show_training_attendance: value }).eq('id', orgId);
+  if (error) throw error;
+}

@@ -2,11 +2,18 @@
 import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { loadPendingInvites, revokeInvite, type PendingInvite } from '../data/invites';
-import { loadOrgLogoUrl, loadStaffRoleOptions, saveStaffRoleOptions, uploadOrgLogo } from '../data/organization';
+import {
+  loadOrgLogoUrl,
+  loadShowTrainingAttendance,
+  loadStaffRoleOptions,
+  saveShowTrainingAttendance,
+  saveStaffRoleOptions,
+  uploadOrgLogo,
+} from '../data/organization';
 import { loadOrgMembers, removeMember, setMemberLink, updateMemberRole, type OrgMember, type Role } from '../data/staff';
 import { loadStaffMembers, type StaffMember } from '../data/staffRoster';
 import { usePlayers } from '../hooks/usePlayers';
@@ -27,6 +34,8 @@ export default function AdminScreen() {
   const [staffRoles, setStaffRoles] = useState<string[]>([]);
   const [newStaffRole, setNewStaffRole] = useState('');
   const [rolesBusy, setRolesBusy] = useState(false);
+  const [showTrainingAttendance, setShowTrainingAttendance] = useState(true);
+  const [attendanceBusy, setAttendanceBusy] = useState(false);
 
   const [confirmRemove, setConfirmRemove] = useState<OrgMember | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState<PendingInvite | null>(null);
@@ -41,18 +50,20 @@ export default function AdminScreen() {
     if (!membership) return;
     setLoading(true);
     try {
-      const [m, p, logo, roles, staff] = await Promise.all([
+      const [m, p, logo, roles, staff, showAttendance] = await Promise.all([
         loadOrgMembers(membership.orgId),
         loadPendingInvites(membership.orgId),
         loadOrgLogoUrl(),
         loadStaffRoleOptions(),
         loadStaffMembers(),
+        loadShowTrainingAttendance(),
       ]);
       setMembers(m);
       setPending(p);
       setLogoUrl(logo);
       setStaffRoles(roles);
       setStaffMembers(staff);
+      setShowTrainingAttendance(showAttendance);
     } catch {
       Alert.alert('Errore', 'Impossibile caricare i dati dello staff.');
     } finally {
@@ -125,6 +136,19 @@ export default function AdminScreen() {
       Alert.alert('Errore', 'Impossibile rimuovere il ruolo.');
     } finally {
       setRolesBusy(false);
+    }
+  };
+
+  const handleToggleTrainingAttendance = async (value: boolean) => {
+    setAttendanceBusy(true);
+    setShowTrainingAttendance(value);
+    try {
+      await saveShowTrainingAttendance(value);
+    } catch {
+      setShowTrainingAttendance(!value);
+      Alert.alert('Errore', 'Impossibile salvare l\'impostazione.');
+    } finally {
+      setAttendanceBusy(false);
     }
   };
 
@@ -237,6 +261,21 @@ export default function AdminScreen() {
             <Pressable style={styles.smallBtn} onPress={handleAddStaffRole} disabled={rolesBusy}>
               <Text style={styles.smallBtnText}>+ Aggiungi</Text>
             </Pressable>
+          </View>
+
+          <View style={styles.switchRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.configLabel}>Registro presenze allenamenti</Text>
+              <Text style={styles.cardHint}>
+                Se disattivato, aprendo un allenamento dal calendario si vede solo data/ora/luogo/tema
+                (niente registro presenze per giocatore).
+              </Text>
+            </View>
+            <Switch
+              value={showTrainingAttendance}
+              onValueChange={handleToggleTrainingAttendance}
+              disabled={attendanceBusy}
+            />
           </View>
         </View>
 
@@ -455,6 +494,15 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f1f5f9',
   },
   addRow: { flexDirection: 'row', gap: 8, marginTop: 10, alignItems: 'center' },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
   smallBtn: { backgroundColor: '#1b7f3b', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8 },
   smallBtnText: { color: 'white', fontWeight: '700', fontSize: 13 },
 

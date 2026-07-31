@@ -21,20 +21,6 @@ prossima idea non appena viene in mente.
 
 ## Backlog
 
-- **Calendario mensile in Dashboard — due migliorie richieste da Francesco (2026-07-30)**:
-  1. **Disattivare il tap su un giorno per creare un evento** (oggi in `app/index.tsx`, per Admin/
-     Staff toccare una cella della griglia apre subito la creazione di un nuovo evento in quella
-     data) — da togliere/rendere non il gesto principale.
-  2. **Scorrimento touch tra mesi** (swipe a destra/sinistra per vedere il mese precedente/successivo):
-     oggi la griglia mensile (`renderMonthGrid` in `app/index.tsx`) mostra **solo il mese corrente**,
-     non esiste nessuna navigazione tra mesi (né frecce né altro) — va introdotto lo stato del mese
-     visualizzato oltre al gesto di swipe.
-  3. **Layout da rifare per la webapp** (segnalato da Francesco il 2026-07-31, provando
-     `ellera.vercel.app`): Dashboard e Calendario sono le uniche schermate segnalate come rotte/brutte
-     sul web — pensate per telefono, non riviste per uno schermo largo. Tattiche/Formazioni invece
-     vanno già bene così. Da riprendere insieme ai due punti sopra quando si mette mano a questa
-     schermata.
-
 - **Sondaggi staff → giocatori**: uno dello staff invia un sondaggio ai giocatori (stato di salute,
   livello di allenamento, quanto si sentono stanchi, infortuni, assenze); le risposte devono generare
   una notifica push allo staff. **Nota tecnica**: è una notifica *tra utenti diversi* (il giocatore che
@@ -102,10 +88,45 @@ Vedi la decisione originale del 2026-07-30 più sotto in Completato una volta ch
     naturale/scopribile. Aggiunto un bottone "⋮" visibile solo su web (`Platform.OS === 'web'`)
     accanto a ogni giocatore che apre lo stesso menu con un click — nessuna modifica al
     comportamento nativo (long-press resta com'era su Android).
-  - ❌ → **segnalato, non ancora risolto**: layout Dashboard/Calendario da rifare per il web (vedi
-    Backlog qui sopra).
+  - ❌ → **fix fatto** (vedi voce "Allenamenti solo eventi + piano Calendario" qui sotto): layout
+    Dashboard/Calendario rifatto per il web, insieme alle due migliorie calendario già in programma.
 - **Da verificare ancora**: "Aggiungi a Home" da Safari iPhone; export/import Excel
   Partite/Allenamenti (solo Rosa testata finora).
+
+### Allenamenti solo eventi + Calendario/Dashboard rifatti (avviata 2026-07-31)
+Su richiesta di Francesco: gli allenamenti non hanno più una sezione presenze dedicata nella scheda
+giocatore/Statistiche, e il calendario Dashboard è stato rifatto (le due migliorie già in Backlog +
+il fix del layout webapp segnalato sopra). Stato: **implementato, da verificare** (Francesco non ha
+ancora testato in produzione).
+- **Scheda giocatore** (`app/player/[id].tsx`): rimosso il tab "Allenamenti" (statistiche presenze,
+  trend, riepilogo mensile) e la card "Presenze" nell'header — il tab "Infortuni" resta invariato
+  (stessa fonte dati `trainings`, usata solo per le strisce di infortunio consecutive).
+- **Statistiche squadra** (`app/squadra/statistiche.tsx`): rimosso del tutto il blocco Allenamenti
+  (toggle, colonne a schermo, export CSV/PDF) — non più configurabile, tolto definitivamente.
+- **Registro presenze allenamento — ora configurabile dall'Admin**: nuova colonna
+  `organizations.show_training_attendance` (booleana, default **attivo** —
+  `App/supabase/18_schema_training_attendance_toggle.sql`, stesso pattern di `staff_roles`, già
+  admin-only via la policy di scrittura esistente su `organizations`). Nuovo switch in Gestione
+  Squadra → Admin → Configurazioni ("Registro presenze allenamenti"). Se disattivato, aprendo un
+  allenamento dal calendario (`app/eventi/allenamento/[id]/index.tsx`) si vede solo data/ora/luogo/
+  tema — niente statistiche presenze/lista giocatori/modale stato. I 3 punti di navigazione verso
+  quella schermata (Dashboard, Calendario, Allenamenti) sono rimasti invariati: cambia solo cosa si
+  vede una volta apertA.
+- **Dashboard/Calendario** (`app/index.tsx`):
+  1. Tolto il tap-per-creare-evento su una cella della griglia mensile.
+  2. Toccare un giorno **con eventi** apre direttamente l'evento (1 solo) o una piccola scelta (più
+     di uno); giorno vuoto → nessuna azione, per tutti i ruoli (non solo Giocatore, come prima).
+  3. **Navigazione tra mesi**: freccette ‹ › sempre visibili (utili anche da mouse/webapp) + swipe
+     orizzontale sulla griglia, più un link "Torna a oggi" quando si naviga fuori dal mese corrente.
+  4. **Layout responsive**: su schermi larghi (≥700px, stesso breakpoint già usato in
+     `app/squadra/index.tsx`) il blocco Oggi/Domani e il calendario mensile restano centrati a una
+     larghezza massima invece di allargarsi a celle enormi; testo dei numeri/pillole leggermente più
+     grande.
+- **Vista Calendario** (`app/calendario.tsx`): stesso trattamento responsive (lista centrata a
+  larghezza massima su schermi larghi) — il bottone "＋ Nuovo" per creare un evento resta (non è
+  quello disattivato al punto sopra, che riguardava solo il tap sulla griglia Dashboard).
+- **Non incluso in questo giro**: reattività al resize della finestra per lavagna tattica/moduli
+  (vedi voce a parte nel Backlog qui sopra — cosa diversa, non toccata).
 
 ## Completato
 

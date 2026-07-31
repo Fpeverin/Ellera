@@ -77,7 +77,7 @@ function describeChanges(changes: PlayerEditChanges): string {
 }
 const LAST_TOUCH_KEY = 'app/lastUpdate/touch';
 
-type TabKey = 'PARTITE' | 'ALLENAMENTI' | 'INFORTUNI' | 'ALLEGATI';
+type TabKey = 'PARTITE' | 'INFORTUNI' | 'ALLEGATI';
 type PresenceStatus = 'presente' | 'assente' | 'infortunato' | 'differenziato';
 
 type InjuryRecord = {
@@ -311,29 +311,6 @@ export default function PlayerDetail() {
   const totalReds = useMemo(() => filteredMatches.reduce((s, m) => s + (m.redCards || 0), 0), [filteredMatches]);
 
   const [trainings, setTrainings] = useState<{ date: string; status?: PresenceStatus }[]>([]);
-  const trainingsTotal = trainings.length;
-  const trainingsPresent = trainings.filter(t => t.status === 'presente').length;
-  const trainingsAbsent = trainings.filter(t => t.status === 'assente').length;
-  const trainingsInj = trainings.filter(t => t.status === 'infortunato').length;
-  const trainingsDiff = trainings.filter(t => t.status === 'differenziato').length;
-  const trainingsNoReply = trainings.filter(t => !t.status).length;
-  const presencePct = useMemo(() => trainingsTotal === 0 ? 0 : Math.round((trainingsPresent / trainingsTotal) * 100), [trainingsPresent, trainingsTotal]);
-  const recentTrend = useMemo(() => trainings.slice(-5), [trainings]);
-
-  const monthlySummary = useMemo(() => {
-    const map = new Map<string, { present: number; total: number; inj: number; diff: number; abs: number }>();
-    for (const t of trainings) {
-      const month = (t.date || '').slice(0, 7) || 'N/D';
-      const entry = map.get(month) ?? { present: 0, total: 0, inj: 0, diff: 0, abs: 0 };
-      entry.total += 1;
-      if (t.status === 'presente') entry.present += 1;
-      if (t.status === 'infortunato') entry.inj += 1;
-      if (t.status === 'differenziato') entry.diff += 1;
-      if (t.status === 'assente') entry.abs += 1;
-      map.set(month, entry);
-    }
-    return Array.from(map.entries()).map(([month, v]) => ({ month, ...v })).sort((a, b) => a.month.localeCompare(b.month));
-  }, [trainings]);
 
   const [injuryRecords, setInjuryRecords] = useState<InjuryRecord[]>([]);
   const [injuryTypesMap, setInjuryTypesMap] = useState<StoredInjuryTypeMap>({});
@@ -623,7 +600,6 @@ export default function PlayerDetail() {
 
         {/* Statistiche rapide */}
         <View style={styles.quickStatsRow}>
-          <SmallStatCard title="Presenze" value={`${presencePct}%`} icon="📊" color="#1b7f3b" />
           <SmallStatCard title="Infortuni" value={activeInjuriesCount} icon="🚨" color={activeInjuriesCount > 0 ? '#dc2626' : '#16a34a'} />
           {'height' in base && base.height ? (<SmallStatCard title="Altezza" value={`${base.height}cm`} icon="📏" color="#2563eb" />) : null}
           {'weight' in base && base.weight ? (<SmallStatCard title="Peso" value={`${base.weight}kg`} icon="⚖️" color="#7c3aed" />) : null}
@@ -641,13 +617,13 @@ export default function PlayerDetail() {
         <View style={styles.tabContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 4 }}>
             <View style={styles.tabRow}>
-              {(['PARTITE', 'ALLENAMENTI', 'INFORTUNI', 'ALLEGATI'] as TabKey[]).map(k => (
+              {(['PARTITE', 'INFORTUNI', 'ALLEGATI'] as TabKey[]).map(k => (
                 <Pressable key={k} style={[styles.tabBtn, tab === k && styles.tabBtnActive]} onPress={() => setTab(k)}>
                   <Text style={styles.tabIcon}>
-                    {k === 'PARTITE' ? '⚽' : k === 'ALLENAMENTI' ? '🏃‍♂️' : k === 'INFORTUNI' ? '🩹' : '📎'}
+                    {k === 'PARTITE' ? '⚽' : k === 'INFORTUNI' ? '🩹' : '📎'}
                   </Text>
                   <Text style={[styles.tabText, tab === k && styles.tabTextActive]}>
-                    {k === 'PARTITE' ? 'Partite' : k === 'ALLENAMENTI' ? 'Allenamenti' : k === 'INFORTUNI' ? 'Infortuni' : 'Allegati'}
+                    {k === 'PARTITE' ? 'Partite' : k === 'INFORTUNI' ? 'Infortuni' : 'Allegati'}
                   </Text>
                 </Pressable>
               ))}
@@ -838,70 +814,6 @@ export default function PlayerDetail() {
                       {m.redCards > 0 && ` 🟥${m.redCards}`}
                       {m.yellowCards === 0 && m.redCards === 0 && '—'}
                     </Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* ====== ALLENAMENTI ====== */}
-        {tab === 'ALLENAMENTI' && (
-          <View style={styles.tabContent}>
-            <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>🏃‍♂️ Statistiche Allenamenti</Text></View>
-
-            <View style={styles.statsSection}>
-              <View style={styles.statsRow}>
-                <SmallStatCard title="Totale" value={trainingsTotal} icon="📈" color="#1b7f3b" />
-                <SmallStatCard title="Presenti" value={trainingsPresent} icon="✅" color="#16a34a" />
-              </View>
-              <View style={[styles.statsRow, { marginTop: 8 }]}>
-                <SmallStatCard title="Assenti" value={trainingsAbsent} icon="❌" color="#dc2626" />
-                <SmallStatCard title="Infortunato" value={trainingsInj} icon="🏥" color="#d97706" />
-                <SmallStatCard title="Differenziato" value={trainingsDiff} icon="⚡" color="#7c3aed" />
-                <SmallStatCard title="Senza Risposta" value={trainingsNoReply} icon="❔" color="#64748b" />
-              </View>
-            </View>
-
-            <View style={styles.trendCard}>
-              <Text style={styles.cardTitle}>📊 Ultimi 5 allenamenti</Text>
-              <View style={styles.trendRow}>
-                {recentTrend.length === 0 ? (
-                  <Text style={styles.noDataText}>Nessun dato disponibile</Text>
-                ) : (
-                  recentTrend.map((t, idx) => (
-                    <View key={idx} style={[
-                      styles.trendDot,
-                      t.status === 'presente' ? styles.trendPresent :
-                      t.status === 'assente' ? styles.trendAbsent :
-                      t.status === 'infortunato' ? styles.trendInj :
-                      t.status === 'differenziato' ? styles.trendDiff :
-                      styles.trendUnknown,
-                    ]}>
-                      <Text style={styles.trendIcon}>
-                        {t.status === 'presente' ? '✓' : t.status === 'assente' ? '✗' : t.status === 'infortunato' ? '🏥' : t.status === 'differenziato' ? '⚡' : '？'}
-                      </Text>
-                    </View>
-                  ))
-                )}
-              </View>
-            </View>
-
-            {monthlySummary.length > 0 && (
-              <View style={styles.monthlyCard}>
-                <Text style={styles.cardTitle}>📅 Riepilogo Mensile</Text>
-                {monthlySummary.map(m => (
-                  <View key={m.month} style={styles.monthRow}>
-                    <Text style={styles.monthLabel}>{m.month}</Text>
-                    <View style={styles.monthStats}>
-                      <Text style={styles.monthValue}>{m.present}/{m.total}</Text>
-                      <Text style={styles.monthPercent}>({m.total > 0 ? Math.round((m.present / m.total) * 100) : 0}%)</Text>
-                    </View>
-                    <View style={styles.monthBadges}>
-                      {m.inj > 0 && <Text style={[styles.badge, styles.badgeInj]}>🏥 {m.inj}</Text>}
-                      {m.diff > 0 && <Text style={[styles.badge, styles.badgeDiff]}>⚡ {m.diff}</Text>}
-                      {m.abs > 0  && <Text style={[styles.badge, styles.badgeAbs]}>❌ {m.abs}</Text>}
-                    </View>
                   </View>
                 ))}
               </View>

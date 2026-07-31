@@ -170,6 +170,53 @@ GitHub tuo):
 4. Deploy iniziale → Vercel dà un URL tipo `nome-progetto.vercel.app` (dominio personalizzato
    collegabile dopo, se serve).
 
+## Allenamenti: solo eventi + registro presenze configurabile — 2026-07-31
+
+Su richiesta di Francesco, gli allenamenti non hanno più una sezione statistiche/presenze dedicata
+nella scheda giocatore e nelle Statistiche squadra — restano **solo eventi di calendario**. Il
+registro presenze (per giocatore, quando si apre un allenamento) resta disponibile ma è ora
+**configurabile dall'Admin**.
+
+- **Scheda giocatore** (`app/player/[id].tsx`): nessun tab "Allenamenti" (rimosso, insieme alla card
+  "Presenze" nell'header). Il tab **Infortuni resta** (invariato) — usa la stessa lista di
+  allenamenti/presenze solo per calcolare le strisce di infortunio consecutive, non per mostrare
+  statistiche di presenza.
+- **Statistiche squadra** (`app/squadra/statistiche.tsx`): nessuna colonna/export legata agli
+  allenamenti — rimozione definitiva, non configurabile (a differenza del registro presenze sotto).
+- **Registro presenze — nuova configurazione Admin**: `organizations.show_training_attendance`
+  (booleana, default `true` — `App/supabase/18_schema_training_attendance_toggle.sql`, stesso
+  pattern di `staff_roles`; scrittura già admin-only via la policy esistente su `organizations`).
+  Load/save in `app/data/organization.ts` (`loadShowTrainingAttendance`/
+  `saveShowTrainingAttendance`), switch in **Gestione Squadra → Admin → Configurazioni**. Quando
+  disattivato, `app/eventi/allenamento/[id]/index.tsx` (raggiunta da Dashboard/Calendario/
+  Allenamenti, nessuno di questi 3 punti toccato) mostra solo data/ora/luogo/tema — niente statistiche
+  presenze, lista giocatori né modale di stato. Il "Tema allenamento" resta sempre visibile/
+  modificabile: il toggle riguarda solo il registro presenze.
+
+## Dashboard/Calendario rifatti — 2026-07-31
+
+`app/index.tsx`:
+- **Tap-per-creare rimosso**: toccare una cella della griglia mensile non apre più la creazione di un
+  evento (resta disponibile da Allenamenti/Partite/Calendario, che hanno le loro azioni dedicate).
+- **Tap su un giorno con eventi**: apre direttamente l'evento se ce n'è uno solo, altrimenti una
+  piccola modale di scelta; giorno vuoto → nessuna azione. Vale per tutti i ruoli (anche Giocatore,
+  che prima non poteva nemmeno aprire un evento toccando la griglia).
+- **Navigazione tra mesi**: nuovo state `viewMonth` (prima la griglia mostrava sempre e solo il mese
+  reale). Freccette ‹ › sempre visibili accanto al titolo mese (utili anche da mouse su webapp) +
+  swipe orizzontale sulla griglia (via `PanResponder`, soglia che ignora scroll verticale), più un
+  link "Torna a oggi" quando si naviga fuori dal mese corrente.
+- **Responsive** (fix del problema segnalato testando `ellera.vercel.app`): sopra 700px di larghezza
+  (stesso breakpoint già in uso in `app/squadra/index.tsx`) il blocco "Oggi e domani" e il calendario
+  mensile restano centrati a una larghezza massima (560px) invece di allargarsi a celle enormi; testo
+  di numeri/pillole leggermente più grande.
+
+`app/calendario.tsx`: stesso trattamento responsive (lista centrata a una larghezza massima di 700px
+sopra la soglia) — il bottone "＋ Nuovo" per creare un evento resta invariato, non è quello disattivato
+sopra (che riguardava solo il tap sulla griglia Dashboard).
+
+**Non incluso**: reattività al resize della finestra per la lavagna tattica/moduli — problema diverso
+(componenti drag&drop a `Dimensions.get('window')` statico), resta in Backlog.
+
 ## Convenzione script SQL (`App/supabase/`)
 
 Ogni file è numerato con l'ordine in cui va eseguito nell'SQL Editor di Supabase (`1_schema.sql`,

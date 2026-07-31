@@ -1,7 +1,7 @@
 // app/calendario.tsx
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EventEditorModal from './components/EventEditorModal';
 import { useAuth } from './context/AuthContext';
@@ -14,6 +14,8 @@ export default function Calendario() {
   const [showModal, setShowModal] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 700;
 
   const refreshEvents = async () => {
     const list = await loadEvents();
@@ -34,28 +36,30 @@ export default function Calendario() {
         )}
       </View>
 
-      <FlatList
-        data={[...events].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={<Text style={{ color: '#6b7280' }}>Nessun evento trovato</Text>}
-        renderItem={({ item }) => (
-          <Pressable
-            style={styles.eventCard}
-            onPress={() =>
-              item.type === 'PARTITA'
-                ? router.push(`/eventi/partita/${item.id}`)
-                : router.push(`/eventi/allenamento/${item.id}`)
-            }
-          >
-            <Text style={styles.eventTitle}>
-              {item.type === 'PARTITA' ? `Partita vs ${item.opponent}` : 'Allenamento'}
-            </Text>
-            <Text style={{ color: '#374151' }}>{item.date} · {item.time} · {item.location}</Text>
-          </Pressable>
-        )}
-        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-        contentContainerStyle={{ paddingBottom: 16 + insets.bottom }}
-      />
+      <View style={[styles.listWrap, isWide && styles.listWrapWide]}>
+        <FlatList
+          data={[...events].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))}
+          keyExtractor={(item) => item.id}
+          ListEmptyComponent={<Text style={{ color: '#6b7280' }}>Nessun evento trovato</Text>}
+          renderItem={({ item }) => (
+            <Pressable
+              style={styles.eventCard}
+              onPress={() =>
+                item.type === 'PARTITA'
+                  ? router.push(`/eventi/partita/${item.id}`)
+                  : router.push(`/eventi/allenamento/${item.id}`)
+              }
+            >
+              <Text style={styles.eventTitle}>
+                {item.type === 'PARTITA' ? `Partita vs ${item.opponent}` : 'Allenamento'}
+              </Text>
+              <Text style={{ color: '#374151' }}>{item.date} · {item.time} · {item.location}</Text>
+            </Pressable>
+          )}
+          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+          contentContainerStyle={{ paddingBottom: 16 + insets.bottom }}
+        />
+      </View>
 
       <EventEditorModal
         visible={showModal}
@@ -72,6 +76,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '800' },
   createBtn: { backgroundColor: '#1b7f3b', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
   createBtnText: { color: '#fff', fontWeight: '800' },
+
+  listWrap: { flex: 1 },
+  listWrapWide: { width: '100%', maxWidth: 700, alignSelf: 'center' },
 
   eventCard: { backgroundColor: '#f4f6f8', borderRadius: 10, padding: 12 },
   eventTitle: { fontWeight: '800', marginBottom: 2, fontSize: 16 },

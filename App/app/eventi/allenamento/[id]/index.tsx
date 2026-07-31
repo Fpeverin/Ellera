@@ -5,6 +5,7 @@ import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'r
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../context/AuthContext';
 import { CalendarEvent, loadEvents, saveEvents } from '../../../data/events';
+import { loadShowTrainingAttendance } from '../../../data/organization';
 import { usePlayers } from '../../../hooks/usePlayers';
 
 // Tipi di presenza per gli allenamenti
@@ -27,6 +28,11 @@ export default function AllenamentoDettaglio() {
   const [presenze, setPresenze] = useState<Record<string, PresenceStatus>>({});
   const [tema, setTema] = useState('');
   const [showPlayerModal, setShowPlayerModal] = useState<string | null>(null);
+  const [showAttendance, setShowAttendance] = useState(true);
+
+  useEffect(() => {
+    loadShowTrainingAttendance().then(setShowAttendance).catch(() => {});
+  }, []);
 
   const loadAndSetEvent = async () => {
     const list: CalendarEvent[] = await loadEvents();
@@ -113,25 +119,27 @@ export default function AllenamentoDettaglio() {
         </View>
       </View>
 
-      {/* Statistiche presenze */}
-      <View style={styles.statsContainer}>
-        <View style={[styles.statCard, { backgroundColor: '#dcfce7' }]}>
-          <Text style={[styles.statNumber, { color: '#16a34a' }]}>{stats.presente}</Text>
-          <Text style={styles.statLabel}>Presenti</Text>
+      {/* Statistiche presenze (configurabile dall'Admin, vedi Gestione Squadra → Admin → Configurazioni) */}
+      {showAttendance && (
+        <View style={styles.statsContainer}>
+          <View style={[styles.statCard, { backgroundColor: '#dcfce7' }]}>
+            <Text style={[styles.statNumber, { color: '#16a34a' }]}>{stats.presente}</Text>
+            <Text style={styles.statLabel}>Presenti</Text>
+          </View>
+          <View style={[styles.statCard, { backgroundColor: '#fef2f2' }]}>
+            <Text style={[styles.statNumber, { color: '#dc2626' }]}>{stats.assente}</Text>
+            <Text style={styles.statLabel}>Assenti</Text>
+          </View>
+          <View style={[styles.statCard, { backgroundColor: '#fef3c7' }]}>
+            <Text style={[styles.statNumber, { color: '#d97706' }]}>{stats.infortunato}</Text>
+            <Text style={styles.statLabel}>Infortunati</Text>
+          </View>
+          <View style={[styles.statCard, { backgroundColor: '#f3e8ff' }]}>
+            <Text style={[styles.statNumber, { color: '#7c3aed' }]}>{stats.differenziato}</Text>
+            <Text style={styles.statLabel}>Differenziato</Text>
+          </View>
         </View>
-        <View style={[styles.statCard, { backgroundColor: '#fef2f2' }]}>
-          <Text style={[styles.statNumber, { color: '#dc2626' }]}>{stats.assente}</Text>
-          <Text style={styles.statLabel}>Assenti</Text>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: '#fef3c7' }]}>
-          <Text style={[styles.statNumber, { color: '#d97706' }]}>{stats.infortunato}</Text>
-          <Text style={styles.statLabel}>Infortunati</Text>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: '#f3e8ff' }]}>
-          <Text style={[styles.statNumber, { color: '#7c3aed' }]}>{stats.differenziato}</Text>
-          <Text style={styles.statLabel}>Differenziato</Text>
-        </View>
-      </View>
+      )}
 
       <Text style={styles.subtitle}>Tema allenamento</Text>
       <TextInput
@@ -147,68 +155,72 @@ export default function AllenamentoDettaglio() {
         editable={!readOnly}
       />
 
-      <Text style={styles.subtitle}>Presenze giocatori</Text>
-      <FlatList
-        data={sortedPlayers}
-        keyExtractor={(item) => item.id}
-        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-        renderItem={({ item }) => {
-          const currentStatus = presenze[item.id];
-          const statusOption = PRESENCE_OPTIONS.find(opt => opt.value === currentStatus);
-          
-          return (
-            <Pressable
-              style={styles.playerCard}
-              onPress={readOnly ? undefined : () => setShowPlayerModal(item.id)}
-            >
-              <View style={styles.playerInfo}>
-                <Text style={styles.playerName}>{item.name}</Text>
-                <Text style={styles.playerRole}>{item.role}</Text>
-              </View>
-              
-              <View style={[styles.statusBadge, { backgroundColor: statusOption?.color || '#e5e7eb' }]}>
-                <Text style={styles.statusEmoji}>{statusOption?.emoji || '❓'}</Text>
-                <Text style={styles.statusText}>{statusOption?.label || 'Non risposto'}</Text>
-              </View>
-            </Pressable>
-          );
-        }}
-        showsVerticalScrollIndicator={false}
-      />
+      {showAttendance && (
+        <>
+          <Text style={styles.subtitle}>Presenze giocatori</Text>
+          <FlatList
+            data={sortedPlayers}
+            keyExtractor={(item) => item.id}
+            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+            renderItem={({ item }) => {
+              const currentStatus = presenze[item.id];
+              const statusOption = PRESENCE_OPTIONS.find(opt => opt.value === currentStatus);
 
-      {/* Modal per selezione stato presenza */}
-      <Modal
-        visible={!!showPlayerModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowPlayerModal(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              Stato presenza - {sortedPlayers.find(p => p.id === showPlayerModal)?.name}
-            </Text>
-            
-            {PRESENCE_OPTIONS.map((option) => (
-              <Pressable
-                key={option.value}
-                style={[styles.optionButton, { borderColor: option.color }]}
-                onPress={() => updatePresenza(showPlayerModal!, option.value)}
-              >
-                <Text style={styles.optionEmoji}>{option.emoji}</Text>
-                <Text style={[styles.optionText, { color: option.color }]}>{option.label}</Text>
-              </Pressable>
-            ))}
-            
-            <Pressable
-              style={styles.cancelButton}
-              onPress={() => setShowPlayerModal(null)}
-            >
-              <Text style={styles.cancelText}>Annulla</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+              return (
+                <Pressable
+                  style={styles.playerCard}
+                  onPress={readOnly ? undefined : () => setShowPlayerModal(item.id)}
+                >
+                  <View style={styles.playerInfo}>
+                    <Text style={styles.playerName}>{item.name}</Text>
+                    <Text style={styles.playerRole}>{item.role}</Text>
+                  </View>
+
+                  <View style={[styles.statusBadge, { backgroundColor: statusOption?.color || '#e5e7eb' }]}>
+                    <Text style={styles.statusEmoji}>{statusOption?.emoji || '❓'}</Text>
+                    <Text style={styles.statusText}>{statusOption?.label || 'Non risposto'}</Text>
+                  </View>
+                </Pressable>
+              );
+            }}
+            showsVerticalScrollIndicator={false}
+          />
+
+          {/* Modal per selezione stato presenza */}
+          <Modal
+            visible={!!showPlayerModal}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setShowPlayerModal(null)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>
+                  Stato presenza - {sortedPlayers.find(p => p.id === showPlayerModal)?.name}
+                </Text>
+
+                {PRESENCE_OPTIONS.map((option) => (
+                  <Pressable
+                    key={option.value}
+                    style={[styles.optionButton, { borderColor: option.color }]}
+                    onPress={() => updatePresenza(showPlayerModal!, option.value)}
+                  >
+                    <Text style={styles.optionEmoji}>{option.emoji}</Text>
+                    <Text style={[styles.optionText, { color: option.color }]}>{option.label}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  style={styles.cancelButton}
+                  onPress={() => setShowPlayerModal(null)}
+                >
+                  <Text style={styles.cancelText}>Annulla</Text>
+                </Pressable>
+              </View>
+            </View>
+          </Modal>
+        </>
+      )}
     </SafeAreaView>
   );
 }
