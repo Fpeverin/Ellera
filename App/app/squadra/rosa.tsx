@@ -6,6 +6,7 @@ import {
   Image,
   LayoutChangeEvent,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   SectionList,
@@ -398,6 +399,12 @@ export default function Rosa() {
             {inner}
           </Pressable>
         </Link>
+        {/* Sul web non esiste il gesto "tieni premuto" col mouse: stesso menu (Sposta tra ex/Elimina) via un bottone visibile */}
+        {Platform.OS === 'web' && !readOnly && (
+          <Pressable style={styles.webMenuBtn} onPress={() => handleLongPress(item)}>
+            <Text style={styles.webMenuBtnText}>⋮</Text>
+          </Pressable>
+        )}
       </Pressable>
     );
   };
@@ -783,6 +790,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  webMenuBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  webMenuBtnText: { fontSize: 20, color: '#64748b', fontWeight: '700' },
   roleIcon: { fontSize: 18 },
   separator: { height: 8 },
   sectionSeparator: { height: 8 },

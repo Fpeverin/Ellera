@@ -29,6 +29,11 @@ prossima idea non appena viene in mente.
      oggi la griglia mensile (`renderMonthGrid` in `app/index.tsx`) mostra **solo il mese corrente**,
      non esiste nessuna navigazione tra mesi (né frecce né altro) — va introdotto lo stato del mese
      visualizzato oltre al gesto di swipe.
+  3. **Layout da rifare per la webapp** (segnalato da Francesco il 2026-07-31, provando
+     `ellera.vercel.app`): Dashboard e Calendario sono le uniche schermate segnalate come rotte/brutte
+     sul web — pensate per telefono, non riviste per uno schermo largo. Tattiche/Formazioni invece
+     vanno già bene così. Da riprendere insieme ai due punti sopra quando si mette mano a questa
+     schermata.
 
 - **Sondaggi staff → giocatori**: uno dello staff invia un sondaggio ai giocatori (stato di salute,
   livello di allenamento, quanto si sentono stanchi, infortuni, assenze); le risposte devono generare
@@ -85,14 +90,22 @@ Vedi la decisione originale del 2026-07-30 più sotto in Completato una volta ch
   `rosterFile.ts`, `calendarFile.ts`; `eventReminders.ts` disattivato su web (`Platform.OS ===
   'web'` → no-op). Verificato con `npx expo export -p web` + server locale: build senza errori,
   login si carica correttamente nel browser.
-- **Da fare (Francesco)**: creare account Vercel, collegare il repo `Fpeverin/Ellera` (Root
-  Directory `App`), impostare le variabili d'ambiente — istruzioni in `CLAUDE.md`, sezione
-  "Webapp (Vercel)".
-- **Da verificare dopo il primo deploy** (richiede login, non automatizzabile da qui): dashboard/
-  calendario, export PDF Statistiche+Convocazione, export/import Excel Rosa+Partite, salvataggio
-  lavagna tattica, "Aggiungi a Home" da Safari iPhone.
-- Non incluso in questo giro: reattività al resize della finestra per moduli/tattiche (vedi
-  Backlog qui sopra).
+- **Fatto (Francesco)**: account Vercel creato, repo collegato (Root Directory `App`), variabili
+  d'ambiente impostate — online su `ellera.vercel.app`.
+- **Testato in produzione da Francesco (2026-07-31)**:
+  - ✅ Export PDF (funziona ovunque).
+  - ✅ Tattiche e Formazioni.
+  - ✅ Export/Import Excel Rosa.
+  - ❌ → **fix fatto**: in Rosa, "Elimina giocatore"/"Sposta tra ex giocatori" non funzionavano sul
+    web — quel menu si apriva solo con "tieni premuto" (`onLongPress` su `Pressable` in
+    `app/squadra/rosa.tsx`), un gesto touch che con mouse su desktop non ha un equivalente
+    naturale/scopribile. Aggiunto un bottone "⋮" visibile solo su web (`Platform.OS === 'web'`)
+    accanto a ogni giocatore che apre lo stesso menu con un click — nessuna modifica al
+    comportamento nativo (long-press resta com'era su Android).
+  - ❌ → **segnalato, non ancora risolto**: layout Dashboard/Calendario da rifare per il web (vedi
+    Backlog qui sopra).
+- **Da verificare ancora**: "Aggiungi a Home" da Safari iPhone; export/import Excel
+  Partite/Allenamenti (solo Rosa testata finora).
 
 ## Completato
 
