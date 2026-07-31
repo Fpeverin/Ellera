@@ -1,7 +1,7 @@
 // app/index.tsx
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Modal, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Alert, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from './context/AuthContext';
 import { CalendarEvent, loadEvents } from './data/events';
@@ -261,8 +261,10 @@ export default function Dashboard() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.innerContainer}>
-        {/* Header + Calendario - fissi, non scrollabili */}
-        <View style={styles.topSection}>
+        {/* Header + Calendario - scrollabile se non ci sta tutto in altezza
+            (successo su schermi corti/webapp: senza scroll l'ultima riga del
+            calendario restava tagliata, sul telefono "entrava" per caso) */}
+        <ScrollView style={styles.topSection} contentContainerStyle={styles.topSectionContent}>
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>{membership?.orgName || 'TeamBoard'}</Text>
@@ -329,7 +331,7 @@ export default function Dashboard() {
             </Text>
           </View>
         </View>
-      </View>
+        </ScrollView>
       </View>
 
       {/* Azioni rapide - sempre visibili sopra la barra di navigazione */}
@@ -406,7 +408,10 @@ const styles = StyleSheet.create({
 
   // Sezione top fissa (niente scroll): occupa solo lo spazio necessario
   topSection: {
-    flexShrink: 0,
+    flex: 1,
+  },
+  topSectionContent: {
+    flexGrow: 1,
   },
 
   header: {

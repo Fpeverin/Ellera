@@ -155,6 +155,14 @@ ancora testato in produzione).
   Avversario" o viceversa in base a casa/trasferta, data/ora, nessun'altra azione); Staff/Admin
   continuano a vedere il chooser Convocazione/Live come già facevano. Dopo lo Start, tutti vanno su
   Live come prima (dove il Giocatore può proporre gol/cartellini, comportamento già esistente).
+- **Fix web: ultima riga del calendario Dashboard tagliata (segnalato da Francesco 2026-07-31)**:
+  `app/index.tsx` non aveva mai avuto uno `ScrollView` intorno a header+Oggi/Domani+calendario mensile
+  (pensato per "stare tutto a schermo" su un telefono) — su una finestra browser più corta della
+  griglia (6 righe), `body{overflow:hidden}` (impostato dal template web) tagliava semplicemente
+  l'ultima riga, invisibile e non raggiungibile. **Fix**: quel blocco è ora dentro uno `ScrollView`
+  (`topSection` passa da `flexShrink: 0` a `flex: 1` + `ScrollView`), mentre "Azioni rapide" resta
+  fissa sotto come prima. Nessun impatto nativo: su telefono, dove il contenuto già ci stava, lo
+  scroll semplicemente non serve (nessun overflow da scrollare).
 
 ## Completato
 
