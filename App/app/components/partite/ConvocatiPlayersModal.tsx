@@ -45,13 +45,28 @@ export default function ConvocatiPlayersModal({
     });
   };
 
+  const allSelected = players.length > 0 && players.every((p) => ids.has(p.id));
+  const toggleAll = () => {
+    if (allSelected) {
+      setIds(new Set());
+    } else {
+      const all = players.map((p) => p.id);
+      setIds(new Set(max != null ? all.slice(0, max) : all));
+    }
+  };
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.card}>
-          <Text style={styles.title}>
-            Giocatori convocati ({ids.size}{max != null ? `/${max}` : ''})
-          </Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>
+              Giocatori convocati ({ids.size}{max != null ? `/${max}` : ''})
+            </Text>
+            <Pressable style={styles.selectAllBtn} onPress={toggleAll}>
+              <Text style={styles.selectAllText}>{allSelected ? 'Deseleziona tutti' : 'Seleziona tutti'}</Text>
+            </Pressable>
+          </View>
           <FlatList
             data={players}
             keyExtractor={(p) => p.id}
@@ -94,7 +109,10 @@ export default function ConvocatiPlayersModal({
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
   card: { width: '86%', maxHeight: '80%', backgroundColor: '#fff', borderRadius: 12, padding: 14 },
-  title: { fontSize: 18, fontWeight: '800', marginBottom: 10 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 8 },
+  title: { fontSize: 18, fontWeight: '800', flex: 1 },
+  selectAllBtn: { backgroundColor: '#1b7f3b', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 },
+  selectAllText: { color: 'white', fontWeight: '700', fontSize: 12 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

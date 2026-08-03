@@ -11,9 +11,8 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ConvocatiPlayersModal from '../../../components/partite/ConvocatiPlayersModal';
 import { useAuth } from '../../../context/AuthContext';
 import { loadConvocazione, saveConvocatiPlayerIds, saveConvocazione } from '../../../data/convocazione';
 import { printOrShareHtml } from '../../../utils/webExport';
@@ -66,7 +65,9 @@ export default function Convocazione() {
   const router = useRouter();
   const { membership } = useAuth();
   const readOnly = membership?.role === 'giocatore';
-  const { players } = usePlayers();
+  const { players, allPlayers, loading: playersLoading } = usePlayers();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 700;
 
   const [event, setEvent] = useState<CalendarEvent | null>(null);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
@@ -76,8 +77,6 @@ export default function Convocazione() {
   const [ritrovo, setRitrovo] = useState('');
   const [playerIds, setPlayerIds] = useState<string[]>([]);
   const [staffIds, setStaffIds] = useState<string[]>([]);
-
-  const [playersModalOpen, setPlayersModalOpen] = useState(false);
 
   const [orgLogoUrl, setOrgLogoUrl] = useState<string | null>(null);
   const [opponentLogoUrl, setOpponentLogoUrl] = useState<string | null>(null);
@@ -141,6 +140,12 @@ export default function Convocazione() {
     setStaffIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
+  const togglePlayer = (id: string) => {
+    handleConfirmPlayers(playerIds.includes(id) ? playerIds.filter((x) => x !== id) : [...playerIds, id]);
+  };
+  const allPlayersSelected = players.length > 0 && players.every((p) => playerIds.includes(p.id));
+  const toggleAllPlayers = () => handleConfirmPlayers(allPlayersSelected ? [] : players.map((p) => p.id));
+
   const pickOpponentLogo = async () => {
     if (!matchId) return;
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -167,12 +172,28 @@ export default function Convocazione() {
   };
 
   // --- persone convocate (giocatori + staff) ---
-  const convocatedPlayers = players.filter((p) => playerIds.includes(p.id));
+  // allPlayers (attivi + ex), non solo players (attivi): un giocatore convocato in passato e poi
+  // spostato tra gli ex deve continuare a comparire qui, non solo nel conteggio "grezzo".
+  const convocatedPlayers = allPlayers.filter((p) => playerIds.includes(p.id));
   const convocatedStaff = staffMembers.filter((s) => staffIds.includes(s.id));
 
   const staffCountByCategory = (cat: StaffCategory) =>
     staffMembers.filter((s) => s.category === cat && staffIds.includes(s.id)).length;
-  const totale = playerIds.length + staffIds.length;
+  const totale = convocatedPlayers.length + staffIds.length;
+
+  // --- pulizia automatica id "orfani" ---
+  // Un giocatore convocato ma mai sceso in campo/segnato/ammonito poteva prima essere eliminato del
+  // tutto dalla Rosa (isPlayerInMatches non controllava la convocazione) lasciando il suo id per
+  // sempre in playerIds: il conteggio lo contava ma nessun chip veniva mostrato. Corretto anche
+  // isPlayerInMatches (matchLive.ts) per il futuro; qui si sistemano da soli i dati già sporchi.
+  useEffect(() => {
+    if (!loadedRef.current || !matchId || playersLoading) return;
+    const validIds = convocatedPlayers.map((p) => p.id);
+    if (validIds.length === playerIds.length) return;
+    setPlayerIds(validIds);
+    saveConvocatiPlayerIds(matchId, validIds).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchId, playersLoading, playerIds, convocatedPlayers.length]);
 
   // --- PDF ---
   const openExportModal = () => {
@@ -281,7 +302,7 @@ export default function Convocazione() {
               <div class="riepilogoBox">
                 <div class="title">Riepilogo</div>
                 <table>
-                  <tr><td>Giocatori</td><td>${playerIds.length}</td></tr>
+                  <tr><td>Giocatori</td><td>${convocatedPlayers.length}</td></tr>
                   <tr><td>Staff Tecnico</td><td>${staffCountByCategory('TECNICO')}</td></tr>
                   <tr><td>Staff Sanitario</td><td>${staffCountByCategory('SANITARIO')}</td></tr>
                   <tr><td>Dirigenza</td><td>${staffCountByCategory('DIRIGENZIALE')}</td></tr>
@@ -305,7 +326,8 @@ export default function Convocazione() {
 
   // --- notifica push ai convocati (a parte, non parte dell'export PDF) ---
   const handleNotifyConvocati = async () => {
-    if (playerIds.length === 0) {
+    const notifyIds = convocatedPlayers.map((p) => p.id);
+    if (notifyIds.length === 0) {
       Alert.alert('Nessun convocato', 'Convoca almeno un giocatore prima di inviare la notifica.');
       return;
     }
@@ -314,7 +336,7 @@ export default function Convocazione() {
       const orgId = getCurrentOrgId();
       const { data: tokens, error } = await supabase.rpc('get_push_tokens_for_players', {
         p_org_id: orgId,
-        p_player_ids: playerIds,
+        p_player_ids: notifyIds,
       });
       if (error) throw error;
 
@@ -326,8 +348,8 @@ export default function Convocazione() {
       const notified = tokens?.length ?? 0;
       Alert.alert(
         'Notifica inviata',
-        notified < playerIds.length
-          ? `Avvisati ${notified} di ${playerIds.length} convocati (gli altri non hanno ancora l'app configurata per le notifiche).`
+        notified < notifyIds.length
+          ? `Avvisati ${notified} di ${notifyIds.length} convocati (gli altri non hanno ancora l'app configurata per le notifiche).`
           : `Avvisati tutti i ${notified} convocati.`
       );
     } catch {
@@ -391,64 +413,76 @@ export default function Convocazione() {
           />
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>
-              Giocatori convocati ({playerIds.length})
-            </Text>
-            <Pressable style={styles.smallBtn} onPress={() => setPlayersModalOpen(true)}>
-              <Text style={styles.smallBtnText}>✏️ Modifica</Text>
-            </Pressable>
-          </View>
-          {convocatedPlayers.length > 0 ? (
-            <View style={styles.chipsRow}>
-              {convocatedPlayers.map((p) => (
-                <View key={p.id} style={styles.playerChip}>
-                  <Text style={styles.playerChipText}>{p.name}</Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <Text style={styles.previewText}>Nessun giocatore convocato</Text>
-          )}
-        </View>
-
-        {CATEGORIES.map((cat) => {
-          const inCategory = staffMembers.filter((s) => s.category === cat);
-          return (
-            <View style={styles.section} key={cat}>
+        {/* Due colonne come nella Scheda Excel/PDF: giocatori a sinistra, staff a destra —
+            selezionabili qui direttamente, senza aprire una modale. Sotto i 700px di larghezza
+            (telefono in verticale) le due colonne si impilano, prima i giocatori. */}
+        <View style={[styles.columnsRow, isWide && styles.columnsRowWide]}>
+          <View style={[styles.section, isWide && styles.columnFlex]}>
+            <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>
-                {CATEGORY_LABELS[cat]} ({staffCountByCategory(cat)})
+                Giocatori convocati ({convocatedPlayers.length})
               </Text>
-              {inCategory.length === 0 ? (
-                <Pressable onPress={() => router.push('/squadra/staffRoster')}>
-                  <Text style={styles.linkText}>
-                    Nessuno in {CATEGORY_LABELS[cat]} — aggiungilo da Rosa Staff
+              <Pressable style={styles.smallBtn} onPress={toggleAllPlayers}>
+                <Text style={styles.smallBtnText}>{allPlayersSelected ? 'Deseleziona tutti' : 'Seleziona tutti'}</Text>
+              </Pressable>
+            </View>
+            {players.length === 0 ? (
+              <Text style={styles.previewText}>Nessun giocatore in rosa</Text>
+            ) : (
+              players.map((p) => {
+                const checked = playerIds.includes(p.id);
+                return (
+                  <Pressable key={p.id} style={styles.ckRow} onPress={() => togglePlayer(p.id)}>
+                    <View style={[styles.ckBox, checked && styles.ckBoxOn]}>
+                      {checked ? <Text style={{ color: 'white' }}>✓</Text> : null}
+                    </View>
+                    <Text style={{ flex: 1 }}>{p.name}</Text>
+                  </Pressable>
+                );
+              })
+            )}
+          </View>
+
+          <View style={[styles.section, isWide && styles.columnFlex]}>
+            <Text style={styles.sectionTitle}>Staff convocato ({staffIds.length})</Text>
+            {CATEGORIES.map((cat) => {
+              const inCategory = staffMembers.filter((s) => s.category === cat);
+              return (
+                <View style={styles.staffCategoryBlock} key={cat}>
+                  <Text style={styles.staffCategoryTitle}>
+                    {CATEGORY_LABELS[cat]} ({staffCountByCategory(cat)})
                   </Text>
-                </Pressable>
-              ) : (
-                inCategory.map((s) => {
-                  const checked = staffIds.includes(s.id);
-                  return (
-                    <Pressable key={s.id} style={styles.ckRow} onPress={() => toggleStaff(s.id)}>
-                      <View style={[styles.ckBox, checked && styles.ckBoxOn]}>
-                        {checked ? <Text style={{ color: 'white' }}>✓</Text> : null}
-                      </View>
-                      <Text style={{ flex: 1 }}>
-                        {s.name}
-                        {s.role ? ` — ${s.role}` : ''}
+                  {inCategory.length === 0 ? (
+                    <Pressable onPress={() => router.push('/squadra/staffRoster')}>
+                      <Text style={styles.linkText}>
+                        Nessuno in {CATEGORY_LABELS[cat]} — aggiungilo da Rosa Staff
                       </Text>
                     </Pressable>
-                  );
-                })
-              )}
-            </View>
-          );
-        })}
+                  ) : (
+                    inCategory.map((s) => {
+                      const checked = staffIds.includes(s.id);
+                      return (
+                        <Pressable key={s.id} style={styles.ckRow} onPress={() => toggleStaff(s.id)}>
+                          <View style={[styles.ckBox, checked && styles.ckBoxOn]}>
+                            {checked ? <Text style={{ color: 'white' }}>✓</Text> : null}
+                          </View>
+                          <Text style={{ flex: 1 }}>
+                            {s.name}
+                            {s.role ? ` — ${s.role}` : ''}
+                          </Text>
+                        </Pressable>
+                      );
+                    })
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Riepilogo</Text>
-          <Text style={styles.summaryLine}>Giocatori: {playerIds.length}</Text>
+          <Text style={styles.summaryLine}>Giocatori: {convocatedPlayers.length}</Text>
           <Text style={styles.summaryLine}>Staff Tecnico: {staffCountByCategory('TECNICO')}</Text>
           <Text style={styles.summaryLine}>Staff Sanitario: {staffCountByCategory('SANITARIO')}</Text>
           <Text style={styles.summaryLine}>Dirigenza: {staffCountByCategory('DIRIGENZIALE')}</Text>
@@ -463,14 +497,6 @@ export default function Convocazione() {
           <Text style={styles.pdfBtnText}>📄 Esporta PDF</Text>
         </Pressable>
       </ScrollView>
-
-      <ConvocatiPlayersModal
-        visible={playersModalOpen}
-        players={players}
-        selectedIds={playerIds}
-        onClose={() => setPlayersModalOpen(false)}
-        onConfirm={handleConfirmPlayers}
-      />
 
       {/* pre-export: conferma/aggiusta i dati che vanno sul PDF */}
       <Modal visible={!!exportForm} transparent animationType="fade" onRequestClose={() => setExportForm(null)}>
@@ -587,14 +613,11 @@ const styles = StyleSheet.create({
 
   summaryLine: { fontSize: 14, color: '#334155', marginBottom: 2 },
 
-  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  playerChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#dcfce7',
-  },
-  playerChipText: { fontSize: 13, color: '#166534', fontWeight: '600' },
+  columnsRow: {},
+  columnsRowWide: { flexDirection: 'row', gap: 16 },
+  columnFlex: { flex: 1 },
+  staffCategoryBlock: { marginTop: 12 },
+  staffCategoryTitle: { fontSize: 14, fontWeight: '700', color: '#1a202c', marginBottom: 6 },
 
   pdfBtn: {
     backgroundColor: '#1b4f7f',

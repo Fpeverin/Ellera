@@ -91,7 +91,7 @@ export default function LivePartita() {
   const { id: matchId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { players: basePlayers } = usePlayers();
+  const { players: basePlayers, allPlayers: baseAllPlayers, loading: basePlayersLoading } = usePlayers();
   const { membership, session } = useAuth();
   const readOnly = membership?.role === 'giocatore';
   const canModerate = membership?.role === 'admin' || membership?.role === 'staff';
@@ -216,6 +216,17 @@ const setSecondHalfBaseline = async () => {
       } catch {}
     })();
   }, [matchId]);
+
+  // Stesso auto-fix di convocazione.tsx: un id rimasto orfano (giocatore eliminato del tutto dalla
+  // Rosa dopo essere stato convocato) non deve più gonfiare questo conteggio.
+  useEffect(() => {
+    if (!matchId || basePlayersLoading) return;
+    const validIds = convocatiPlayerIds.filter((id) => baseAllPlayers.some((p) => p.id === id));
+    if (validIds.length === convocatiPlayerIds.length) return;
+    setConvocatiPlayerIds(validIds);
+    saveConvocatiPlayerIds(matchId, validIds).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchId, basePlayersLoading, convocatiPlayerIds, baseAllPlayers]);
 
   const handleConfirmConvocati = async (ids: string[]) => {
     if (!matchId) return;

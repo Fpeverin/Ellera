@@ -206,6 +206,20 @@ Francesco ha iniziato a distribuire l'app (solo allo Staff per ora). Tre segnala
 
 ## Completato
 
+### 2026-08-03 — Convocazione: fix conteggio "sporco" + layout a due colonne + Seleziona tutti
+Tre richieste di Francesco insieme (vedi CLAUDE.md, sezione "Convocazione: layout a due colonne +
+fix conteggio sporco" per i dettagli tecnici):
+1. **Bug segnalato**: il conteggio "Giocatori convocati (N)" mostrava un giocatore in più di quanti
+   ne comparissero davvero. Causa: `isPlayerInMatches` non controllava la convocazione, quindi un
+   giocatore convocato ma mai sceso in campo poteva essere eliminato del tutto dalla Rosa, lasciando
+   un id "orfano" per sempre nel conteggio. Corretto sia alla radice sia con un'autocorrezione dei
+   dati già sporchi (si sistemano da soli alla prima apertura della schermata).
+2. **Layout a due colonne come il PDF**: la pagina Convocazione non usa più una modale per scegliere
+   i giocatori — checklist diretta a sinistra, staff a destra (si impilano sotto i 700px di
+   larghezza).
+3. **Bottone "Seleziona tutti"/"Deseleziona tutti"**: sia nella nuova checklist inline sia nella
+   modale rimasta per la modifica rapida in Live.
+
 ### 2026-08-03 — Rimosso il tetto massimo di 20 convocati
 Su richiesta di Francesco ("deve essere possibile convocare più di 20 giocatori"): rimosso il limite
 fisso, non sostituito con un altro numero arbitrario. `app/components/partite/ConvocatiPlayersModal.tsx`

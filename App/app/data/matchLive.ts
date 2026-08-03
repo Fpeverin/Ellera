@@ -124,7 +124,7 @@ export async function isPlayerInMatches(playerId: string, eventIds: string[]): P
   if (eventIds.length === 0) return false;
   const { data, error } = await supabase
     .from('match_live')
-    .select('goals, subs, cards, lineup')
+    .select('goals, subs, cards, lineup, convocazione')
     .in('event_id', eventIds);
   if (error) throw error;
 
@@ -133,11 +133,13 @@ export async function isPlayerInMatches(playerId: string, eventIds: string[]): P
     const subs = (row.subs ?? []) as SubItem[];
     const cards = (row.cards ?? []) as CardItem[];
     const lineup = row.lineup as SavedLineup | null;
+    const convocazione = row.convocazione as ConvocazioneData | null;
 
     if (goals.some((g) => g.playerId === playerId)) return true;
     if (cards.some((c) => c.playerId === playerId)) return true;
     if (subs.some((s) => s.outId === playerId || s.inId === playerId)) return true;
     if (lineup && (lineup.field?.includes(playerId) || lineup.bench?.includes(playerId))) return true;
+    if (convocazione?.playerIds?.includes(playerId)) return true;
   }
   return false;
 }

@@ -337,6 +337,33 @@ ancora un logo). Due pezzi:
   squadra compare già in modo prominente nel confronto "loghi vs avversario" — non duplicato con
   `TeamLogo` in quel branch specifico.
 
+## Convocazione: layout a due colonne + fix conteggio "sporco" — 2026-08-03
+
+Due richieste di Francesco insieme: un bug sul conteggio dei convocati e un layout più simile al PDF.
+
+- **Bug**: il conteggio "Giocatori convocati (N)" poteva mostrare un numero maggiore di quanti
+  chip/righe comparivano davvero. **Causa**: `isPlayerInMatches` (`app/data/matchLive.ts`, usata per
+  bloccare l'eliminazione totale di un giocatore già coinvolto in una partita) controllava solo
+  gol/cartellini/sostituzioni/formazione, **non** la colonna `convocazione` — un giocatore convocato
+  ma mai sceso in campo poteva quindi essere eliminato del tutto dalla Rosa, lasciando il suo id
+  "orfano" per sempre in `playerIds` di quella convocazione (contato, ma senza un giocatore reale da
+  mostrare). **Fix**: `isPlayerInMatches` controlla ora anche `convocazione.playerIds`; inoltre sia
+  `app/eventi/partita/[id]/convocazione.tsx` sia la card "MODIFICA CONVOCATI" in `live.tsx` si
+  autocorreggono da soli quando trovano id ormai senza un giocatore corrispondente (rimuovendoli e
+  salvando la lista pulita) — così anche le convocazioni già sporche da prima si sistemano alla prima
+  apertura, senza bisogno di una migrazione a parte. Il conteggio/riepilogo/PDF di
+  `convocazione.tsx` usano ora `allPlayers` (attivi + ex, non solo attivi) per la lista dei convocati
+  visualizzati: un giocatore convocato e poi spostato tra gli ex resta visibile correttamente
+  (comportamento voluto, diverso dal caso "eliminato del tutto" sopra).
+- **Layout a due colonne** (`app/eventi/partita/[id]/convocazione.tsx`): la selezione giocatori non
+  apre più una modale — checklist inline nella colonna sinistra (con bottone "Seleziona tutti"/
+  "Deseleziona tutti" in testa), colonna destra con lo staff diviso per categoria (Tecnico/Sanitario/
+  Dirigenza, invariato) — stessa disposizione fianco a fianco della Scheda Excel/PDF. Sotto i 700px di
+  larghezza (stesso breakpoint già in uso altrove, es. `app/calendario.tsx`) le due colonne si
+  impilano, prima i giocatori. La modale `ConvocatiPlayersModal` non è più usata da questa schermata
+  (resta per la modifica rapida "ultimo secondo" in Live, invariata) — le ha guadagnato comunque lo
+  stesso bottone "Seleziona tutti"/"Deseleziona tutti" per coerenza.
+
 ## Convenzione script SQL (`App/supabase/`)
 
 Ogni file è numerato con l'ordine in cui va eseguito nell'SQL Editor di Supabase (`1_schema.sql`,
@@ -837,10 +864,12 @@ liste convocati e riepilogo pranzo), condiviso da Francesco come modello.
   `convocazione.playerIds` **e** pota `lineup.field`/`lineup.bench` togliendo ogni id non più
   convocato — stesso comportamento che prima viveva nella modale CONVOCATI di `formazione.tsx`).
 - **`app/components/partite/ConvocatiPlayersModal.tsx`** (nuovo, condiviso): checklist giocatori,
-  usata sia dal tab Convocazione sia dalla modifica "ultimo secondo" in Live. **Nessun tetto massimo**
-  (rimosso il 2026-08-03 su richiesta di Francesco — prima era fisso a 20, prop `max` opzionale non
-  più passata da nessuno dei due punti di utilizzo): il prop `max` resta disponibile ma opzionale,
-  per un eventuale limite futuro diverso da "tutta la rosa".
+  usata dalla modifica "ultimo secondo" in Live (il tab Convocazione stesso non la usa più dal
+  2026-08-03, vedi sotto). **Nessun tetto massimo** (rimosso il 2026-08-03 su richiesta di
+  Francesco — prima era fisso a 20, prop `max` opzionale non più passata dal punto di utilizzo
+  rimasto): il prop `max` resta disponibile ma opzionale, per un eventuale limite futuro diverso da
+  "tutta la rosa". Bottone **"Seleziona tutti"/"Deseleziona tutti"** accanto al titolo (aggiunto lo
+  stesso giorno, richiesta esplicita di Francesco).
 - **`app/eventi/partita/[id]/convocazione.tsx`** (nuovo): intestazione partita (letta da
   `loadEvents()`) + campo Ritrovo, checklist giocatori (alfabetico, tramite la modale condivisa,
   riepilogo a chip), staff diviso nelle 3 categorie (checklist read-only sulla Rosa Staff, nessuna
