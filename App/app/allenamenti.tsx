@@ -1,6 +1,6 @@
 // app/allenamenti.tsx
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
@@ -9,6 +9,7 @@ import TeamLogo from './components/TeamLogo';
 import { useAuth } from './context/AuthContext';
 import { downloadTrainingsTemplate, exportTrainingsToXlsx, pickAndParseTrainingsXlsx, planTrainingsImport } from './data/calendarFile';
 import { CalendarEvent, loadEvents, saveEvents } from './data/events';
+import { loadStaffExportPermissions } from './data/organization';
 
 interface CalendarDay {
   dateString: string;
@@ -33,7 +34,15 @@ const IT_DAYS: { label: string; getDay: WeekKey }[] = [
 export default function Allenamenti() {
   const { membership } = useAuth();
   const readOnly = membership?.role === 'giocatore';
+  const isAdmin = membership?.role === 'admin';
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+
+  // Importa/Esporta/Modello: Admin sempre, Staff solo se l'Admin lo concede da Configurazioni.
+  const [staffCanExport, setStaffCanExport] = useState(false);
+  useEffect(() => {
+    loadStaffExportPermissions().then((p) => setStaffCanExport(p.allenamenti)).catch(() => {});
+  }, []);
+  const canUseXlsxTools = isAdmin || staffCanExport;
   const [showModal, setShowModal] = useState(false);       // modale "nuovo evento" singolo
   const [showWeekModal, setShowWeekModal] = useState(false); // modale "settimana ideale"
   const router = useRouter();
@@ -399,7 +408,7 @@ export default function Allenamenti() {
         </View>
       )}
 
-      {!readOnly && (
+      {canUseXlsxTools && (
         <View style={styles.xlsxRow}>
           <Pressable style={styles.xlsxBtn} onPress={handleExportTrainings}>
             <Text style={styles.xlsxBtnText}>📤 Esporta Excel</Text>

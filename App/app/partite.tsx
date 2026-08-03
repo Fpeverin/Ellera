@@ -1,6 +1,6 @@
 import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CompetitionModal from './components/partite/CompetitionModal';
@@ -11,6 +11,7 @@ import TeamLogo from './components/TeamLogo';
 import { useAuth } from './context/AuthContext';
 import { downloadMatchesTemplate, exportMatchesToXlsx, pickAndParseMatchesXlsx, planMatchesImport } from './data/calendarFile';
 import { CalendarEvent, loadEvents, saveEvents } from './data/events';
+import { loadStaffExportPermissions } from './data/organization';
 
 /* -------------------------------------------------------------------------- */
 /*                                Tipi locali                                 */
@@ -43,7 +44,15 @@ export default function Partite() {
   const router = useRouter();
   const { membership } = useAuth();
   const readOnly = membership?.role === 'giocatore';
+  const isAdmin = membership?.role === 'admin';
   const [events, setEvents] = useState<MatchEventRow[]>([]);
+
+  // Importa/Esporta/Modello: Admin sempre, Staff solo se l'Admin lo concede da Configurazioni.
+  const [staffCanExport, setStaffCanExport] = useState(false);
+  useEffect(() => {
+    loadStaffExportPermissions().then((p) => setStaffCanExport(p.partite)).catch(() => {});
+  }, []);
+  const canUseXlsxTools = isAdmin || staffCanExport;
 
   // modali creazione
   const [showSingleModal, setShowSingleModal] = useState(false);
@@ -388,17 +397,21 @@ export default function Partite() {
         )}
       </View>
 
-      {!readOnly && (
+      {!readOnly && (canUseXlsxTools || compFilter !== ALL_COMP) && (
         <View style={styles.xlsxRow}>
-          <Pressable style={styles.xlsxBtn} onPress={handleExportMatches}>
-            <Text style={styles.xlsxBtnText}>📤 Esporta Excel</Text>
-          </Pressable>
-          <Pressable style={styles.xlsxBtn} onPress={handleImportMatches}>
-            <Text style={styles.xlsxBtnText}>📥 Importa Excel</Text>
-          </Pressable>
-          <Pressable style={styles.xlsxBtn} onPress={handleDownloadMatchesTemplate}>
-            <Text style={styles.xlsxBtnText}>📄 Modello</Text>
-          </Pressable>
+          {canUseXlsxTools && (
+            <>
+              <Pressable style={styles.xlsxBtn} onPress={handleExportMatches}>
+                <Text style={styles.xlsxBtnText}>📤 Esporta Excel</Text>
+              </Pressable>
+              <Pressable style={styles.xlsxBtn} onPress={handleImportMatches}>
+                <Text style={styles.xlsxBtnText}>📥 Importa Excel</Text>
+              </Pressable>
+              <Pressable style={styles.xlsxBtn} onPress={handleDownloadMatchesTemplate}>
+                <Text style={styles.xlsxBtnText}>📄 Modello</Text>
+              </Pressable>
+            </>
+          )}
           {compFilter !== ALL_COMP && (
             <Pressable style={styles.xlsxBtn} onPress={() => setShowRulesModal(true)}>
               <Text style={styles.xlsxBtnText}>⚙️ Regole</Text>

@@ -11,14 +11,18 @@ import {
   loadNotifyConfig,
   loadOrgLogoUrl,
   loadShowTrainingAttendance,
+  loadStaffExportPermissions,
   loadStaffRoleOptions,
   loadSurveysEnabled,
   saveNotifyConfig,
   saveShowTrainingAttendance,
+  saveStaffExportPermission,
   saveStaffRoleOptions,
   saveSurveysEnabled,
   uploadOrgLogo,
   type NotifyConfig,
+  type StaffExportArea,
+  type StaffExportPermissions,
 } from '../data/organization';
 import { loadOrgMembers, removeMember, setMemberLink, updateMemberRole, type OrgMember, type Role } from '../data/staff';
 import { loadStaffMembers, type StaffMember } from '../data/staffRoster';
@@ -26,6 +30,13 @@ import { usePlayers } from '../hooks/usePlayers';
 import { invalidateOrgLogoCache } from '../hooks/useOrgLogo';
 
 const DEFAULT_NOTIFY_CONFIG: NotifyConfig = { mode: 'admin_only', staffIds: [] };
+const DEFAULT_EXPORT_PERMISSIONS: StaffExportPermissions = { rosa: false, partite: false, allenamenti: false };
+const EXPORT_AREA_LABELS: Record<StaffExportArea, string> = {
+  rosa: 'Rosa (Importa/Esporta/Modello/Seleziona)',
+  partite: 'Partite (Importa/Esporta/Modello)',
+  allenamenti: 'Allenamenti (Importa/Esporta/Modello)',
+};
+const EXPORT_AREAS: StaffExportArea[] = ['rosa', 'partite', 'allenamenti'];
 
 const ROLE_LABEL: Record<Role, string> = { admin: 'Admin', staff: 'Staff', giocatore: 'Giocatore' };
 const ALL_ROLES: Role[] = ['admin', 'staff', 'giocatore'];
@@ -50,6 +61,8 @@ export default function AdminScreen() {
   const [notifyBusy, setNotifyBusy] = useState(false);
   const [surveysEnabled, setSurveysEnabled] = useState(true);
   const [surveysBusy, setSurveysBusy] = useState(false);
+  const [exportPermissions, setExportPermissions] = useState<StaffExportPermissions>(DEFAULT_EXPORT_PERMISSIONS);
+  const [exportPermissionsBusy, setExportPermissionsBusy] = useState(false);
 
   const [confirmRemove, setConfirmRemove] = useState<OrgMember | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState<PendingInvite | null>(null);
@@ -64,7 +77,7 @@ export default function AdminScreen() {
     if (!membership) return;
     setLoading(true);
     try {
-      const [m, p, logo, roles, staff, showAttendance, notifyLive, notifyEdit, surveysOn] = await Promise.all([
+      const [m, p, logo, roles, staff, showAttendance, notifyLive, notifyEdit, surveysOn, exportPerms] = await Promise.all([
         loadOrgMembers(membership.orgId),
         loadPendingInvites(membership.orgId),
         loadOrgLogoUrl(),
@@ -74,6 +87,7 @@ export default function AdminScreen() {
         loadNotifyConfig('live_proposals'),
         loadNotifyConfig('player_edit'),
         loadSurveysEnabled(),
+        loadStaffExportPermissions(),
       ]);
       setMembers(m);
       setPending(p);
@@ -84,6 +98,7 @@ export default function AdminScreen() {
       setNotifyLiveProposals(notifyLive);
       setNotifyPlayerEdit(notifyEdit);
       setSurveysEnabled(surveysOn);
+      setExportPermissions(exportPerms);
     } catch {
       Alert.alert('Errore', 'Impossibile caricare i dati dello staff.');
     } finally {
@@ -183,6 +198,19 @@ export default function AdminScreen() {
       Alert.alert('Errore', 'Impossibile salvare l\'impostazione.');
     } finally {
       setSurveysBusy(false);
+    }
+  };
+
+  const handleToggleExportPermission = async (area: StaffExportArea, value: boolean) => {
+    setExportPermissionsBusy(true);
+    setExportPermissions((prev) => ({ ...prev, [area]: value }));
+    try {
+      await saveStaffExportPermission(area, value);
+    } catch {
+      setExportPermissions((prev) => ({ ...prev, [area]: !value }));
+      Alert.alert('Errore', 'Impossibile salvare l\'impostazione.');
+    } finally {
+      setExportPermissionsBusy(false);
     }
   };
 
@@ -358,6 +386,22 @@ export default function AdminScreen() {
             </View>
             <Switch value={surveysEnabled} onValueChange={handleToggleSurveys} disabled={surveysBusy} />
           </View>
+
+          <Text style={[styles.configLabel, { marginTop: 12 }]}>Permessi Staff</Text>
+          <Text style={styles.cardHint}>
+            Importa/Esporta/Modello (e "Seleziona" in Rosa) sono di default visibili solo all'Admin.
+            Concedili anche allo Staff, sezione per sezione — tutto o in parte.
+          </Text>
+          {EXPORT_AREAS.map((area) => (
+            <View style={styles.switchRow} key={area}>
+              <Text style={{ flex: 1 }}>{EXPORT_AREA_LABELS[area]}</Text>
+              <Switch
+                value={exportPermissions[area]}
+                onValueChange={(v) => handleToggleExportPermission(area, v)}
+                disabled={exportPermissionsBusy}
+              />
+            </View>
+          ))}
         </View>
 
         {pending.length > 0 && (

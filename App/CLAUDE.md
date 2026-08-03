@@ -364,6 +364,38 @@ Due richieste di Francesco insieme: un bug sul conteggio dei convocati e un layo
   (resta per la modifica rapida "ultimo secondo" in Live, invariata) — le ha guadagnato comunque lo
   stesso bottone "Seleziona tutti"/"Deseleziona tutti" per coerenza.
 
+## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
+
+Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)
+e **"☑️ Seleziona"** (selezione multipla in Rosa) devono essere di default visibili solo all'**Admin**
+— prima li vedeva anche lo Staff, come quasi tutto il resto dell'app. L'Admin può comunque concederli
+anche allo Staff, **sezione per sezione** (tutto o in parte), da Gestione Squadra → Admin →
+Configurazioni → nuova sotto-sezione "Permessi Staff" (tre switch, uno per Rosa/Partite/Allenamenti,
+tutti **spenti di default**).
+
+- **Schema** — `App/supabase/24_schema_staff_export_permissions.sql`: tre booleane su
+  `organizations` (`staff_can_export_rosa`, `staff_can_export_partite`,
+  `staff_can_export_allenamenti`, tutte `default false`). Nessuna nuova policy RLS (lettura già
+  `is_member_of`, scrittura già admin-only su `organizations`, stesso principio di `staff_roles`/
+  `show_training_attendance`/`surveys_enabled`).
+- **`app/data/organization.ts`**: `loadStaffExportPermissions()`/`saveStaffExportPermission(area,
+  value)` (`area: 'rosa' | 'partite' | 'allenamenti'`), stesso pattern a mappa colonne di
+  `NOTIFY_COLUMNS`.
+- **UI Admin** (`app/squadra/staff.tsx`): nuova sotto-sezione "Permessi Staff" dentro
+  "Configurazioni", tre switch (uno per area).
+- **Punti consumati** (`app/squadra/rosa.tsx`, `app/partite.tsx`, `app/allenamenti.tsx`): ciascuno
+  carica il proprio permesso all'avvio e calcola `canUseXlsxTools = isAdmin || staffCanExport`,
+  usato per nascondere/mostrare il blocco Importa/Esporta/Modello (e "Seleziona" in Rosa). **Non
+  toccati** (restano Staff+Admin come prima, non erano nella richiesta): "+ Aggiungi" giocatore in
+  Rosa, "⚙️ Regole"/"🧹 Rimuovi tutte"/"🏷️ Rimuovi competizione"/crea-partita in Partite,
+  "➕ Nuovo"/"📅 Settimana"/"🗑️ Elimina" in Allenamenti.
+
+**Nota**: la sezione Sondaggi ha **già** un flag equivalente (attiva/disattiva l'intera sezione per
+tutti i ruoli, incluso Admin) — `organizations.surveys_enabled`, switch "Sondaggi" nella stessa
+sotto-sezione Configurazioni, costruito insieme al resto dei Sondaggi (vedi sezione "Notifiche push
+tra utenti" più sotto). Non è un permesso Staff-vs-Admin come sopra, ma un on/off globale — già
+esistente, nessuna modifica necessaria in questo giro.
+
 ## Convenzione script SQL (`App/supabase/`)
 
 Ogni file è numerato con l'ordine in cui va eseguito nell'SQL Editor di Supabase (`1_schema.sql`,

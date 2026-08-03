@@ -206,6 +206,19 @@ Francesco ha iniziato a distribuire l'app (solo allo Staff per ora). Tre segnala
 
 ## Completato
 
+### 2026-08-03 — Permessi Staff per Importa/Esporta/Modello/Seleziona
+Francesco: questi bottoni (Rosa/Partite/Allenamenti, più "Seleziona" in Rosa) devono essere di
+default solo Admin, con un flag in Admin → Configurazioni per concederli anche allo Staff, sezione
+per sezione (tutto o in parte). Aggiunta la sotto-sezione "Permessi Staff" con tre switch (Rosa/
+Partite/Allenamenti, tutti spenti di default) — vedi CLAUDE.md per i dettagli tecnici. **Da fare
+(Francesco)**: eseguire `App/supabase/24_schema_staff_export_permissions.sql`.
+
+**Sondaggi (stessa richiesta)**: il toggle "accendi/spegni da admin" **esisteva già**
+(`organizations.surveys_enabled`, switch "Sondaggi" nella stessa sotto-sezione Configurazioni,
+costruito insieme al resto della funzionalità Sondaggi) — nessuna modifica necessaria, verificare
+solo di aver eseguito lo script `21_schema_surveys.sql` (se non ancora fatto, lo switch darebbe
+errore al salvataggio perché la colonna non esiste).
+
 ### 2026-08-03 — Admin può modificare il nome del giocatore
 Francesco si è accorto di aver invertito nome/cognome in alcuni giocatori inseriti in passato.
 Aggiunto un campo "Nome" (solo Admin, modifica diretta, nessuna proposta) sopra i Dati anagrafici

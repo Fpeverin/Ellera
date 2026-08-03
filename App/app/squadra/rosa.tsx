@@ -20,6 +20,7 @@ import AddPlayerModal from '../components/AddPlayerModal';
 import { useAuth } from '../context/AuthContext';
 import RosterImportReviewModal from '../components/RosterImportReviewModal';
 import { Player } from '../data/players';
+import { loadStaffExportPermissions } from '../data/organization';
 import { loadPhotoMap } from '../data/playerMedia';
 import {
   applyRosterImport,
@@ -102,7 +103,15 @@ function MiniStat({
 export default function Rosa() {
   const { membership } = useAuth();
   const readOnly = membership?.role === 'giocatore';
+  const isAdmin = membership?.role === 'admin';
   const insets = useSafeAreaInsets();
+
+  // Importa/Esporta/Modello/Seleziona: Admin sempre, Staff solo se l'Admin lo concede da Configurazioni.
+  const [staffCanExport, setStaffCanExport] = React.useState(false);
+  React.useEffect(() => {
+    loadStaffExportPermissions().then((p) => setStaffCanExport(p.rosa)).catch(() => {});
+  }, []);
+  const canUseXlsxTools = isAdmin || staffCanExport;
   const { players, exPlayers, addPlayer, moveToEx, moveToExMany, removePlayer, removePlayers, refresh } = usePlayers();
   const [photoMap, setPhotoMap] = React.useState<Record<string, string | null>>({});
   const [search, setSearch] = React.useState('');
@@ -423,7 +432,7 @@ export default function Rosa() {
           )}
         </View>
 
-        {!readOnly && (
+        {canUseXlsxTools && (
           <View style={styles.xlsxRow}>
             <Pressable style={styles.xlsxBtn} onPress={handleExportRoster}>
               <Text style={styles.xlsxBtnText}>📤 Esporta Excel</Text>

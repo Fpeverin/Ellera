@@ -101,6 +101,40 @@ export async function saveSurveysEnabled(value: boolean): Promise<void> {
   if (error) throw error;
 }
 
+/* ---------------- Permessi Staff: Importa/Esporta/Modello (e "Seleziona" in Rosa) ---------------- */
+
+export type StaffExportArea = 'rosa' | 'partite' | 'allenamenti';
+export type StaffExportPermissions = Record<StaffExportArea, boolean>;
+
+const STAFF_EXPORT_COLUMNS: Record<StaffExportArea, string> = {
+  rosa: 'staff_can_export_rosa',
+  partite: 'staff_can_export_partite',
+  allenamenti: 'staff_can_export_allenamenti',
+};
+
+/** Di default queste azioni sono solo Admin; se true per una sezione, le vede/usa anche lo Staff. */
+export async function loadStaffExportPermissions(): Promise<StaffExportPermissions> {
+  const orgId = getCurrentOrgId();
+  const { data, error } = await supabase
+    .from('organizations')
+    .select(Object.values(STAFF_EXPORT_COLUMNS).join(', '))
+    .eq('id', orgId)
+    .maybeSingle();
+  if (error) throw error;
+  const row = (data ?? {}) as Record<string, boolean | null>;
+  return {
+    rosa: row[STAFF_EXPORT_COLUMNS.rosa] ?? false,
+    partite: row[STAFF_EXPORT_COLUMNS.partite] ?? false,
+    allenamenti: row[STAFF_EXPORT_COLUMNS.allenamenti] ?? false,
+  };
+}
+
+export async function saveStaffExportPermission(area: StaffExportArea, value: boolean): Promise<void> {
+  const orgId = getCurrentOrgId();
+  const { error } = await supabase.from('organizations').update({ [STAFF_EXPORT_COLUMNS[area]]: value }).eq('id', orgId);
+  if (error) throw error;
+}
+
 /* ---------------- Configurazione destinatari notifiche staff ---------------- */
 
 export type NotifyMode = 'admin_only' | 'all' | 'selected';
