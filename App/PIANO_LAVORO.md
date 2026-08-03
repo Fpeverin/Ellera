@@ -206,6 +206,15 @@ Francesco ha iniziato a distribuire l'app (solo allo Staff per ora). Tre segnala
 
 ## Completato
 
+### 2026-08-03 — Rimosso il tetto massimo di 20 convocati
+Su richiesta di Francesco ("deve essere possibile convocare più di 20 giocatori"): rimosso il limite
+fisso, non sostituito con un altro numero arbitrario. `app/components/partite/ConvocatiPlayersModal.tsx`
+ha ora il prop `max` opzionale (nessun tetto se omesso, invece del vecchio `DEFAULT_MAX = 20`);
+`app/eventi/partita/[id]/convocazione.tsx` non passa più `max` (rimossa la costante `MAX_CONVOCATI`
+e l'indicazione "/20" nel titolo della sezione). Il secondo punto che usa la stessa modale
+("✏️ MODIFICA CONVOCATI" in `live.tsx`) non passava già un `max` esplicito, quindi ha ereditato
+automaticamente il nuovo comportamento senza modifiche.
+
 ### 2026-07-30 — Staff in sola consultazione per chi non è Admin
 Su richiesta di Francesco, la schermata "Staff" (Tecnico/Sanitario/Dirigenziale) resta visibile a
 tutti (anche al Giocatore, che prima non la vedeva affatto) ma **solo l'Admin** può aggiungere,

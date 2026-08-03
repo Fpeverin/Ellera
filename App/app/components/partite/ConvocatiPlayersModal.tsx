@@ -12,18 +12,17 @@ type Props = {
   visible: boolean;
   players: SimplePlayer[];
   selectedIds: string[];
+  /** Nessun limite se omesso — la lista è comunque limitata dalla rosa reale. */
   max?: number;
   onClose: () => void;
   onConfirm: (ids: string[]) => void;
 };
 
-const DEFAULT_MAX = 20;
-
 export default function ConvocatiPlayersModal({
   visible,
   players,
   selectedIds,
-  max = DEFAULT_MAX,
+  max,
   onClose,
   onConfirm,
 }: Props) {
@@ -39,7 +38,7 @@ export default function ConvocatiPlayersModal({
       if (next.has(id)) {
         next.delete(id);
       } else {
-        if (next.size >= max) return next;
+        if (max != null && next.size >= max) return next;
         next.add(id);
       }
       return next;
@@ -51,14 +50,14 @@ export default function ConvocatiPlayersModal({
       <View style={styles.overlay}>
         <View style={styles.card}>
           <Text style={styles.title}>
-            Giocatori convocati ({ids.size}/{max})
+            Giocatori convocati ({ids.size}{max != null ? `/${max}` : ''})
           </Text>
           <FlatList
             data={players}
             keyExtractor={(p) => p.id}
             renderItem={({ item }) => {
               const checked = ids.has(item.id);
-              const disabled = !checked && ids.size >= max;
+              const disabled = !checked && max != null && ids.size >= max;
               return (
                 <Pressable
                   style={[styles.row, disabled && { opacity: 0.5 }]}

@@ -457,7 +457,8 @@ precisa.
   (`executeSubstitution`). Un giocatore **espulso** (cartellino rosso) continua a contare ai fini
   della regola anche se non più fisicamente in campo — solo una sostituzione vera lo toglie dal
   conteggio.
-- **Formazione** (`formazione.tsx`): scelta modulo, convocati (max 20), disposizione titolari/panchina,
+- **Formazione** (`formazione.tsx`): scelta modulo, convocati (nessun limite massimo — vedi nota sotto
+  in "Convocazione partita"), disposizione titolari/panchina,
   assegnazione numero di maglia, drag&drop sul campo.
 - **Tattiche di partita** (`tattiche.tsx`): lavagna tattica per la singola partita, assegnazione di
   schemi salvati ai giocatori convocati.
@@ -835,9 +836,11 @@ liste convocati e riepilogo pranzo), condiviso da Francesco come modello.
   (con default vuoto), `saveConvocatiPlayerIds(eventId, ids)` (setter condiviso: salva
   `convocazione.playerIds` **e** pota `lineup.field`/`lineup.bench` togliendo ogni id non più
   convocato — stesso comportamento che prima viveva nella modale CONVOCATI di `formazione.tsx`).
-- **`app/components/partite/ConvocatiPlayersModal.tsx`** (nuovo, condiviso): checklist giocatori con
-  tetto massimo (default 20), usata sia dal tab Convocazione sia dalla modifica "ultimo secondo" in
-  Live.
+- **`app/components/partite/ConvocatiPlayersModal.tsx`** (nuovo, condiviso): checklist giocatori,
+  usata sia dal tab Convocazione sia dalla modifica "ultimo secondo" in Live. **Nessun tetto massimo**
+  (rimosso il 2026-08-03 su richiesta di Francesco — prima era fisso a 20, prop `max` opzionale non
+  più passata da nessuno dei due punti di utilizzo): il prop `max` resta disponibile ma opzionale,
+  per un eventuale limite futuro diverso da "tutta la rosa".
 - **`app/eventi/partita/[id]/convocazione.tsx`** (nuovo): intestazione partita (letta da
   `loadEvents()`) + campo Ritrovo, checklist giocatori (alfabetico, tramite la modale condivisa,
   riepilogo a chip), staff diviso nelle 3 categorie (checklist read-only sulla Rosa Staff, nessuna

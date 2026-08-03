@@ -26,8 +26,6 @@ import { usePlayers } from '../../../hooks/usePlayers';
 import { getCurrentOrgId } from '../../../lib/currentOrg';
 import { supabase } from '../../../lib/supabase';
 
-const MAX_CONVOCATI = 20;
-
 const CATEGORY_LABELS: Record<StaffCategory, string> = {
   TECNICO: 'Staff Tecnico',
   SANITARIO: 'Staff Sanitario',
@@ -396,7 +394,7 @@ export default function Convocazione() {
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>
-              Giocatori convocati ({playerIds.length}/{MAX_CONVOCATI})
+              Giocatori convocati ({playerIds.length})
             </Text>
             <Pressable style={styles.smallBtn} onPress={() => setPlayersModalOpen(true)}>
               <Text style={styles.smallBtnText}>✏️ Modifica</Text>
@@ -470,7 +468,6 @@ export default function Convocazione() {
         visible={playersModalOpen}
         players={players}
         selectedIds={playerIds}
-        max={MAX_CONVOCATI}
         onClose={() => setPlayersModalOpen(false)}
         onConfirm={handleConfirmPlayers}
       />
