@@ -305,13 +305,12 @@ Nuova sezione **"Sondaggi"** sotto Gestione Squadra (`app/squadra/sondaggi/index
   nei sondaggi programmati/ricorrenti (il job pg_cron esistente non cambia, richiama la stessa
   funzione).
 
-**Da fare (Francesco)**: eseguire in ordine su Supabase `19_schema_push_tokens.sql`,
+**Fatto (Francesco)**: eseguiti in ordine su Supabase `19_schema_push_tokens.sql`,
 `20_schema_notify_config.sql`, `21_schema_surveys.sql`, `22_schema_surveys_cron.sql`,
 `23_schema_survey_recipients.sql`.
-**Da verificare dal vero** (primo invio push remoto reale di questa app — i promemoria di prima erano
-solo locali): registrazione token su dispositivo fisico, ognuna delle notifiche sopra, e in particolare
-un sondaggio "programmato" chiudendo completamente l'app per confermare che `pg_cron`/`pg_net`
-funzionino davvero senza bisogno di nessun client aperto.
+**Verificato dal vero (2026-08-03)**: registrazione token su dispositivo fisico, ognuna delle
+notifiche sopra, e un sondaggio "programmato" chiudendo completamente l'app — confermato che
+`pg_cron`/`pg_net` funzionano davvero senza bisogno di nessun client aperto. Tutto corretto.
 
 ## Logo squadra in ogni schermata — 2026-07-31
 

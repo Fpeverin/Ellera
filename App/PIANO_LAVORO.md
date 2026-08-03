@@ -36,7 +36,13 @@ prossima idea non appena viene in mente.
 
 ## In corso
 
-### PDF Convocazione: replica fedele della Scheda Excel (2026-07-31)
+Nessuna voce al momento — le verifiche pendenti sono state completate e confermate corrette da
+Francesco (2026-08-03), vedi sezioni corrispondenti spostate qui sotto in Completato. Prossimi passi
+possibili: vedi Backlog qui sopra.
+
+## Completato
+
+### PDF Convocazione: replica fedele della Scheda Excel (2026-07-31, verificato 2026-08-03)
 Ricevuto da Francesco il file originale "Scheda Convocazione Ellera.xlsx" (analizzato con `openpyxl`:
 celle unite, box con bordi, posizione loghi/testo) — il vecchio PDF era solo un elenco di tabelle
 senza stile. **Decisione presa con Francesco**: layout/disposizione replicati fedelmente, ma il
@@ -52,13 +58,11 @@ precedente esplicita, confermata).
   in formato lungo italiano ("Domenica 12 ottobre 2025", come `dddd dd mmmm yyyy` nell'Excel).
 - **Non toccato**: menu pranzo (voce a parte nel Backlog, foglio "MENU"/"Riepilogo Pranzo"
   dell'Excel — stessa richiesta "da riprogettare", non nel PDF Convocazione).
-- **Da verificare**: Francesco non ha ancora visto il risultato dal vero (generato solo un'anteprima
-  HTML statica per controllo struttura, non un vero PDF da telefono/browser).
+- **Verificato da Francesco (2026-08-03)**: confermato corretto su un vero PDF da telefono/browser.
 
-### Notifiche push tra utenti: Sondaggi, Convocazione, Proposte Live, Modifiche anagrafica (avviata 2026-07-31)
+### Notifiche push tra utenti: Sondaggi, Convocazione, Proposte Live, Modifiche anagrafica (avviata 2026-07-31, verificato 2026-08-03)
 Prima infrastruttura di notifiche push **verso un altro utente** (finora solo promemoria locali,
-`app/utils/eventReminders.ts`). Stato: **implementato, da eseguire gli script SQL e testare dal vero**
-(nessun invio push remoto è mai stato provato finora su questa app).
+`app/utils/eventReminders.ts`). Stato: **implementato, script SQL eseguiti, verificato dal vero**.
 - **Fondamenta**: `memberships.push_token` + RPC `register_push_token`/`get_notification_tokens`/
   `get_push_tokens_for_players`/`get_org_player_tokens` (`App/supabase/19_schema_push_tokens.sql`).
   Nuovo `app/data/pushNotify.ts` (`registerPushTokenForCurrentUser`, no-op sul web;
@@ -84,15 +88,14 @@ Prima infrastruttura di notifiche push **verso un altro utente** (finora solo pr
   di prima e default, oppure Solo alcuni scelti alla creazione), `App/supabase/
   23_schema_survey_recipients.sql` (colonne `notify_players_mode`/`notify_players_ids`, ridefinisce
   anche `process_due_surveys()` per rispettarle nei sondaggi programmati/ricorrenti).
-- **Da fare (Francesco)**: eseguire in ordine su Supabase SQL Editor gli script `19`, `20`, `21`, `22`,
-  `23` (il `22` attiva le estensioni `pg_cron`/`pg_net` — se il comando desse un permission error, il
-  commento nello script indica il fallback da Dashboard → Database → Extensions).
-- **Da verificare dal vero** (prima volta che questa app invia un push remoto, non solo locale):
-  registrazione token su un dispositivo reale, notifica Convocazione, proposta Live con destinatari
-  configurati, sondaggio "subito" e uno "programmato" a pochi minuti (chiudendo l'app per verificare
-  che arrivi comunque via cron), risposta di un giocatore e relativa notifica allo staff.
+- **Fatto (Francesco)**: eseguiti in ordine su Supabase SQL Editor gli script `19`, `20`, `21`, `22`,
+  `23`.
+- **Verificato dal vero (2026-08-03)**: registrazione token su un dispositivo reale, notifica
+  Convocazione, proposta Live con destinatari configurati, sondaggio "subito" e uno "programmato"
+  (chiudendo l'app, per confermare che arrivi comunque via cron), risposta di un giocatore e relativa
+  notifica allo staff — tutto confermato corretto.
 
-### Webapp per PC e per chi ha iPhone (avviata 2026-07-31)
+### Webapp per PC e per chi ha iPhone (avviata 2026-07-31, verificato 2026-08-03)
 Vedi la decisione originale del 2026-07-30 più sotto in Completato una volta chiuso il giro. Stato:
 - **Fatto**: `app.json` (`web.output` passato da `static` a `single` — la modalità "static"
   pre-renderizza ogni pagina lato server e crash con `window is not defined` perché il client
@@ -121,14 +124,13 @@ Vedi la decisione originale del 2026-07-30 più sotto in Completato una volta ch
     comportamento nativo (long-press resta com'era su Android).
   - ❌ → **fix fatto** (vedi voce "Allenamenti solo eventi + piano Calendario" qui sotto): layout
     Dashboard/Calendario rifatto per il web, insieme alle due migliorie calendario già in programma.
-- **Da verificare ancora**: "Aggiungi a Home" da Safari iPhone; export/import Excel
-  Partite/Allenamenti (solo Rosa testata finora).
+- **Verificato (2026-08-03)**: "Aggiungi a Home" da Safari iPhone; export/import Excel
+  Partite/Allenamenti — tutto confermato corretto.
 
-### Allenamenti solo eventi + Calendario/Dashboard rifatti (avviata 2026-07-31)
+### Allenamenti solo eventi + Calendario/Dashboard rifatti (avviata 2026-07-31, verificato 2026-08-03)
 Su richiesta di Francesco: gli allenamenti non hanno più una sezione presenze dedicata nella scheda
 giocatore/Statistiche, e il calendario Dashboard è stato rifatto (le due migliorie già in Backlog +
-il fix del layout webapp segnalato sopra). Stato: **implementato, da verificare** (Francesco non ha
-ancora testato in produzione).
+il fix del layout webapp segnalato sopra). Stato: **implementato e verificato in produzione**.
 - **Scheda giocatore** (`app/player/[id].tsx`): rimosso il tab "Allenamenti" (statistiche presenze,
   trend, riepilogo mensile) e la card "Presenze" nell'header — il tab "Infortuni" resta invariato
   (stessa fonte dati `trainings`, usata solo per le strisce di infortunio consecutive).
@@ -203,8 +205,6 @@ Francesco ha iniziato a distribuire l'app (solo allo Staff per ora). Tre segnala
   nessuna modifica al codice — basta che Francesco vada su Gestione Squadra → Admin, tocchi il nome
   della persona e cambi il ruolo in Admin da lì (funzionalità già esistente, più admin per squadra
   sono già supportati).
-
-## Completato
 
 ### 2026-08-03 — Permessi Staff per Importa/Esporta/Modello/Seleziona
 Francesco: questi bottoni (Rosa/Partite/Allenamenti, più "Seleziona" in Rosa) devono essere di
