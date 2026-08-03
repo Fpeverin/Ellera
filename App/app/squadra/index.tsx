@@ -116,21 +116,17 @@ export default function GestioneSquadra() {
             </Pressable>
           )}
 
-          {!isGiocatore && (
-            <Pressable style={[styles.navCard, styles.infoCard]} onPress={() => router.push('/squadra/statistiche')}>
-              <Text style={styles.navIcon}>📈</Text>
-              <Text style={styles.navTitle}>Statistiche</Text>
-              <Text style={styles.navSubtitle}>Dati stagionali e filtri</Text>
-            </Pressable>
-          )}
+          <Pressable style={[styles.navCard, styles.infoCard]} onPress={() => router.push('/squadra/statistiche')}>
+            <Text style={styles.navIcon}>📈</Text>
+            <Text style={styles.navTitle}>Statistiche</Text>
+            <Text style={styles.navSubtitle}>Dati stagionali e filtri</Text>
+          </Pressable>
 
-          {!isGiocatore && (
-            <Pressable style={[styles.navCard, styles.archiveCard]} onPress={() => router.push('/squadra/archivio')}>
-              <Text style={styles.navIcon}>🗄️</Text>
-              <Text style={styles.navTitle}>Archivio</Text>
-              <Text style={styles.navSubtitle}>Storico stagioni</Text>
-            </Pressable>
-          )}
+          <Pressable style={[styles.navCard, styles.archiveCard]} onPress={() => router.push('/squadra/archivio')}>
+            <Text style={styles.navIcon}>🗄️</Text>
+            <Text style={styles.navTitle}>Archivio</Text>
+            <Text style={styles.navSubtitle}>Storico stagioni</Text>
+          </Pressable>
 
           <Pressable style={[styles.navCard, styles.rosterStaffCard]} onPress={() => router.push('/squadra/staffRoster')}>
             <Text style={styles.navIcon}>🧑‍⚕️</Text>

@@ -1,5 +1,5 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { loadEvents } from '../data/events';
 import { isPlayerInMatches } from '../data/matchLive';
 import { Player, Role } from '../data/players';
@@ -91,7 +91,12 @@ export function usePlayers(): UsePlayersResult {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const allPlayers = [...active, ...ex];
+  // Stessa identità di riferimento finché active/ex non cambiano davvero —
+  // senza, ogni chiamata di usePlayers() creava un nuovo array a ogni render,
+  // e in statistiche.tsx questo faceva ripartire un useFocusEffect agganciato
+  // ad allPlayers a ogni render, causando un loop di ricalcolo/re-render
+  // infinito (la tabella "lampeggiava").
+  const allPlayers = useMemo(() => [...active, ...ex], [active, ex]);
 
   const addPlayer = async (input: NewPlayerInput): Promise<Player> => {
     const year = parseInt(input.dob.slice(0, 4), 10);

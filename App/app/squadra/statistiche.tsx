@@ -1,5 +1,4 @@
 // app/squadra/statistiche.tsx
-import { useAuth } from '@/app/context/AuthContext';
 import { CalendarEvent, loadEvents } from '@/app/data/events';
 import { loadLineup } from '@/app/data/matchLive';
 import { loadPhotoMap } from '@/app/data/playerMedia';
@@ -86,7 +85,6 @@ const EMPTY: Totals = {
 };
 
 export default function StatisticheSquadra() {
-  const { membership } = useAuth();
   const { allPlayers } = usePlayers();
   const [loading, setLoading] = useState(false);
   const [competitions, setCompetitions] = useState<string[]>(['Tutte']);
@@ -463,14 +461,8 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
   };
 
   // ======= UI =======
-  if (membership?.role === 'giocatore') {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-        <Text style={{ color: '#64748b', textAlign: 'center' }}>Non disponibile per il tuo ruolo.</Text>
-      </View>
-    );
-  }
-
+  // Sola consultazione per il Giocatore: la schermata è già di sola lettura
+  // (nessuna azione di modifica), export CSV/PDF compreso.
   return (
     <View style={styles.container}>
       {/* Header */}

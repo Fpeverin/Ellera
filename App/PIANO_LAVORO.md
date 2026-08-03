@@ -171,6 +171,27 @@ pagine dell'app, se caricato. Fatto letteralmente ovunque tranne login/registraz
 squadra in ogni schermata", per l'elenco completo e i dettagli tecnici (cache in memoria per non
 rifare la query a ogni schermata, invalidata quando l'Admin carica un nuovo logo).
 
+### Primi riscontri dopo l'apertura allo Staff (2026-07-31)
+Francesco ha iniziato a distribuire l'app (solo allo Staff per ora). Tre segnalazioni:
+- **Fix critico: tabella Statistiche che "lampeggiava"** — non era un problema della schermata in sé
+  ma un bug di fondo in `app/hooks/usePlayers.ts`: `allPlayers` veniva ricreato (`[...active, ...ex]`)
+  a **ogni render**, senza `useMemo`. In `statistiche.tsx`, dove `recompute` è un `useCallback` che
+  dipende da `allPlayers` dentro un `useFocusEffect`, questo faceva ripartire il ricalcolo a ogni
+  render → nuovo render → nuovo `allPlayers` → di nuovo ricalcolo, in loop infinito (da cui il
+  lampeggiamento). **Fix**: `allPlayers` ora è `useMemo(() => [...active, ...ex], [active, ex])` —
+  stessa identità finché i dati non cambiano davvero. Beneficia potenzialmente anche altre schermate
+  che usano `usePlayers()` in modo simile, non solo Statistiche.
+- **Ruolo Giocatore ampliato in Gestione Squadra**: prima vedeva solo Rosa e Staff. Ora vede anche
+  **Statistiche** e **Archivio Stagioni**, entrambe già di sola consultazione (nessuna azione di
+  scrittura in quelle schermate per nessun ruolo, tranne "Archivia stagione"/elimina archivio in
+  Archivio — quei due bottoni restano nascosti per il Giocatore). Moduli e Tattiche restano
+  Staff/Admin, come Allenamenti/Partite restano già in sola consultazione per il Giocatore (nessun
+  cambiamento lì, comportamento confermato corretto da Francesco).
+- **Ruolo di un "tester"**: per dargli la stessa visione di un Admin (non di uno Staff) non serve
+  nessuna modifica al codice — basta che Francesco vada su Gestione Squadra → Admin, tocchi il nome
+  della persona e cambi il ruolo in Admin da lì (funzionalità già esistente, più admin per squadra
+  sono già supportati).
+
 ## Completato
 
 ### 2026-07-30 — Staff in sola consultazione per chi non è Admin

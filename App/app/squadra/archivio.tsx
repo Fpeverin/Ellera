@@ -99,21 +99,17 @@ export default function Archivio() {
     } catch { return iso; }
   };
 
-  if (membership?.role === 'giocatore') {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-        <Text style={{ color: '#64748b', textAlign: 'center' }}>Non disponibile per il tuo ruolo.</Text>
-      </View>
-    );
-  }
+  const isGiocatore = membership?.role === 'giocatore';
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <View style={styles.header}>
         <Text style={styles.title}>Archivio Stagioni</Text>
-        <Pressable style={styles.archiveBtn} onPress={openArchiveModal}>
-          <Text style={styles.archiveBtnText}>+ Archivia stagione</Text>
-        </Pressable>
+        {!isGiocatore && (
+          <Pressable style={styles.archiveBtn} onPress={openArchiveModal}>
+            <Text style={styles.archiveBtnText}>+ Archivia stagione</Text>
+          </Pressable>
+        )}
       </View>
 
       {loadingList ? (
@@ -153,9 +149,11 @@ export default function Archivio() {
               </View>
               <View style={styles.cardRight}>
                 <Text style={styles.chevron}>›</Text>
-                <Pressable style={styles.deleteBtn} onPress={() => handleDelete(item)} hitSlop={8}>
-                  <Text style={styles.deleteBtnText}>🗑️</Text>
-                </Pressable>
+                {!isGiocatore && (
+                  <Pressable style={styles.deleteBtn} onPress={() => handleDelete(item)} hitSlop={8}>
+                    <Text style={styles.deleteBtnText}>🗑️</Text>
+                  </Pressable>
+                )}
               </View>
             </Pressable>
           )}
