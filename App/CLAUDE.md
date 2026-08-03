@@ -544,6 +544,15 @@ relative schermate mostrano un messaggio se raggiunte con un link diretto.
 - Tab: **Partite** (presenze/statistiche), **Allenamenti** (presenze), **Infortuni** (storico status),
   **Allegati** (documenti).
 - Foto profilo (galleria o fotocamera), allegati (document picker), link esterni (browser in-app).
+- **Nome** (solo Admin, modifica diretta, nessuna proposta — `App/app/player/[id].tsx`, sezione
+  "Nome" sopra i Dati anagrafici, 2026-08-03): pensato per correggere nome/cognome invertiti in fase
+  di inserimento. Staff e Giocatore non lo vedono (a differenza dei campi sotto, dove Staff modifica
+  diretto e Giocatore propone) — richiesta esplicita di Francesco, solo Admin. `updatePlayer` accetta
+  ora anche `name` in `PlayerUpdateInput` (`app/hooks/usePlayers.ts`), stessa scrittura diretta su
+  Supabase degli altri campi, nessuna migrazione SQL necessaria (colonna già esistente). **Non**
+  riscrive i nomi già "congelati" altrove (gol/cartellini/sostituzioni salvano il nome per copia al
+  momento dell'evento, gli Archivi Stagioni sono snapshot congelati) — resta lo storico con il nome
+  di allora, solo la Rosa/le schede future mostrano il nome corretto.
 - **Dati anagrafici** (Ruolo/Data di nascita/Altezza/Peso): Admin e Staff li modificano su
   **qualunque** giocatore, in scrittura diretta (`updatePlayer` in `app/hooks/usePlayers.ts`). Un
   **Giocatore** vede questa sezione solo sulla scheda del giocatore a cui è collegato

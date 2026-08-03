@@ -157,13 +157,37 @@ export default function PlayerDetail() {
   const [editSaving, setEditSaving] = useState(false);
   const [pendingEdit, setPendingEdit] = useState<PlayerEditRequest | null>(null);
 
+  // Nome (solo Admin, modifica diretta — nessuna proposta): per correggere nome/cognome invertiti
+  // in fase di inserimento, senza dover eliminare e ricreare il giocatore.
+  const [editName, setEditName] = useState('');
+  const [nameSaving, setNameSaving] = useState(false);
+
   useEffect(() => {
     if (!base) return;
     setEditRole(base.role);
     setEditDob(base.dob ?? null);
     setEditHeight(base.height ?? '');
     setEditWeight(base.weight ?? '');
-  }, [base?.id, base?.role, base?.dob, base?.height, base?.weight]);
+    setEditName(base.name ?? '');
+  }, [base?.id, base?.role, base?.dob, base?.height, base?.weight, base?.name]);
+
+  const handleSaveName = async () => {
+    if (!id) return;
+    const trimmed = editName.trim().toUpperCase();
+    if (!trimmed) {
+      Alert.alert('Nome mancante', 'Il nome non può essere vuoto.');
+      return;
+    }
+    setNameSaving(true);
+    try {
+      await updatePlayer(id, { name: trimmed });
+      Alert.alert('Salvato', 'Nome aggiornato.');
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare il nome.');
+    } finally {
+      setNameSaving(false);
+    }
+  };
 
   const loadPendingEdit = async () => {
     if (!id || !(canEditDirectly || isOwnPlayer)) return;
@@ -638,6 +662,23 @@ export default function PlayerDetail() {
 
       {/* CONTENUTO SCROLLABILE SOTTO L’HEADER */}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 248 + insets.top, paddingBottom: 24 }}>
+        {/* ====== NOME (solo Admin, modifica diretta) ====== */}
+        {isAdmin && (
+          <View style={[styles.tabContent, { paddingBottom: 0 }]}>
+            <View style={styles.editCard}>
+              <Text style={styles.editCardTitle}>Nome</Text>
+              <TextInput style={styles.formInput} value={editName} onChangeText={setEditName} autoCapitalize="characters" />
+              <Pressable
+                style={[styles.actionBtn, { marginTop: 12, alignSelf: 'flex-start' }]}
+                onPress={handleSaveName}
+                disabled={nameSaving}
+              >
+                <Text style={styles.actionText}>{nameSaving ? 'Salvataggio…' : 'Salva nome'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
         {/* ====== DATI ANAGRAFICI (Admin/Staff diretto, Giocatore solo il proprio - proposta) ====== */}
         {(canEditDirectly || isOwnPlayer) && (
           <View style={[styles.tabContent, { paddingBottom: 0 }]}>

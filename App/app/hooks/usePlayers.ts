@@ -32,6 +32,7 @@ export interface RemovePlayersResult {
 }
 
 export type PlayerUpdateInput = Partial<{
+  name: string;
   role: Role;
   year: number;
   dob: string; // 'YYYY-MM-DD'

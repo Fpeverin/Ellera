@@ -206,6 +206,13 @@ Francesco ha iniziato a distribuire l'app (solo allo Staff per ora). Tre segnala
 
 ## Completato
 
+### 2026-08-03 — Admin può modificare il nome del giocatore
+Francesco si è accorto di aver invertito nome/cognome in alcuni giocatori inseriti in passato.
+Aggiunto un campo "Nome" (solo Admin, modifica diretta, nessuna proposta) sopra i Dati anagrafici
+nella scheda giocatore — Staff e Giocatore non lo vedono, a differenza degli altri campi. Non
+riscrive lo storico già congelato (gol/cartellini/sostituzioni salvano il nome per copia al momento
+dell'evento, gli Archivi Stagioni sono snapshot) — solo Rosa e schede da quel momento in avanti.
+
 ### 2026-08-03 — Convocazione: fix conteggio "sporco" + layout a due colonne + Seleziona tutti
 Tre richieste di Francesco insieme (vedi CLAUDE.md, sezione "Convocazione: layout a due colonne +
 fix conteggio sporco" per i dettagli tecnici):
