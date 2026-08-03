@@ -46,6 +46,15 @@ function formatMatchTitle(ev: CalendarEvent | null): string {
   return ha === 'TRASFERTA' ? `${opp} - Ellera` : `Ellera - ${opp}`;
 }
 
+/** "2026-09-14" -> "Domenica 14 settembre 2026" (come nella Scheda Convocazione Excel); testo libero lasciato invariato. */
+function formatLongDateIt(value: string): string {
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return value;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const s = d.toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 type ExportForm = {
   competizione: string;
   luogo: string;
@@ -183,33 +192,60 @@ export default function Convocazione() {
     setExporting(true);
     try {
       const giocatoriRows = convocatedPlayers
-        .map((p) => `<tr><td>${esc(p.name)}</td></tr>`)
+        .map((p, i) => `<tr><td class="numCell">${i + 1}</td><td>${esc(p.name)}</td></tr>`)
         .join('');
 
-      const staffSectionHtml = CATEGORIES.map((cat) => {
-        const rows = convocatedStaff
-          .filter((s) => s.category === cat)
-          .map((s) => `<tr><td>${esc(s.name)}${s.role ? ` — ${esc(s.role)}` : ''}</td></tr>`)
+      const staffColumnHtml = CATEGORIES.map((cat) => {
+        const members = convocatedStaff.filter((s) => s.category === cat);
+        if (members.length === 0) return '';
+        const rows = members
+          .map(
+            (s) => `
+              <tr class="roleRow"><td colspan="2">${esc(s.role || '—')}</td></tr>
+              <tr class="nameRow"><td colspan="2">${esc(s.name)}</td></tr>
+            `
+          )
           .join('');
-        if (!rows) return '';
-        return `<h3>${esc(CATEGORY_LABELS[cat])}</h3><table>${rows}</table>`;
+        return `
+          <div class="sectionHeader">${esc(CATEGORY_LABELS[cat])}</div>
+          <table class="list">${rows}</table>
+        `;
       }).join('');
-
-      const logosHtml = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-          <div>${orgLogoUrl ? `<img src="${esc(orgLogoUrl)}" style="height:64px;" />` : ''}</div>
-          <div>${opponentLogoUrl ? `<img src="${esc(opponentLogoUrl)}" style="height:64px;" />` : ''}</div>
-        </div>
-      `;
 
       const styles = `
         <style>
-          body { font-family: system-ui, Roboto, Arial; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-          td, th { border: 1px solid #e5e7eb; padding: 6px; }
-          h1 { margin-bottom: 4px; }
-          h2 { margin-top: 24px; }
-          h3 { margin-bottom: 4px; }
+          body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #000; margin: 20px; }
+          .topBanner { text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 8px; }
+          .headerTable { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+          .headerTable td { vertical-align: middle; border: 1px solid #000; padding: 6px; }
+          .logoCell { width: 22%; text-align: center; border: none !important; }
+          .logoCell img { max-width: 100px; max-height: 100px; }
+          .titleCell { width: 56%; text-align: center; }
+          .matchTitle { font-size: 16px; font-weight: bold; color: #1D00FF; margin-bottom: 2px; }
+          .compLine { font-size: 13px; margin-bottom: 2px; }
+          .dateTimeLine { font-size: 13px; margin-bottom: 2px; }
+          .venueLine { font-size: 12px; }
+          .ritrovoBox { border: 1px solid #000; padding: 8px; font-weight: bold; margin-bottom: 10px; }
+          .ritrovoBox .value { font-weight: normal; }
+          .columns { display: flex; gap: 10px; }
+          .col { flex: 1; }
+          .sectionHeader { border: 1px solid #000; text-align: center; font-weight: bold; padding: 5px; margin-top: 8px; }
+          .col > .sectionHeader:first-child { margin-top: 0; }
+          table.list { width: 100%; border-collapse: collapse; }
+          table.list td { border: 1px solid #000; padding: 4px 8px; font-size: 12px; text-align: center; }
+          table.list td.numCell { width: 26px; font-weight: bold; }
+          table.list tr:not(.roleRow):not(.nameRow) td:not(.numCell) { text-align: left; }
+          .roleRow td { font-weight: bold; border-bottom: none; }
+          .nameRow td { border-top: none; }
+          .riepilogoWrap { display: flex; justify-content: center; align-items: center; gap: 20px; margin-top: 16px; }
+          .bottomLogo img { max-width: 90px; max-height: 90px; }
+          .riepilogoBox { border: 1px solid #000; min-width: 220px; }
+          .riepilogoBox .title { text-align: center; font-weight: bold; border-bottom: 1px solid #000; padding: 5px; }
+          .riepilogoBox table { width: 100%; border-collapse: collapse; }
+          .riepilogoBox td { padding: 4px 10px; font-size: 12px; border-top: 1px solid #000; }
+          .riepilogoBox tr:first-child td { border-top: none; }
+          .riepilogoBox tr.tot td { font-weight: bold; }
+          .riepilogoBox td:last-child { text-align: center; }
         </style>
       `;
 
@@ -217,28 +253,45 @@ export default function Convocazione() {
         <html>
           <head>${styles}</head>
           <body>
-            ${logosHtml}
-            <h1>Scheda Convocazione</h1>
-            <p><strong>${esc(formatMatchTitle(event))}</strong></p>
-            <p>${esc(exportForm.competizione)}</p>
-            <p>${esc(exportForm.data)} — ${esc(exportForm.ora)}</p>
-            <p>${esc(exportForm.luogo)}</p>
-            <p>Ritrovo: ${esc(exportForm.ritrovo || '—')}</p>
+            <div class="topBanner">Scheda Convocazione</div>
 
-            <h2>Giocatori convocati (${convocatedPlayers.length})</h2>
-            <table>${giocatoriRows}</table>
-
-            <h2>Staff</h2>
-            ${staffSectionHtml}
-
-            <h2>Riepilogo</h2>
-            <table>
-              <tr><td>Giocatori</td><td>${playerIds.length}</td></tr>
-              <tr><td>Staff Tecnico</td><td>${staffCountByCategory('TECNICO')}</td></tr>
-              <tr><td>Staff Sanitario</td><td>${staffCountByCategory('SANITARIO')}</td></tr>
-              <tr><td>Dirigenza</td><td>${staffCountByCategory('DIRIGENZIALE')}</td></tr>
-              <tr><td><strong>Totale</strong></td><td><strong>${totale}</strong></td></tr>
+            <table class="headerTable">
+              <tr>
+                <td class="logoCell">${orgLogoUrl ? `<img src="${esc(orgLogoUrl)}" />` : ''}</td>
+                <td class="titleCell">
+                  <div class="matchTitle">Convocazione ${esc(formatMatchTitle(event))}</div>
+                  ${exportForm.competizione ? `<div class="compLine">${esc(exportForm.competizione)}</div>` : ''}
+                  <div class="dateTimeLine"><strong>${esc(formatLongDateIt(exportForm.data))}</strong>${exportForm.ora ? ` — Ore ${esc(exportForm.ora)}` : ''}</div>
+                  ${exportForm.luogo ? `<div class="venueLine">${esc(exportForm.luogo)}</div>` : ''}
+                </td>
+                <td class="logoCell">${opponentLogoUrl ? `<img src="${esc(opponentLogoUrl)}" />` : ''}</td>
+              </tr>
             </table>
+
+            ${exportForm.ritrovo ? `<div class="ritrovoBox">Ritrovo: <span class="value">${esc(exportForm.ritrovo)}</span></div>` : ''}
+
+            <div class="columns">
+              <div class="col">
+                <div class="sectionHeader">Convocazioni Giocatori (${convocatedPlayers.length})</div>
+                <table class="list">${giocatoriRows}</table>
+              </div>
+              <div class="col">${staffColumnHtml}</div>
+            </div>
+
+            <div class="riepilogoWrap">
+              <div class="bottomLogo">${orgLogoUrl ? `<img src="${esc(orgLogoUrl)}" />` : ''}</div>
+              <div class="riepilogoBox">
+                <div class="title">Riepilogo</div>
+                <table>
+                  <tr><td>Giocatori</td><td>${playerIds.length}</td></tr>
+                  <tr><td>Staff Tecnico</td><td>${staffCountByCategory('TECNICO')}</td></tr>
+                  <tr><td>Staff Sanitario</td><td>${staffCountByCategory('SANITARIO')}</td></tr>
+                  <tr><td>Dirigenza</td><td>${staffCountByCategory('DIRIGENZIALE')}</td></tr>
+                  <tr class="tot"><td>Totale</td><td>${totale}</td></tr>
+                </table>
+              </div>
+              <div class="bottomLogo">${opponentLogoUrl ? `<img src="${esc(opponentLogoUrl)}" />` : ''}</div>
+            </div>
           </body>
         </html>
       `;

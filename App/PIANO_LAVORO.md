@@ -21,27 +21,39 @@ prossima idea non appena viene in mente.
 
 ## Backlog
 
-- **Impaginazione del PDF Convocazione più fedele all'originale** (richiesta di Francesco del
-  2026-07-30): l'attuale PDF è funzionale (solo convocati, loghi, dati partita) ma l'impaginazione va
-  rifatta per assomigliare di più allo "Scheda Convocazione Ellera.xlsx" condiviso all'inizio — da
-  rivedere font/layout/stile delle tabelle, non solo il contenuto.
-
 - **Menu pranzo configurabile in Convocazione** (rimosso dalla UI il 2026-07-30 su richiesta di
   Francesco, da riprogettare): piatti disponibili e scelta per ciascun convocato. Deve essere "molto
   più configurabile" di come era stato costruito la prima volta — da ridiscutere il design prima di
   reintrodurlo (i campi `menuItems`/`meals` restano comunque nella colonna dati di ogni partita).
 
-- **Webapp: lavagna tattica/moduli non reattivi al resize della finestra** (emerso lavorando sulla
-  webapp, 2026-07-31): `app/squadra/tattiche/editor.tsx`, `app/moduli/editor.tsx` e
-  `app/eventi/partita/[id]/tattiche.tsx` calcolano le dimensioni del campo una sola volta con
-  `Dimensions.get('window')` al caricamento — su desktop, ridimensionare la finestra del browser
-  dopo aver aperto la lavagna non aggiorna il layout (serve ricaricare la pagina). Non bloccante
-  (il caricamento iniziale prende già la dimensione corretta), ma da rivedere con
-  `useWindowDimensions()` quando si mette mano a queste schermate — richiede però di far passare le
-  dimensioni ai componenti drag&drop del campo (oggi lette da costanti di modulo), non un cambio
-  isolato.
+- **Lavagna tattica/moduli: da riprogettare, non solo un problema di resize** (corretto da Francesco
+  il 2026-07-31 — non è "solo" la mancata reattività al ridimensionamento della finestra web
+  segnalata inizialmente: il campo si vede bene, ma l'editor (`app/squadra/tattiche/editor.tsx`,
+  `app/moduli/editor.tsx`, `app/eventi/partita/[id]/tattiche.tsx`) non funziona benissimo nel
+  complesso e andrebbe ripensato per intero, non solo aggiustato nelle dimensioni. **Il caso meno
+  urgente dei tre**, secondo Francesco — da riprendere con un giro di discussione su cosa non va
+  esattamente prima di ridisegnarlo, non una singola modifica isolata.
 
 ## In corso
+
+### PDF Convocazione: replica fedele della Scheda Excel (2026-07-31)
+Ricevuto da Francesco il file originale "Scheda Convocazione Ellera.xlsx" (analizzato con `openpyxl`:
+celle unite, box con bordi, posizione loghi/testo) — il vecchio PDF era solo un elenco di tabelle
+senza stile. **Decisione presa con Francesco**: layout/disposizione replicati fedelmente, ma il
+contenuto resta "solo i convocati" (non l'intera rosa con ✓/✗ come nell'Excel — quella era una scelta
+precedente esplicita, confermata).
+- `app/eventi/partita/[id]/convocazione.tsx`, `runExport`: nuovo template HTML — banner titolo, riga
+  con logo squadra a sinistra/blocco titolo-competizione-data-ora-luogo al centro/logo avversario a
+  destra (bordo attorno al blocco centrale, titolo partita in blu grassetto come nell'originale),
+  box "Ritrovo" con bordo, due colonne affiancate (Convocazioni Giocatori numerati 1..N a sinistra;
+  Staff Tecnico/Sanitario/Dirigenza a destra, ciascuna persona su due righe — ruolo in grassetto sopra,
+  nome sotto, come nell'Excel), Riepilogo in basso al centro con i loghi ai lati (replica delle 4
+  immagini nel file originale: loghi sia in alto che in basso). Nuovo `formatLongDateIt()` per la data
+  in formato lungo italiano ("Domenica 12 ottobre 2025", come `dddd dd mmmm yyyy` nell'Excel).
+- **Non toccato**: menu pranzo (voce a parte nel Backlog, foglio "MENU"/"Riepilogo Pranzo"
+  dell'Excel — stessa richiesta "da riprogettare", non nel PDF Convocazione).
+- **Da verificare**: Francesco non ha ancora visto il risultato dal vero (generato solo un'anteprima
+  HTML statica per controllo struttura, non un vero PDF da telefono/browser).
 
 ### Notifiche push tra utenti: Sondaggi, Convocazione, Proposte Live, Modifiche anagrafica (avviata 2026-07-31)
 Prima infrastruttura di notifiche push **verso un altro utente** (finora solo promemoria locali,
