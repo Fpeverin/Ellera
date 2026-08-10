@@ -32,6 +32,25 @@ const CATEGORY_LABELS: Record<StaffCategory, string> = {
 };
 const CATEGORIES: StaffCategory[] = ['TECNICO', 'SANITARIO', 'DIRIGENZIALE'];
 
+/** Ordine dei ruoli nel PDF (non nella checklist a schermo) — richiesta esplicita di Francesco.
+ * Un ruolo non elencato qui (es. un ruolo custom aggiunto da Admin → Configurazioni) finisce in
+ * fondo alla sua categoria, senza rompere l'export. */
+const STAFF_ROLE_ORDER_PDF: Record<StaffCategory, string[]> = {
+  TECNICO: ['Allenatore', 'Vice-Allenatore', 'Preparatore Atletico', 'Preparatore Portieri'],
+  SANITARIO: [],
+  DIRIGENZIALE: ['Direttore Sportivo', 'Team Manager'],
+};
+
+function sortStaffForPdf(members: StaffMember[], cat: StaffCategory): StaffMember[] {
+  const order = STAFF_ROLE_ORDER_PDF[cat];
+  if (order.length === 0) return members;
+  const rank = (role: string | null | undefined) => {
+    const idx = order.indexOf((role ?? '').trim());
+    return idx === -1 ? order.length : idx;
+  };
+  return [...members].sort((a, b) => rank(a.role) - rank(b.role));
+}
+
 function esc(s: any) {
   return String(s ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
@@ -215,7 +234,7 @@ export default function Convocazione() {
         .join('');
 
       const staffColumnHtml = CATEGORIES.map((cat) => {
-        const members = convocatedStaff.filter((s) => s.category === cat);
+        const members = sortStaffForPdf(convocatedStaff.filter((s) => s.category === cat), cat);
         if (members.length === 0) return '';
         const rows = members
           .map(

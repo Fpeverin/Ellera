@@ -363,6 +363,22 @@ Due richieste di Francesco insieme: un bug sul conteggio dei convocati e un layo
   (resta per la modifica rapida "ultimo secondo" in Live, invariata) — le ha guadagnato comunque lo
   stesso bottone "Seleziona tutti"/"Deseleziona tutti" per coerenza.
 
+## PDF Convocazione: ordine dello Staff — 2026-08-10
+
+Richiesta di Francesco: nel PDF (non nella checklist a schermo, che resta come prima), lo staff
+convocato nella colonna di destra deve seguire un ordine di ruolo preciso, non l'ordine alfabetico
+per nome che usava prima.
+- `app/eventi/partita/[id]/convocazione.tsx`, nuova costante `STAFF_ROLE_ORDER_PDF` (per categoria) +
+  helper `sortStaffForPdf`, usati solo dentro `runExport` (`staffColumnHtml`):
+  - **Staff Tecnico**: Allenatore, Vice-Allenatore, Preparatore Atletico, Preparatore Portieri.
+  - **Staff Sanitario**: nessun ordine specifico richiesto — resta l'ordine di prima.
+  - **Staff Dirigenziale**: Direttore Sportivo, poi Team Manager.
+  - L'ordine tra le categorie stesse (Tecnico → Sanitario → Dirigenziale) era già corretto, non
+    toccato.
+- Un ruolo non presente in queste liste (es. un ruolo custom aggiunto da Admin → Configurazioni, non
+  ancora previsto qui) finisce semplicemente in fondo alla sua categoria — non genera errori né
+  nasconde nessuno dal PDF.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

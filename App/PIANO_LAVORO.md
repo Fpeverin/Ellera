@@ -206,6 +206,14 @@ Francesco ha iniziato a distribuire l'app (solo allo Staff per ora). Tre segnala
   della persona e cambi il ruolo in Admin da lì (funzionalità già esistente, più admin per squadra
   sono già supportati).
 
+### 2026-08-10 — PDF Convocazione: ordine dello Staff
+Francesco: nel PDF, lo staff a destra deve seguire un ordine di ruolo preciso — Staff Tecnico:
+Allenatore, Vice-Allenatore, Preparatore Atletico, Preparatore Portieri; poi Staff Sanitario
+(ordine tra categorie già corretto); poi Staff Dirigenziale: Direttore Sportivo, poi Team Manager.
+Aggiunto solo nella generazione del PDF (`runExport` in `convocazione.tsx`), non nella checklist a
+schermo — vedi CLAUDE.md per i dettagli tecnici. Un ruolo non previsto nell'ordine finisce in fondo
+alla sua categoria, senza rompere l'export.
+
 ### 2026-08-03 — Permessi Staff per Importa/Esporta/Modello/Seleziona
 Francesco: questi bottoni (Rosa/Partite/Allenamenti, più "Seleziona" in Rosa) devono essere di
 default solo Admin, con un flag in Admin → Configurazioni per concederli anche allo Staff, sezione
