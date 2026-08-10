@@ -40,8 +40,9 @@ generiche restano con numeri 1-11 generici.
   `Jersey`, `dropTarget`) — vedi CLAUDE.md per i dettagli tecnici — e migrazione di
   `app/moduli/editor.tsx` (rischio minimo, nessun dato reale). **Da verificare dal vero**: drag, swap,
   zoom/pan e adattamento al resize sono gesture multi-touch, non verificabili da soli.
-- **Fase 2 (da fare)**: `app/squadra/tattiche/editor.tsx` (aggiunge maglie avversario + pallone +
-  screenshot).
+- **Fase 2 (fatta)**: `app/squadra/tattiche/editor.tsx` — stesse primitive, più swap tra maglie
+  nostre/avversarie (pallone escluso) e zoom azzerato automaticamente prima dello screenshot di
+  preview. **Da verificare dal vero**: come Fase 1, più il controllo della preview salvata.
 - **Fase 3 (da fare, la più delicata)**: `app/eventi/partita/[id]/formazione.tsx` — dati reali di
   partita e modalità Live, solo layer visivo/gesture (nessuna modifica a come si salva la formazione)
   + nuovo bottone "Disponi automaticamente".

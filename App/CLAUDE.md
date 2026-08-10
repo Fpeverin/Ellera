@@ -427,6 +427,22 @@ senza un dispositivo reale): creare un modulo nuovo (piazzamento, drag, swap tra
 per zoomare) e aprire un modulo predefinito in sola lettura; verificare che il campo si adatti
 ridimensionando la finestra sulla webapp.
 
+### Fase 2 — Tattiche squadra generiche (`app/squadra/tattiche/editor.tsx`)
+Stessa sostituzione di Moduli, più `Jersey variant="away"` e `Ball` (già esistenti in questo file,
+ora condivisi). Swap-on-drop tra qualunque coppia di maglie (nostre/avversarie) — il pallone resta
+escluso dallo swap (si sposta normalmente, "scambiarlo" con una maglia non avrebbe senso). Sistemato
+anche il nesting `View` confuso della modale nome-tattica (c'era un commento manuale "tolta la ) in
+più qui" — segno di un fix già raffazzonato in passato), riscritta con indentazione lineare.
+
+**Screenshot e zoom**: la preview salvata (`react-native-view-shot`, `captureRef`) deve rappresentare
+lo schema intero, non un'inquadratura zoomata — `doSave` azzera lo zoom (bump di `resetKey` + un
+piccolo `setTimeout`) **prima** di scattare, cosa non necessaria a Moduli (che non genera preview).
+`GestureHandlerRootView` locale rimosso (già globale).
+
+**Da verificare dal vero**: oltre a drag/swap/zoom come per Moduli, salvare una tattica con maglie
+HOME+AWAY+palla e controllare che l'immagine preview su Storage rifletta la disposizione finale
+corretta (non un'inquadratura zoomata a metà, né un transform residuo di un drag in corso).
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

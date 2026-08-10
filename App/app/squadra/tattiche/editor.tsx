@@ -1,98 +1,19 @@
 // app/squadra/tattiche/editor.tsx
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Dimensions, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import ViewShot, { captureRef, type ViewShotRef } from 'react-native-view-shot';
+import DraggableToken from '../../components/tactical/DraggableToken';
+import Field, { type FieldMeasure } from '../../components/tactical/Field';
+import { Ball, Jersey } from '../../components/tactical/Jersey';
+import { DEFAULT_SWAP_THRESHOLD_PX, resolveDropTarget } from '../../components/tactical/dropTarget';
 import { loadTactics, saveTactic, type TacticElement } from '../../data/tactics';
 
-// === Misure schermo/campo ===
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
-// Campo alto 80% dell'altezza schermo, a piena larghezza
-const FIELD_W = SCREEN_W; // piena larghezza
-const FIELD_H = Math.max(Math.round(SCREEN_H * 0.8), 420);
-
-const SHIRT_W = 54;
-const SHIRT_H = 36;
+const SHIRT_SIZE = { w: 54, h: 36 };
 const BALL_SIZE = 22;
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
-}
-
-/* ---- Render elementi ---- */
-function HomeShirt({ number }: { number?: number }) {
-  return (
-    <View style={styles.fieldShirtBody}>
-      {[0,1,2,3,4].map(i => (
-        <View key={i} style={{ flex:1, backgroundColor: i%2===0 ? '#ffffff' : '#3b82f6' }} />
-      ))}
-      <View style={[styles.fieldSleeve, { left: -10 }]} />
-      <View style={[styles.fieldSleeve, { right: -10 }]} />
-      <Text style={styles.fieldShirtNum}>{number ?? ''}</Text>
-    </View>
-  );
-}
-function AwayShirt({ number }: { number?: number }) {
-  return (
-    <View style={[styles.fieldShirtBody, { borderColor: 'rgba(0,0,0,0.2)' }]}> 
-      {[0,1,2,3,4].map(i => (
-        <View key={i} style={{ flex:1, backgroundColor: i%2===0 ? '#ef4444' : '#b91c1c' }} />
-      ))}
-      <View style={[styles.fieldSleeve, { left: -10, backgroundColor: '#ef4444' }]} />
-      <View style={[styles.fieldSleeve, { right: -10, backgroundColor: '#ef4444' }]} />
-      <Text style={[styles.fieldShirtNum, { color: '#fff' }]}>{number ?? ''}</Text>
-    </View>
-  );
-}
-function Ball() {
-  return (
-    <View style={styles.ball}>
-      <Text style={{ fontWeight: '900' }}>⚽</Text>
-    </View>
-  );
-}
-
-/* ---- Draggable generico ---- */
-function Draggable({
-  idx, xPct, yPct, onMove, children,
-}: { idx: number; xPct: number; yPct: number; onMove: (i:number, nx:number, ny:number)=>void; children: React.ReactNode }) {
-  const isBall = (children as any)?.type?.name === 'Ball';
-  const wrapW = isBall ? BALL_SIZE : SHIRT_W;
-  const wrapH = isBall ? BALL_SIZE : SHIRT_H;
-
-  const x = useSharedValue((xPct / 100) * FIELD_W - wrapW / 2);
-  const y = useSharedValue((yPct / 100) * FIELD_H - wrapH / 2);
-
-  const pan = Gesture.Pan()
-    .onChange((e) => { 
-      // SOLO animazioni/UI thread qui
-      x.value += e.changeX; 
-      y.value += e.changeY; 
-    })
-    .onEnd(() => {
-      // Calcolo percentuali nuove e rimando a JS in sicurezza
-      const nx = Math.max(0, Math.min(100, ((x.value + wrapW / 2) / FIELD_W) * 100));
-      const ny = Math.max(0, Math.min(100, ((y.value + wrapH / 2) / FIELD_H) * 100));
-      runOnJS(onMove)(idx, nx, ny);
-    });
-
-  const style = useAnimatedStyle(() => ({
-    position: 'absolute',
-    left: withSpring(x.value, { damping: 18, stiffness: 220 }),
-    top: withSpring(y.value, { damping: 18, stiffness: 220 }),
-    width: wrapW,
-    height: wrapH,
-    alignItems: 'center',
-    justifyContent: 'center',
-  }));
-
-  return (
-    <GestureDetector gesture={pan}>
-      <Animated.View style={style}>{children}</Animated.View>
-    </GestureDetector>
-  );
 }
 
 export default function TacticsEditor() {
@@ -103,6 +24,8 @@ export default function TacticsEditor() {
   const [title, setTitle] = useState('');
   const [elements, setElements] = useState<TacticElement[]>([]);
   const [showNameModal, setShowNameModal] = useState(false);
+  const [fieldSize, setFieldSize] = useState<FieldMeasure>({ w: 0, h: 0 });
+  const [zoomResetKey, setZoomResetKey] = useState(0);
 
   const shotRef = useRef<ViewShotRef>(null);
 
@@ -115,6 +38,7 @@ export default function TacticsEditor() {
       if (found) {
         setTitle(found.name);
         setElements(found.elements);
+        setZoomResetKey((k) => k + 1);
       }
     })();
   }, [id, isEditing]);
@@ -138,31 +62,55 @@ export default function TacticsEditor() {
   };
 
   const confirmReset = () => {
-  Alert.alert(
-    'Ripulire il campo?',
-    'Questa azione rimuove tutti i giocatori e il pallone.',
-    [
-      { text: 'Annulla', style: 'cancel' },
-      { text: 'Conferma', style: 'destructive', onPress: () => setElements([]) },
-    ]
-  );
-};
+    Alert.alert(
+      'Ripulire il campo?',
+      'Questa azione rimuove tutti i giocatori e il pallone.',
+      [
+        { text: 'Annulla', style: 'cancel' },
+        { text: 'Conferma', style: 'destructive', onPress: () => { setElements([]); setZoomResetKey((k) => k + 1); } },
+      ]
+    );
+  };
 
-  const handleMove = (idx: number, nx: number, ny: number) => {
+  // Trascinare una maglia sopra un'altra le scambia di posizione (il pallone resta escluso, si
+  // sposta normalmente — non ha senso "scambiarlo" con una maglia).
+  const handleMove = (key: string, nx: number, ny: number) => {
     setElements(prev => {
-      const next = [...prev];
-      next[idx] = { ...next[idx], x: nx, y: ny };
-      return next;
+      const moving = prev.find(e => e.id === key);
+      const w = fieldSize.w;
+      const h = fieldSize.h;
+      if (!moving || moving.type === 'BALL' || w <= 0 || h <= 0) {
+        return prev.map(e => (e.id === key ? { ...e, x: nx, y: ny } : e));
+      }
+      const droppedPx = { x: (nx / 100) * w, y: (ny / 100) * h };
+      const siblings = prev
+        .filter(e => e.id !== key && e.type !== 'BALL')
+        .map(e => ({ key: e.id, xPx: (e.x / 100) * w, yPx: (e.y / 100) * h }));
+      const swapWith = resolveDropTarget(droppedPx.x, droppedPx.y, siblings, key, DEFAULT_SWAP_THRESHOLD_PX);
+      if (swapWith) {
+        const a = moving;
+        const b = prev.find(e => e.id === swapWith)!;
+        return prev.map(e => {
+          if (e.id === key) return { ...e, x: b.x, y: b.y };
+          if (e.id === swapWith) return { ...e, x: a.x, y: a.y };
+          return e;
+        });
+      }
+      return prev.map(e => (e.id === key ? { ...e, x: nx, y: ny } : e));
     });
   };
 
-  const removeAt = (idx: number) => {
-    setElements(prev => prev.filter((_, i) => i !== idx));
+  const removeAt = (key: string) => {
+    setElements(prev => prev.filter(e => e.id !== key));
   };
 
   /* -------------------- salva con conferma + preview -------------------- */
   const doSave = async () => {
-    // genera preview del campo (base64)
+    // azzera lo zoom prima dello scatto, altrimenti la preview salvata rifletterebbe l'inquadratura
+    // zoomata del momento invece dello schema completo
+    setZoomResetKey((k) => k + 1);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
     let previewBase64: string | undefined;
     try {
       if (shotRef.current) {
@@ -170,7 +118,7 @@ export default function TacticsEditor() {
           result: 'base64',
           format: 'png',
           quality: 0.6,
-          width: Math.min(700, FIELD_W),
+          width: Math.min(700, fieldSize.w || 700),
         });
       }
     } catch {
@@ -197,84 +145,69 @@ export default function TacticsEditor() {
 
   /* --------------------------- UI -------------------------- */
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={styles.container}>
-        {/* TOOLBAR SUPERIORE */}
-        <View style={styles.topBar}>
-          <Pressable style={styles.iconBtn} onPress={() => router.back()} accessibilityLabel="Indietro">
-            <Text style={styles.iconTxt}>←</Text>
-          </Pressable>
-          <TextInput
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Nome tattica"
-            style={styles.topInput}
-            placeholderTextColor="#9ca3af"
-          />
-          <Pressable style={[styles.iconBtn, styles.saveBtn]} onPress={requestSave} accessibilityLabel="Salva tattica">
-            <Text style={[styles.iconTxt, { color: 'white' }]}>💾</Text>
-          </Pressable>
-        </View>
+    <View style={styles.container}>
+      {/* TOOLBAR SUPERIORE */}
+      <View style={styles.topBar}>
+        <Pressable style={styles.iconBtn} onPress={() => router.back()} accessibilityLabel="Indietro">
+          <Text style={styles.iconTxt}>←</Text>
+        </Pressable>
+        <TextInput
+          value={title}
+          onChangeText={setTitle}
+          placeholder="Nome tattica"
+          style={styles.topInput}
+          placeholderTextColor="#9ca3af"
+        />
+        <Pressable style={[styles.iconBtn, styles.saveBtn]} onPress={requestSave} accessibilityLabel="Salva tattica">
+          <Text style={[styles.iconTxt, { color: 'white' }]}>💾</Text>
+        </Pressable>
+      </View>
 
-        {/* TOOLBAR SECONDARIA (3 bottoni) */}
-        <View style={styles.toolsBar}>
-          <Pressable style={[styles.toolBtn, { backgroundColor: '#e0ecff', borderColor: '#93c5fd' }]} onPress={addHome}>
-            <Text style={styles.toolTxt}>👕 Nostro</Text>
-          </Pressable>
-          <Pressable style={[styles.toolBtn, { backgroundColor: '#ffe2e2', borderColor: '#fca5a5' }]} onPress={addAway}>
-            <Text style={styles.toolTxt}>👕 Avversario</Text>
-          </Pressable>
-          <Pressable style={[styles.toolBtn, { backgroundColor: '#fffceb', borderColor: '#fde68a' }]} onPress={addBall}>
-            <Text style={styles.toolTxt}>⚽ Pallone</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.toolBtn, { backgroundColor: '#f3f4f6', borderColor: '#d1d5db' }]}
-            onPress={confirmReset}
-          >
-            <Text style={styles.toolTxt}>♻️ Reset</Text>
-          </Pressable>
-        </View>
+      {/* TOOLBAR SECONDARIA (4 bottoni) */}
+      <View style={styles.toolsBar}>
+        <Pressable style={[styles.toolBtn, { backgroundColor: '#e0ecff', borderColor: '#93c5fd' }]} onPress={addHome}>
+          <Text style={styles.toolTxt}>👕 Nostro</Text>
+        </Pressable>
+        <Pressable style={[styles.toolBtn, { backgroundColor: '#ffe2e2', borderColor: '#fca5a5' }]} onPress={addAway}>
+          <Text style={styles.toolTxt}>👕 Avversario</Text>
+        </Pressable>
+        <Pressable style={[styles.toolBtn, { backgroundColor: '#fffceb', borderColor: '#fde68a' }]} onPress={addBall}>
+          <Text style={styles.toolTxt}>⚽ Pallone</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.toolBtn, { backgroundColor: '#f3f4f6', borderColor: '#d1d5db' }]}
+          onPress={confirmReset}
+        >
+          <Text style={styles.toolTxt}>♻️ Reset</Text>
+        </Pressable>
+      </View>
 
-        {/* CAMPO (80% schermo) */}
-        <View style={styles.fieldWrap}>
-          {/* wrapper per poter usare collapsable senza errori di tipi */}
-          <View collapsable={false}>
-            <ViewShot ref={shotRef} style={[styles.fieldShot, { height: FIELD_H, width: FIELD_W }] }>
-              <View style={[styles.field, { width: FIELD_W, height: FIELD_H }]}>
-                {/* linee campo */}
-                <View style={styles.midLine} />
-                <View style={styles.centerCircle} />
-                {/* aree & porte */}
-                <View style={[styles.penaltyBox, styles.topPenaltyBox]} />
-                <View style={[styles.sixYardBox, styles.topSixYard]} />
-                <View style={[styles.goal, styles.topGoal]} />
-                <View style={[styles.penaltyBox, styles.bottomPenaltyBox]} />
-                <View style={[styles.sixYardBox, styles.bottomSixYard]} />
-                <View style={[styles.goal, styles.bottomGoal]} />
-
-                {elements.map((el, i) => {
-                  const child =
-                    el.type === 'HOME' ? <HomeShirt number={el.number} /> :
-                    el.type === 'AWAY' ? <AwayShirt number={el.number} /> :
-                    <Ball />;
-
-                  const wrapW = el.type === 'BALL' ? BALL_SIZE : SHIRT_W;
-                  const wrapH = el.type === 'BALL' ? BALL_SIZE : SHIRT_H;
-
-                  return (
-                    <Draggable key={el.id} idx={i} xPct={el.x} yPct={el.y} onMove={handleMove}>
-                      <Pressable
-                        style={{ width: wrapW, height: wrapH, alignItems: 'center', justifyContent: 'center' }}
-                        onLongPress={() => removeAt(i)}
-                      >
-                        {child}
-                      </Pressable>
-                    </Draggable>
-                  );
-                })}
-              </View>
-            </ViewShot>
-          </View>
+      {/* CAMPO */}
+      <View style={styles.fieldWrap}>
+        <View collapsable={false} style={styles.fieldShotOuter}>
+          <ViewShot ref={shotRef} style={styles.fieldShot}>
+            <Field zoomable resetKey={zoomResetKey} onMeasure={setFieldSize}>
+              {elements.map((el) => {
+                const isBall = el.type === 'BALL';
+                const size = isBall ? { w: BALL_SIZE, h: BALL_SIZE } : SHIRT_SIZE;
+                const child = isBall ? (
+                  <Ball size={BALL_SIZE} />
+                ) : (
+                  <Jersey variant={el.type === 'HOME' ? 'home' : 'away'} number={el.number} size={SHIRT_SIZE} />
+                );
+                return (
+                  <DraggableToken key={el.id} tokenKey={el.id} xPct={el.x} yPct={el.y} size={size} onMove={handleMove}>
+                    <Pressable
+                      style={{ width: size.w, height: size.h, alignItems: 'center', justifyContent: 'center' }}
+                      onLongPress={() => removeAt(el.id)}
+                    >
+                      {child}
+                    </Pressable>
+                  </DraggableToken>
+                );
+              })}
+            </Field>
+          </ViewShot>
         </View>
       </View>
 
@@ -290,34 +223,31 @@ export default function TacticsEditor() {
               style={styles.modalInput}
             />
             <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Pressable
-              style={[styles.btn, { backgroundColor: '#9ca3af', flex: 1 }]}
-              onPress={() => setShowNameModal(false)}
-            >
-              <Text style={styles.btnText}>Annulla</Text>
-            </Pressable>
-
-            <Pressable
-              style={[styles.btn, { backgroundColor: '#1b7f3b', flex: 1 }]} // ← tolta la ) in più qui
-              onPress={() => {
-                if (!title.trim()) { Alert.alert('Inserisci un nome valido'); return; }
-                setShowNameModal(false);
-                setTimeout(requestSave, 0);
-              }}
-            >
-              <Text style={styles.btnText}>Continua</Text>
-            </Pressable>
+              <Pressable
+                style={[styles.btn, { backgroundColor: '#9ca3af', flex: 1 }]}
+                onPress={() => setShowNameModal(false)}
+              >
+                <Text style={styles.btnText}>Annulla</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.btn, { backgroundColor: '#1b7f3b', flex: 1 }]}
+                onPress={() => {
+                  if (!title.trim()) { Alert.alert('Inserisci un nome valido'); return; }
+                  setShowNameModal(false);
+                  setTimeout(requestSave, 0);
+                }}
+              >
+                <Text style={styles.btnText}>Continua</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
-         </View>
       </Modal>
-    </GestureHandlerRootView>
+    </View>
   );
 }
 
 /* ------------------------------- STILI ------------------------------- */
-
-const LINE = 'rgba(255,255,255,0.7)';
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
@@ -357,42 +287,9 @@ const styles = StyleSheet.create({
   toolTxt: { fontWeight: '800', color: '#111' },
 
   // Campo
-  fieldWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 10 },
-  fieldShot: { width: '100%' },
-  field: {
-    backgroundColor: '#1b7f3b',
-    borderRadius: 12, borderWidth: 3, borderColor: '#0d5f2b', overflow: 'hidden',
-  },
-  midLine: { position: 'absolute', left: 0, right: 0, top: '50%', height: 2, backgroundColor: LINE },
-  centerCircle: {
-    position: 'absolute', top: '50%', left: '50%', width: 120, height: 120,
-    marginLeft: -60, marginTop: -60, borderWidth: 2, borderColor: LINE, borderRadius: 60,
-  },
-  penaltyBox: { position: 'absolute', width: '60%', height: '18%', left: '20%', borderColor: LINE, borderWidth: 2 },
-  sixYardBox: { position: 'absolute', width: '36%', height: '6%', left: '32%', borderColor: LINE, borderWidth: 2 },
-  goal: { position: 'absolute', width: '16%', height: 4, left: '42%', backgroundColor: LINE },
-  topPenaltyBox: { top: '4%' },
-  topSixYard: { top: '4%' },
-  topGoal: { top: '1.2%' },
-  bottomPenaltyBox: { bottom: '4%' },
-  bottomSixYard: { bottom: '4%' },
-  bottomGoal: { bottom: '1.2%' },
-
-  // Elementi di campo
-  fieldShirtBody: {
-    width: SHIRT_W, height: SHIRT_H, flexDirection: 'row',
-    borderTopLeftRadius: 12, borderTopRightRadius: 12, borderBottomLeftRadius: 10, borderBottomRightRadius: 10,
-    overflow: 'hidden', borderWidth: 2, borderColor: 'rgba(0,0,0,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  fieldSleeve: { position: 'absolute', top: 6, width: 18, height: 18, borderRadius: 5, backgroundColor: '#3b82f6' },
-  fieldShirtNum: { position: 'absolute', color: '#111', fontWeight: '900', fontSize: 12 },
-
-  ball: {
-    width: BALL_SIZE, height: BALL_SIZE, borderRadius: BALL_SIZE/2,
-    backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: '#111',
-  },
+  fieldWrap: { flex: 1, padding: 10 },
+  fieldShotOuter: { flex: 1 },
+  fieldShot: { flex: 1, width: '100%' },
 
   // Modal nome
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
