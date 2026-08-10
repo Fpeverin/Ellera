@@ -379,6 +379,54 @@ per nome che usava prima.
   ancora previsto qui) finisce semplicemente in fondo alla sua categoria — non genera errori né
   nasconde nessuno dal PDF.
 
+## Riprogettazione lavagna tattica — Fase 1: primitive condivise + Moduli — 2026-08-10
+
+Avviata la riprogettazione della lavagna tattica (Moduli/Tattiche/Formazione — vedi il piano completo
+in corso, 4 fasi in totale). Prima c'erano **4 implementazioni quasi duplicate e incoerenti** dello
+stesso concetto (campo da calcio + maglia trascinabile): componenti `Draggable` locali con differenze
+pericolose (uno senza `runOnJS`), un campo ridisegnato 4 volte con valori leggermente incoerenti, e
+`Dimensions.get('window')` letto una volta sola in 3 file su 4 (causa nota del bug "non si adatta al
+resize"). **Nessuna modifica allo schema Supabase** in tutta la riprogettazione — solo layer visivo/
+gesture client-side.
+
+### Primitive condivise — `app/components/tactical/`
+- **`Field.tsx`**: sfondo campo unico (linee/area/dischetto/porta, cerchio centrocampo ora
+  proporzionale al campo invece di un valore fisso). Si automisura via `onLayout` (mai `Dimensions`
+  statico) ed espone la misura sia come Context React (`useFieldMeasure()`, numeri JS) sia come coppia
+  di `SharedValue` (`useFieldMeasureShared()`, necessaria dentro un worklet). Prop `zoomable`: pinch-
+  to-zoom + pan a due dita (`Gesture.Pinch()` + `Gesture.Pan().minPointers(2)`, già incluso in
+  `react-native-gesture-handler` — nessuna nuova dipendenza), scala clampata `[1, 2.5]` (solo zoom-in).
+  Prop `resetKey` per azzerare zoom/pan al cambio modulo. Prop opzionale `onTapField` (tap sul campo,
+  in percentuale) — usato solo da Moduli per il piazzamento iniziale di una maglia.
+- **`DraggableToken.tsx`**: sostituisce i 3 `Draggable` locali. Wrapper esterno guidato direttamente
+  da `xPct`/`yPct` (nessuna shared value "posseduta" da risincronizzare — corregge *per costruzione*
+  il bug per cui un cambio esterno di posizione, es. uno swap o il futuro layout automatico, non si
+  rifletteva a schermo) con animazione di assestamento (`withSpring`); wrapper interno che segue il
+  dito col dito durante il drag (`translateX/Y` relativo, azzerato a fine gesto). `onEnd` chiama
+  sempre `runOnJS`. Identificato per `tokenKey` (l'id dello slot/elemento), non per indice di array.
+- **`Jersey.tsx`**: maglia condivisa (`variant: 'home'|'away'`, `number?`), più `Ball`.
+- **`dropTarget.ts`**: helper puro `resolveDropTarget(nxPx, nyPx, siblings, excludeKey, thresholdPx)`
+  per lo swap-on-drop (trascinare un token sopra un altro per scambiarli di posizione) — lavora in
+  pixel, non percentuale (il campo non è quadrato). La decisione "sposta o scambia" resta nello screen
+  chiamante: se c'è un hit, si scambiano solo le coordinate `{x,y}` tra i due elementi, mai gli id/
+  numeri/associazioni.
+
+### Migrazione Moduli (`app/moduli/editor.tsx`)
+Prima migrazione reale (nessun dato reale, nessun live mode — rischio minimo). Sostituito il
+`Draggable` locale, il campo disegnato inline e `ShirtOnField` con le primitive condivise. Il
+contenitore del campo è ora `flex: 1` (non più un'altezza fissa calcolata una volta da
+`Dimensions.get('window')`) — reattivo a qualunque resize della finestra tramite il normale layout
+flessibile, senza bisogno di leggere le dimensioni schermo. Aggiunto swap-on-drop (trascina una maglia
+sopra un'altra per scambiarle) e zoom/pan (pizzica con due dita). Il piazzamento iniziale di una nuova
+maglia (tocca il pannello, poi tocca il campo) usa ora `Field`'s `onTapField` invece della vecchia API
+Responder legacy mescolata con GestureHandler. Rimosso il `GestureHandlerRootView` locale (è già
+montato globalmente in `app/_layout.tsx`, era ridondante).
+
+**Da verificare dal vero** (drag/swap/zoom sono gesture multi-touch, non testabili in modo affidabile
+senza un dispositivo reale): creare un modulo nuovo (piazzamento, drag, swap tra due maglie, pizzica
+per zoomare) e aprire un modulo predefinito in sola lettura; verificare che il campo si adatti
+ridimensionando la finestra sulla webapp.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

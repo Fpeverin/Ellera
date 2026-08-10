@@ -1,63 +1,17 @@
 // app/moduli/editor.tsx
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Dimensions, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import DraggableToken from '../components/tactical/DraggableToken';
+import Field from '../components/tactical/Field';
+import { Jersey } from '../components/tactical/Jersey';
+import { DEFAULT_SWAP_THRESHOLD_PX, resolveDropTarget } from '../components/tactical/dropTarget';
 import TeamLogo from '../components/TeamLogo';
 import { loadModules, saveModule } from '../data/modules';
 import { MODULES as DEFAULT_MODULES, type FieldSlot } from '../utils/modules-layout';
 
-const { width: SW, height: SH } = Dimensions.get('window');
-const FIELD_W = Math.round(SW * 0.7);
-const FIELD_H = Math.max(Math.round(SH * 0.8), 520);
-
-const SHIRT_W = 54;
-const SHIRT_H = 36;
-
-function Draggable({
-  idx, editable, xPct, yPct, onMove, children,
-}: {
-  idx: number;
-  editable: boolean;
-  xPct: number;
-  yPct: number;
-  onMove: (i: number, nx: number, ny: number) => void;
-  children: React.ReactNode;
-}) {
-  const x = useSharedValue((xPct / 100) * FIELD_W - SHIRT_W / 2);
-  const y = useSharedValue((yPct / 100) * FIELD_H - SHIRT_H / 2);
-
-  const pan = Gesture.Pan()
-    .onChange(e => {
-      if (!editable) return;
-      x.value += e.changeX;
-      y.value += e.changeY;
-    })
-    .onEnd(() => {
-      if (!editable) return;
-      const nx = Math.max(0, Math.min(100, ((x.value + SHIRT_W / 2) / FIELD_W) * 100));
-      const ny = Math.max(0, Math.min(100, ((y.value + SHIRT_H / 2) / FIELD_H) * 100));
-      onMove(idx, nx, ny);
-    });
-
-  const style = useAnimatedStyle(() => ({
-    position: 'absolute',
-    left: withSpring(x.value, { damping: 18, stiffness: 220 }),
-    top: withSpring(y.value, { damping: 18, stiffness: 220 }),
-    width: SHIRT_W,
-    height: SHIRT_H,
-    alignItems: 'center',
-    justifyContent: 'center',
-  }));
-
-  return (
-    <GestureDetector gesture={editable ? pan : Gesture.Tap()}>
-      <Animated.View style={style}>{children}</Animated.View>
-    </GestureDetector>
-  );
-}
+const SHIRT_SIZE = { w: 54, h: 36 };
 
 export default function ModuleEditor() {
   const router = useRouter();
@@ -70,12 +24,12 @@ export default function ModuleEditor() {
   const [available, setAvailable] = useState<boolean[]>(Array(11).fill(true));
   const [placingIndex, setPlacingIndex] = useState<number | null>(null);
   const [title, setTitle] = useState<string>(name ?? '');
+  const [fieldSize, setFieldSize] = useState({ w: 0, h: 0 });
+  const [zoomResetKey, setZoomResetKey] = useState(0);
 
   const [showConfirmReset, setShowConfirmReset] = useState(false);
   const [showConfirmSave, setShowConfirmSave] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
-
-  const fieldRef = useRef<View>(null);
 
   useEffect(() => {
     (async () => {
@@ -83,6 +37,7 @@ export default function ModuleEditor() {
       if (isEditing && DEFAULT_MODULES[name!]) {
         setSlots(DEFAULT_MODULES[name!]);
         setAvailable(Array(11).fill(false));
+        setZoomResetKey((k) => k + 1);
         return;
       }
       // custom esistente
@@ -92,6 +47,7 @@ export default function ModuleEditor() {
         setSlots(found.slots);
         setAvailable(Array(11).fill(false));
         setTitle(found.name);
+        setZoomResetKey((k) => k + 1);
         return;
       }
       // nuovo
@@ -103,18 +59,21 @@ export default function ModuleEditor() {
       setSlots(base);
       setAvailable(Array(11).fill(true));
       setTitle('');
+      setZoomResetKey((k) => k + 1);
     })();
   }, [name, isEditing]);
 
   const jerseyIndices = useMemo(() => Array.from({ length: 11 }, (_, i) => i), []);
   const allPlaced = useMemo(() => available.every(v => !v), [available]);
+  const slotIndexById = useMemo(() => {
+    const map = new Map<string, number>();
+    slots.forEach((s, i) => map.set(s.id, i));
+    return map;
+  }, [slots]);
 
-  const handlePlaceOnField = (evt: any) => {
+  const handleTapField = (nx: number, ny: number) => {
     if (placingIndex === null || isReadOnly) return;
     if (!available[placingIndex]) { setPlacingIndex(null); return; }
-    const { locationX, locationY } = evt.nativeEvent;
-    const nx = Math.max(0, Math.min(100, (locationX / FIELD_W) * 100));
-    const ny = Math.max(0, Math.min(100, (locationY / FIELD_H) * 100));
 
     setSlots(prev => {
       const next = [...prev];
@@ -130,25 +89,31 @@ export default function ModuleEditor() {
     setPlacingIndex(null);
   };
 
-  const handleMove = (idx: number, nx: number, ny: number) => {
+  const handleMove = (key: string, nx: number, ny: number) => {
     if (isReadOnly) return;
     setSlots(prev => {
-      const next = [...prev];
-      next[idx] = { ...next[idx], x: nx, y: ny };
-      return next;
+      const w = fieldSize.w;
+      const h = fieldSize.h;
+      if (w <= 0 || h <= 0) {
+        return prev.map(s => (s.id === key ? { ...s, x: nx, y: ny } : s));
+      }
+      const droppedPx = { x: (nx / 100) * w, y: (ny / 100) * h };
+      const siblings = prev
+        .filter((s, i) => s.id !== key && !available[i])
+        .map(s => ({ key: s.id, xPx: (s.x / 100) * w, yPx: (s.y / 100) * h }));
+      const swapWith = resolveDropTarget(droppedPx.x, droppedPx.y, siblings, key, DEFAULT_SWAP_THRESHOLD_PX);
+      if (swapWith) {
+        const a = prev.find(s => s.id === key)!;
+        const b = prev.find(s => s.id === swapWith)!;
+        return prev.map(s => {
+          if (s.id === key) return { ...s, x: b.x, y: b.y };
+          if (s.id === swapWith) return { ...s, x: a.x, y: a.y };
+          return s;
+        });
+      }
+      return prev.map(s => (s.id === key ? { ...s, x: nx, y: ny } : s));
     });
   };
-
-  const ShirtOnField = ({ index }: { index: number }) => (
-    <View style={styles.fieldShirtBody}>
-      {[0, 1, 2, 3, 4].map(i => (
-        <View key={i} style={{ flex: 1, backgroundColor: i % 2 === 0 ? '#ffffff' : '#3b82f6' }} />
-      ))}
-      <View style={[styles.fieldSleeve, { left: -10 }]} />
-      <View style={[styles.fieldSleeve, { right: -10 }]} />
-      <Text style={styles.fieldShirtNum}>{index + 1}</Text>
-    </View>
-  );
 
   // --- RESET: apre modale, conferma esegue ---
   const requestReset = () => {
@@ -159,6 +124,7 @@ export default function ModuleEditor() {
     setSlots(prev => prev.map(s => ({ ...s, x: 50, y: 50 })));
     setPlacingIndex(null);
     setShowConfirmReset(false);
+    setZoomResetKey((k) => k + 1);
   };
 
   // --- SALVA core ---
@@ -186,200 +152,192 @@ export default function ModuleEditor() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <View style={styles.container}>
-          {/* SINISTRA - Campo */}
-          <View style={styles.leftCol}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TeamLogo size={24} style={{ marginRight: 6 }} />
-              <Text style={styles.title}>
-                {isEditing ? (title || 'Modifica Modulo') : 'Nuovo Modulo'}
-                {isReadOnly ? ' (solo lettura)' : ''}
-              </Text>
-            </View>
+      <View style={styles.container}>
+        {/* SINISTRA - Campo */}
+        <View style={styles.leftCol}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TeamLogo size={24} style={{ marginRight: 6 }} />
+            <Text style={styles.title}>
+              {isEditing ? (title || 'Modifica Modulo') : 'Nuovo Modulo'}
+              {isReadOnly ? ' (solo lettura)' : ''}
+            </Text>
+          </View>
 
-            <View
-              ref={fieldRef}
-              style={styles.field}
-              onStartShouldSetResponder={() => true}
-              onResponderRelease={handlePlaceOnField}
+          <View style={styles.fieldWrap}>
+            <Field
+              zoomable
+              resetKey={zoomResetKey}
+              onMeasure={setFieldSize}
+              onTapField={isReadOnly ? undefined : handleTapField}
             >
-              {/* linee campo */}
-              <View style={styles.midLine} />
-              <View style={styles.centerCircle} />
-              {/* aree & porte */}
-              <View style={[styles.penaltyBox, styles.topPenaltyBox]} />
-              <View style={[styles.sixYardBox, styles.topSixYard]} />
-              <View style={[styles.goal, styles.topGoal]} />
-              <View style={[styles.penaltyBox, styles.bottomPenaltyBox]} />
-              <View style={[styles.sixYardBox, styles.bottomSixYard]} />
-              <View style={[styles.goal, styles.bottomGoal]} />
-
               {slots.map((s, i) =>
                 available[i] ? null : (
-                  <Draggable
+                  <DraggableToken
                     key={s.id}
-                    idx={i}
-                    editable={!isReadOnly}
+                    tokenKey={s.id}
                     xPct={s.x}
                     yPct={s.y}
+                    size={SHIRT_SIZE}
+                    editable={!isReadOnly}
                     onMove={handleMove}
                   >
-                    <ShirtOnField index={i} />
-                  </Draggable>
+                    <Jersey variant="home" number={i + 1} size={SHIRT_SIZE} />
+                  </DraggableToken>
                 )
               )}
-            </View>
-
-            {!isReadOnly && (
-              <>
-                <Text style={styles.counterText}>Maglie piazzate: {11 - available.filter(Boolean).length}/11</Text>
-                <View style={styles.bottomBar}>
-                  <Pressable style={[styles.btn, { backgroundColor: '#d46f00' }]} onPress={requestReset}>
-                    <Text style={styles.btnText}>Reset</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.btn, { backgroundColor: allPlaced ? '#1b7f3b' : '#9ca3af' }]}
-                    disabled={!allPlaced}
-                    onPress={requestSave}
-                  >
-                    <Text style={styles.btnText}>{isEditing ? 'Aggiorna' : 'Salva'}</Text>
-                  </Pressable>
-                </View>
-              </>
-            )}
+            </Field>
           </View>
 
-          {/* DESTRA - Pannello */}
-          <View style={styles.rightCol}>
-            {!isReadOnly && (
-              <>
-                <Text style={styles.panelTitle}>Nome modulo</Text>
-                <TextInput
-                  value={title}
-                  onChangeText={setTitle}
-                  placeholder="Es. 4-4-1-1 stretta"
-                  style={styles.input}
-                />
-                <Text style={[styles.panelTitle, { marginTop: 8 }]}>Maglie disponibili</Text>
-                <View style={styles.jerseysWrap}>
-                  {jerseyIndices.map(i =>
-                    available[i] ? (
-                      <Pressable
-                        key={i}
-                        style={[styles.shirtBtn, placingIndex === i && styles.shirtBtnActive]}
-                        onPress={() => setPlacingIndex(i)}
-                      >
-                        <View style={styles.shirtMini}>
-                          {[0, 1, 2, 3, 4].map(k => (
-                            <View key={k} style={{ flex: 1, backgroundColor: k % 2 === 0 ? '#fff' : '#3b82f6' }} />
-                          ))}
-                        </View>
-                        <Text style={styles.shirtNumMini}>{i + 1}</Text>
-                      </Pressable>
-                    ) : null
-                  )}
-                </View>
-                <Text style={styles.helpText}>Tocca una maglia, poi tocca il campo per posizionarla. Trascina per regolare.</Text>
-              </>
-            )}
-            {isReadOnly && <Text style={{ color: '#6b7280' }}>Modulo predefinito in sola lettura.</Text>}
-          </View>
-        </View>
-
-        {/* --- MODALI --- */}
-
-        {/* Modale: conferma reset */}
-        <Modal
-          visible={showConfirmReset}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowConfirmReset(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalBox}>
-              <Text style={styles.modalTitle}>Ripulire il campo?</Text>
-              <Text style={{ color: '#374151', marginTop: 6 }}>
-                Questa azione rimuove tutte le maglie dal campo.
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                <Pressable style={[styles.btn, { backgroundColor: '#9ca3af', flex: 1 }]} onPress={() => setShowConfirmReset(false)}>
-                  <Text style={styles.btnText}>Annulla</Text>
+          {!isReadOnly && (
+            <>
+              <Text style={styles.counterText}>Maglie piazzate: {11 - available.filter(Boolean).length}/11</Text>
+              <View style={styles.bottomBar}>
+                <Pressable style={[styles.btn, { backgroundColor: '#d46f00' }]} onPress={requestReset}>
+                  <Text style={styles.btnText}>Reset</Text>
                 </Pressable>
-                <Pressable style={[styles.btn, { backgroundColor: '#b91c1c', flex: 1 }]} onPress={actuallyReset}>
-                  <Text style={styles.btnText}>Conferma</Text>
+                <Pressable
+                  style={[styles.btn, { backgroundColor: allPlaced ? '#1b7f3b' : '#9ca3af' }]}
+                  disabled={!allPlaced}
+                  onPress={requestSave}
+                >
+                  <Text style={styles.btnText}>{isEditing ? 'Aggiorna' : 'Salva'}</Text>
                 </Pressable>
               </View>
-            </View>
-          </View>
-        </Modal>
+            </>
+          )}
+        </View>
 
-        {/* Modale: nome mancante */}
-        <Modal
-          visible={showNameModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowNameModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalBox}>
-              <Text style={styles.modalTitle}>Nome modulo</Text>
+        {/* DESTRA - Pannello */}
+        <View style={styles.rightCol}>
+          {!isReadOnly && (
+            <>
+              <Text style={styles.panelTitle}>Nome modulo</Text>
               <TextInput
                 value={title}
                 onChangeText={setTitle}
-                placeholder="Es. 4-4-2 a rombo"
+                placeholder="Es. 4-4-1-1 stretta"
                 style={styles.input}
               />
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-                <Pressable style={[styles.btn, { backgroundColor: '#9ca3af', flex: 1 }]} onPress={() => setShowNameModal(false)}>
-                  <Text style={styles.btnText}>Annulla</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.btn, { backgroundColor: '#1b7f3b', flex: 1 }]}
-                  onPress={() => {
-                    if (!title.trim()) return;
-                    setShowNameModal(false);
-                    setTimeout(() => setShowConfirmSave(true), 0);
-                  }}
-                >
-                  <Text style={styles.btnText}>Continua</Text>
-                </Pressable>
+              <Text style={[styles.panelTitle, { marginTop: 8 }]}>Maglie disponibili</Text>
+              <View style={styles.jerseysWrap}>
+                {jerseyIndices.map(i =>
+                  available[i] ? (
+                    <Pressable
+                      key={i}
+                      style={[styles.shirtBtn, placingIndex === i && styles.shirtBtnActive]}
+                      onPress={() => setPlacingIndex(i)}
+                    >
+                      <View style={styles.shirtMini}>
+                        {[0, 1, 2, 3, 4].map(k => (
+                          <View key={k} style={{ flex: 1, backgroundColor: k % 2 === 0 ? '#fff' : '#3b82f6' }} />
+                        ))}
+                      </View>
+                      <Text style={styles.shirtNumMini}>{i + 1}</Text>
+                    </Pressable>
+                  ) : null
+                )}
               </View>
-            </View>
-          </View>
-        </Modal>
+              <Text style={styles.helpText}>
+                Tocca una maglia, poi tocca il campo per posizionarla. Trascina per regolare, o
+                trascina una maglia sopra un'altra per scambiarle di posto. Pizzica con due dita per
+                zoomare.
+              </Text>
+            </>
+          )}
+          {isReadOnly && <Text style={{ color: '#6b7280' }}>Modulo predefinito in sola lettura.</Text>}
+        </View>
+      </View>
 
-        {/* Modale: conferma salvataggio/aggiornamento */}
-        <Modal
-          visible={showConfirmSave}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowConfirmSave(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalBox}>
-              <Text style={styles.modalTitle}>{isEditing ? 'Confermi aggiornamento?' : 'Confermi salvataggio?'}</Text>
-              <Text style={{ color: '#374151', marginTop: 6 }}>"{title.trim()}"</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                <Pressable style={[styles.btn, { backgroundColor: '#9ca3af', flex: 1 }]} onPress={() => setShowConfirmSave(false)}>
-                  <Text style={styles.btnText}>Annulla</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.btn, { backgroundColor: '#1b7f3b', flex: 1 }]}
-                  onPress={actuallySave}
-                >
-                  <Text style={styles.btnText}>Conferma</Text>
-                </Pressable>
-              </View>
+      {/* --- MODALI --- */}
+
+      {/* Modale: conferma reset */}
+      <Modal
+        visible={showConfirmReset}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowConfirmReset(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Ripulire il campo?</Text>
+            <Text style={{ color: '#374151', marginTop: 6 }}>
+              Questa azione rimuove tutte le maglie dal campo.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+              <Pressable style={[styles.btn, { backgroundColor: '#9ca3af', flex: 1 }]} onPress={() => setShowConfirmReset(false)}>
+                <Text style={styles.btnText}>Annulla</Text>
+              </Pressable>
+              <Pressable style={[styles.btn, { backgroundColor: '#b91c1c', flex: 1 }]} onPress={actuallyReset}>
+                <Text style={styles.btnText}>Conferma</Text>
+              </Pressable>
             </View>
           </View>
-        </Modal>
-      </GestureHandlerRootView>
+        </View>
+      </Modal>
+
+      {/* Modale: nome mancante */}
+      <Modal
+        visible={showNameModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowNameModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Nome modulo</Text>
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
+              placeholder="Es. 4-4-2 a rombo"
+              style={styles.input}
+            />
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+              <Pressable style={[styles.btn, { backgroundColor: '#9ca3af', flex: 1 }]} onPress={() => setShowNameModal(false)}>
+                <Text style={styles.btnText}>Annulla</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.btn, { backgroundColor: '#1b7f3b', flex: 1 }]}
+                onPress={() => {
+                  if (!title.trim()) return;
+                  setShowNameModal(false);
+                  setTimeout(() => setShowConfirmSave(true), 0);
+                }}
+              >
+                <Text style={styles.btnText}>Continua</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modale: conferma salvataggio/aggiornamento */}
+      <Modal
+        visible={showConfirmSave}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowConfirmSave(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>{isEditing ? 'Confermi aggiornamento?' : 'Confermi salvataggio?'}</Text>
+            <Text style={{ color: '#374151', marginTop: 6 }}>"{title.trim()}"</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+              <Pressable style={[styles.btn, { backgroundColor: '#9ca3af', flex: 1 }]} onPress={() => setShowConfirmSave(false)}>
+                <Text style={styles.btnText}>Annulla</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.btn, { backgroundColor: '#1b7f3b', flex: 1 }]}
+                onPress={actuallySave}
+              >
+                <Text style={styles.btnText}>Conferma</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
-
-const LINE = 'rgba(255,255,255,0.7)';
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#f5f7fa' },
@@ -388,34 +346,7 @@ const styles = StyleSheet.create({
   rightCol: { flex: 3, padding: 12, borderLeftWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff' },
   title: { fontSize: 20, fontWeight: '800', marginBottom: 8 },
 
-  field: {
-    width: '100%', height: FIELD_H, backgroundColor: '#1b7f3b',
-    borderRadius: 12, borderWidth: 3, borderColor: '#0d5f2b', overflow: 'hidden',
-  },
-  midLine: { position: 'absolute', left: 0, right: 0, top: '50%', height: 2, backgroundColor: LINE },
-  centerCircle: {
-    position: 'absolute', top: '50%', left: '50%', width: 120, height: 120,
-    marginLeft: -60, marginTop: -60, borderWidth: 2, borderColor: LINE, borderRadius: 60,
-  },
-  penaltyBox: { position: 'absolute', width: '60%', height: '18%', left: '20%', borderColor: LINE, borderWidth: 2 },
-  sixYardBox: { position: 'absolute', width: '36%', height: '6%', left: '32%', borderColor: LINE, borderWidth: 2 },
-  goal: { position: 'absolute', width: '16%', height: 4, left: '42%', backgroundColor: LINE },
-  topPenaltyBox: { top: '4%' },
-  topSixYard: { top: '4%' },
-  topGoal: { top: '1.2%' },
-  bottomPenaltyBox: { bottom: '4%' },
-  bottomSixYard: { bottom: '4%' },
-  bottomGoal: { bottom: '1.2%' },
-
-  fieldShirtBody: {
-    width: SHIRT_W, height: SHIRT_H, flexDirection: 'row',
-    borderTopLeftRadius: 12, borderTopRightRadius: 12,
-    borderBottomLeftRadius: 10, borderBottomRightRadius: 10,
-    overflow: 'hidden', borderWidth: 2, borderColor: 'rgba(0,0,0,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  fieldSleeve: { position: 'absolute', top: 6, width: 18, height: 18, borderRadius: 5, backgroundColor: '#3b82f6' },
-  fieldShirtNum: { position: 'absolute', color: '#111', fontWeight: '900', fontSize: 12 },
+  fieldWrap: { flex: 1, minHeight: 400 },
 
   bottomBar: { flexDirection: 'row', gap: 10, marginTop: 10 },
   btn: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8 },

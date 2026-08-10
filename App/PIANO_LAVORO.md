@@ -26,19 +26,27 @@ prossima idea non appena viene in mente.
   più configurabile" di come era stato costruito la prima volta — da ridiscutere il design prima di
   reintrodurlo (i campi `menuItems`/`meals` restano comunque nella colonna dati di ogni partita).
 
-- **Lavagna tattica/moduli: da riprogettare, non solo un problema di resize** (corretto da Francesco
-  il 2026-07-31 — non è "solo" la mancata reattività al ridimensionamento della finestra web
-  segnalata inizialmente: il campo si vede bene, ma l'editor (`app/squadra/tattiche/editor.tsx`,
-  `app/moduli/editor.tsx`, `app/eventi/partita/[id]/tattiche.tsx`) non funziona benissimo nel
-  complesso e andrebbe ripensato per intero, non solo aggiustato nelle dimensioni. **Il caso meno
-  urgente dei tre**, secondo Francesco — da riprendere con un giro di discussione su cosa non va
-  esattamente prima di ridisegnarlo, non una singola modifica isolata.
-
 ## In corso
 
-Nessuna voce al momento — le verifiche pendenti sono state completate e confermate corrette da
-Francesco (2026-08-03), vedi sezioni corrispondenti spostate qui sotto in Completato. Prossimi passi
-possibili: vedi Backlog qui sopra.
+### Riprogettazione lavagna tattica: Moduli, Tattiche, Formazione/Live (avviata 2026-08-10)
+Il punto "da riprogettare" del backlog (non solo un problema di resize: 4 implementazioni quasi
+duplicate e incoerenti dello stesso concetto campo+maglia trascinabile) — piano completo in 4 fasi,
+salvato e concordato con Francesco. Richiesta: un'esperienza più "smart" (scambio di posizione
+trascinando un token sopra un altro, un "modulo smart" che dispone da solo i convocati, zoom/pan sul
+campo), funzionalità attuali mantenute identiche, nessuna migrazione Supabase. Regola dati confermata:
+Formazione (sempre) + Tattiche di partita restano legate ai convocati reali; Moduli + Tattiche squadra
+generiche restano con numeri 1-11 generici.
+- **Fase 1 (fatta)**: primitive condivise `app/components/tactical/` (`Field`, `DraggableToken`,
+  `Jersey`, `dropTarget`) — vedi CLAUDE.md per i dettagli tecnici — e migrazione di
+  `app/moduli/editor.tsx` (rischio minimo, nessun dato reale). **Da verificare dal vero**: drag, swap,
+  zoom/pan e adattamento al resize sono gesture multi-touch, non verificabili da soli.
+- **Fase 2 (da fare)**: `app/squadra/tattiche/editor.tsx` (aggiunge maglie avversario + pallone +
+  screenshot).
+- **Fase 3 (da fare, la più delicata)**: `app/eventi/partita/[id]/formazione.tsx` — dati reali di
+  partita e modalità Live, solo layer visivo/gesture (nessuna modifica a come si salva la formazione)
+  + nuovo bottone "Disponi automaticamente".
+- **Fase 4 (da fare)**: `app/eventi/partita/[id]/tattiche.tsx` — restyle visivo puro, interazione
+  tap+Modal invariata (confermato da Francesco: resta legata ai convocati reali, nessun drag).
 
 ## Completato
 
