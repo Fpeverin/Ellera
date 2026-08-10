@@ -443,6 +443,47 @@ piccolo `setTimeout`) **prima** di scattare, cosa non necessaria a Moduli (che n
 HOME+AWAY+palla e controllare che l'immagine preview su Storage rifletta la disposizione finale
 corretta (non un'inquadratura zoomata a metà, né un transform residuo di un drag in corso).
 
+### Fix critico: campo invisibile su web (Fase 1+2)
+Dopo il primo giro, Francesco ha segnalato che su webapp il campo non si vedeva **per niente** (e
+sull'app nessuna novità grafica) — non un problema di cache/OTA come altre volte, un bug reale.
+**Causa**: in `Field.tsx`, il wrapper animato dello zoom (`Animated.View` con solo `transform: [...]`)
+non aveva una dimensione propria — senza `flex: 1` resta a grandezza automatica (0), e il campo dentro
+(`width/height: '100%'`) si risolveva quindi a **zero px**: invisibile, senza nessun errore in console
+(non un crash, un collasso di layout silenzioso). Colpiva entrambe le schermate migrate finora
+(entrambe con `zoomable`). **Fix**: `style={[{ flex: 1 }, zoomStyle]}` invece di `style={zoomStyle}`.
+**Verificato dal vero** con un server locale (`npx expo start --web`) e una pagina di debug temporanea
+(mai committata, rimossa subito dopo) — screenshot che confermano il campo visibile e il token
+posizionato correttamente prima e dopo il fix.
+
+### Fase 3 — Formazione + Live (`app/eventi/partita/[id]/formazione.tsx`)
+La fase a rischio più alto (dati reali di partita, modalità Live) — **solo layer visivo/gesture**,
+nessuna modifica a come si legge/scrive `lineup`, `positions`, `numbers` (`app/data/matchLive.ts`,
+non toccato). Sostituiti `Draggable` locale, campo disegnato inline e `BlueWhiteShirt` con le
+primitive condivise (`Jersey variant="home"`, stessa dimensione di prima — 46×30 — passata
+esplicitamente, non la dimensione di default di `Jersey`). Fuori da Live l'interazione resta
+identica: tap su uno slot vuoto apre il picker giocatore, tap su uno assegnato apre il numero
+maglia, pressione lunga rimuove — nessun `DraggableToken` coinvolto lì (il drag esisteva solo in
+Live anche prima). In Live, swap-on-drop **sugli indici di `posOverrides`** (mai su
+`fieldAssignments`): trascinare una maglia sopra un'altra scambia solo la posizione disegnata, non
+chi è davvero assegnato a quello slot — nessun impatto sui dati reali. `GestureHandlerRootView`
+locale rimosso (il return radice diventa un Fragment `<>...</>` invece di quel wrapper).
+
+**Nuovo bottone "🪄 Disponi automaticamente"** (`app/utils/autoFormation.ts`, nuovo — solo
+`!liveMode && !readOnly`): ripartisce i convocati (meno chi è già in panchina a mano — la panchina
+non viene mai toccata) sugli slot del modulo scelto, per reparto. Euristica basata sulla **profondità
+sul campo** (coordinata `y` dello slot: ≥85 portiere, 65-85 difesa, 38-65 centrocampo, <38 attacco),
+non sull'id dello slot — i moduli personalizzati hanno id generici (`P1`..`P11`, nessun significato di
+ruolo), un matching per id fallirebbe silenzialmente sul caso più comune. Due passate: match esatto
+per reparto, poi riempimento di quel che resta con i candidati non ancora piazzati. Riusa un numero di
+maglia già noto se presente. Con meno di 11 convocati disponibili gli slot restanti restano vuoti
+(stato già tollerato); con conferma modale (`Alert.alert`) solo se c'è già una disposizione manuale da
+sovrascrivere.
+
+**Da verificare dal vero** (la fase più delicata di tutte — dati reali): drag di una maglia in Live,
+swap tra due maglie, una sostituzione live, "Disponi automaticamente" pre-partita seguito da
+aggiustamenti manuali — confermare che tutto si salvi correttamente e che `live.tsx` (legge solo
+`live_formation`, mai `lineup`/`positions`) non abbia alcuna regressione.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

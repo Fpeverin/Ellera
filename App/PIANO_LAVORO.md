@@ -43,9 +43,18 @@ generiche restano con numeri 1-11 generici.
 - **Fase 2 (fatta)**: `app/squadra/tattiche/editor.tsx` — stesse primitive, più swap tra maglie
   nostre/avversarie (pallone escluso) e zoom azzerato automaticamente prima dello screenshot di
   preview. **Da verificare dal vero**: come Fase 1, più il controllo della preview salvata.
-- **Fase 3 (da fare, la più delicata)**: `app/eventi/partita/[id]/formazione.tsx` — dati reali di
-  partita e modalità Live, solo layer visivo/gesture (nessuna modifica a come si salva la formazione)
-  + nuovo bottone "Disponi automaticamente".
+- **Fix critico (Fase 1+2)**: dopo il primo giro Francesco ha segnalato che il campo non si vedeva
+  per niente su web — bug reale (non cache/OTA): il wrapper animato dello zoom in `Field.tsx` non
+  aveva una dimensione propria, il campo dentro si risolveva a zero px, invisibile senza errori.
+  Corretto e verificato dal vero con un server locale (screenshot prima/dopo) — vedi CLAUDE.md.
+- **Fase 3 (fatta)**: `app/eventi/partita/[id]/formazione.tsx` — dati reali di partita e modalità
+  Live, solo layer visivo/gesture (nessuna modifica a come si salva `lineup`/`positions`/`numbers`).
+  Swap-on-drop in Live sugli indici di posizione (mai sull'assegnazione giocatore↔slot). Nuovo
+  bottone "🪄 Disponi automaticamente" (`app/utils/autoFormation.ts`): dispone i convocati sugli slot
+  per reparto (profondità sul campo, non id dello slot — funziona anche sui moduli personalizzati),
+  non tocca mai la panchina, chiede conferma solo se sovrascrive una disposizione manuale già
+  presente. **Da verificare dal vero — la fase più delicata**: drag/swap/sostituzione in Live, e
+  "Disponi automaticamente" pre-partita.
 - **Fase 4 (da fare)**: `app/eventi/partita/[id]/tattiche.tsx` — restyle visivo puro, interazione
   tap+Modal invariata (confermato da Francesco: resta legata ai convocati reali, nessun drag).
 

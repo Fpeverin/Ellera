@@ -2,10 +2,13 @@
 import { Picker } from '@react-native-picker/picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useRef, useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { autoAssignPlayersToSlots } from '../../../utils/autoFormation';
+import DraggableToken from '../../../components/tactical/DraggableToken';
+import Field from '../../../components/tactical/Field';
+import { Jersey } from '../../../components/tactical/Jersey';
+import { DEFAULT_SWAP_THRESHOLD_PX, resolveDropTarget } from '../../../components/tactical/dropTarget';
 import TeamLogo from '../../../components/TeamLogo';
 import { useAuth } from '../../../context/AuthContext';
 import {
@@ -39,48 +42,6 @@ type PickTarget =
 
 // helper per mostrare solo il cognome
 const surnameOf = (full: string) => (full || '').trim().split(/\s+/)[0];
-
-// Draggable shirt (LIVE only)
-function Draggable({
-  idx, xPct, yPct, onMove, children,
-}: { idx: number; xPct: number; yPct: number; onMove: (i:number, nx:number, ny:number)=>void; children: React.ReactNode }) {
-  const x = useSharedValue(0);
-  const y = useSharedValue(0);
-
-  const pan = Gesture.Pan()
-    .onChange((e) => { x.value += e.changeX; y.value += e.changeY; })
-    .onEnd(() => {
-      onMove(idx, x.value, y.value);
-      x.value = 0; y.value = 0;
-    });
-
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateX: withSpring(x.value, { damping: 18, stiffness: 220 }) }, { translateY: withSpring(y.value, { damping: 18, stiffness: 220 }) }],
-  }));
-
-  return (
-    <GestureDetector gesture={pan}>
-      <Animated.View style={style}>{children}</Animated.View>
-    </GestureDetector>
-  );
-}
-
-// Piccola maglia bianco-azzurra (strisce) con numero
-function BlueWhiteShirt({ empty, number }: { empty?: boolean; number?: number }) {
-  return (
-    <View style={[styles.shirtBody, empty && styles.shirtEmpty]}>
-      <View style={styles.shirtStripes}>
-        {[0,1,2,3,4].map(i => (
-          <View
-            key={i}
-            style={{ flex:1, backgroundColor: i%2===0 ? '#ffffff' : '#60a5fa' }}
-          />
-        ))}
-      </View>
-      {number ? <Text style={styles.shirtNum}>{number}</Text> : null}
-    </View>
-  );
-}
 
 export default function Schieramento() {
   const { id: matchId } = useLocalSearchParams<{ id: string }>();
@@ -336,6 +297,71 @@ export default function Schieramento() {
     top: fieldSize.h ? (y / 100) * fieldSize.h - SHIRT_H / 2 : 0,
   });
 
+  // Drag di una maglia in LIVE: sola posizione disegnata (posOverrides), mai l'assegnazione
+  // giocatore↔slot (fieldAssignments) — trascinarne una sopra un'altra le scambia di posto.
+  const handleFieldTokenMove = (key: string, nx: number, ny: number) => {
+    const idx = Number(key);
+    setPosOverrides(prev => {
+      const w = fieldSize.w;
+      const h = fieldSize.h;
+      if (w <= 0 || h <= 0) {
+        const next = [...prev];
+        next[idx] = { x: nx, y: ny };
+        return next;
+      }
+      const droppedPx = { x: (nx / 100) * w, y: (ny / 100) * h };
+      const siblings = fieldSlots
+        .map((_, i) => i)
+        .filter(i => i !== idx)
+        .map(i => {
+          const p = prev[i] ?? fieldSlots[i];
+          return { key: String(i), xPx: (p.x / 100) * w, yPx: (p.y / 100) * h };
+        });
+      const swapWith = resolveDropTarget(droppedPx.x, droppedPx.y, siblings, key, DEFAULT_SWAP_THRESHOLD_PX);
+      if (swapWith != null) {
+        const j = Number(swapWith);
+        const posA = prev[idx] ?? fieldSlots[idx];
+        const posB = prev[j] ?? fieldSlots[j];
+        const next = [...prev];
+        next[idx] = posB;
+        next[j] = posA;
+        return next;
+      }
+      const next = [...prev];
+      next[idx] = { x: nx, y: ny };
+      return next;
+    });
+  };
+
+  // "Disponi automaticamente": ripartisce i convocati (meno chi è già in panchina a mano) sugli
+  // slot del modulo scelto, per reparto. Non tocca mai la panchina.
+  const applyAutoAssign = () => {
+    const benchIds = new Set(benchAssignments.map(p => p.id));
+    const pool = basePlayers.filter(p => convocatiPlayerIds.includes(p.id) && !benchIds.has(p.id));
+    const previousNumbers: Record<string, number> = {};
+    [...fieldAssignments, ...benchAssignments].forEach(p => {
+      if (p?.number) previousNumbers[p.id] = p.number;
+    });
+    const assigned = autoAssignPlayersToSlots(fieldSlots, pool, previousNumbers);
+    setFieldAssignments(assigned.map(a => (a ? { id: a.id, name: a.name, number: a.number } : null)));
+  };
+
+  const requestAutoAssign = () => {
+    if (liveMode || readOnly) return;
+    if (fieldAssignments.some(Boolean)) {
+      Alert.alert(
+        'Disponi automaticamente?',
+        'Questo sovrascrive la disposizione attuale in campo (la panchina resta invariata).',
+        [
+          { text: 'Annulla', style: 'cancel' },
+          { text: 'Conferma', style: 'destructive', onPress: applyAutoAssign },
+        ]
+      );
+      return;
+    }
+    applyAutoAssign();
+  };
+
   // --- salvataggi lineup + posizioni ---
   React.useEffect(() => {
     if (!loadedRef.current || !matchId) return;
@@ -403,7 +429,7 @@ export default function Schieramento() {
 
   // --- UI ---
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <>
       {/* SAFE AREA: evita sovrapposizione con notch mantenendo lo sfondo coerente */}
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.wrap}>
@@ -427,99 +453,80 @@ export default function Schieramento() {
               </Picker>
             </View>
 
-            {/* Campo */}
-            <View
-              style={styles.field}
-              onLayout={e => {
-                const { width, height } = e.nativeEvent.layout;
-                setFieldSize({ w: width, h: height });
-              }}
-            >
-              {/* linee campo */}
-              <View style={styles.midLine} />
-              <View style={styles.centerCircle} />
-              <View style={[styles.penaltyBox, styles.topPenaltyBox]} />
-              <View style={[styles.sixYardBox, styles.topSixYard]} />
-              <View style={[styles.goal, styles.topGoal]} />
-              <View style={[styles.penaltyBox, styles.bottomPenaltyBox]} />
-              <View style={[styles.sixYardBox, styles.bottomSixYard]} />
-              <View style={[styles.goal, styles.bottomGoal]} />
+            {!liveMode && !readOnly && (
+              <Pressable style={styles.autoBtn} onPress={requestAutoAssign}>
+                <Text style={styles.autoBtnText}>🪄 Disponi automaticamente</Text>
+              </Pressable>
+            )}
 
-              {/* Maglie */}
-              {fieldSlots.map((s, i) => {
-                const posPct = posOverrides[i] ?? { x: s.x, y: s.y };
-                const pos = toPx(posPct.x, posPct.y);
-                const assigned = fieldAssignments[i];
-                const shirt = (
-                  <Pressable
-                    style={{}}
-                    onPress={() => {
-                      if (assigned) {
-                        openNumberForField(i);
-                      } else {
-                        openPickerForField(i);
-                      }
-                    }}
-                    onLongPress={() => assigned && removeFromField(i)}
-                    disabled={readOnly}
-                  >
-                    <BlueWhiteShirt empty={!assigned} number={assigned?.number} />
-                  </Pressable>
-                );
-                if (liveMode && !readOnly) {
-                  return (
-                    <View key={i} style={[styles.shirtWrap, { left: pos.left, top: pos.top }]}>
-                      <Draggable
-                        idx={i}
+            {/* Campo */}
+            <View style={styles.fieldWrap}>
+              <Field zoomable resetKey={selectedModuleName} onMeasure={setFieldSize}>
+                {/* Maglie */}
+                {fieldSlots.map((s, i) => {
+                  const posPct = posOverrides[i] ?? { x: s.x, y: s.y };
+                  const assigned = fieldAssignments[i];
+                  const shirtSize = { w: SHIRT_W, h: SHIRT_H };
+                  const shirt = (
+                    <Pressable
+                      style={{ opacity: assigned ? 1 : 0.45 }}
+                      onPress={() => {
+                        if (assigned) {
+                          openNumberForField(i);
+                        } else {
+                          openPickerForField(i);
+                        }
+                      }}
+                      onLongPress={() => assigned && removeFromField(i)}
+                      disabled={readOnly}
+                    >
+                      <Jersey variant="home" number={assigned?.number} size={shirtSize} />
+                    </Pressable>
+                  );
+                  if (liveMode && !readOnly) {
+                    return (
+                      <DraggableToken
+                        key={i}
+                        tokenKey={String(i)}
                         xPct={posPct.x}
                         yPct={posPct.y}
-                        onMove={(idx, dx, dy) => {
-                          const currentLeft = (posPct.x / 100) * fieldSize.w - SHIRT_W / 2;
-                          const currentTop = (posPct.y / 100) * fieldSize.h - SHIRT_H / 2;
-                          const newCenterX = currentLeft + dx + SHIRT_W / 2;
-                          const newCenterY = currentTop + dy + SHIRT_H / 2;
-                          const nx = Math.max(0, Math.min(100, (newCenterX / Math.max(1, fieldSize.w)) * 100));
-                          const ny = Math.max(0, Math.min(100, (newCenterY / Math.max(1, fieldSize.h)) * 100));
-                          setPosOverrides(prev => {
-                            const next = [...prev];
-                            next[idx] = { x: nx, y: ny };
-                            return next;
-                          });
-                        }}
+                        size={shirtSize}
+                        onMove={handleFieldTokenMove}
                       >
                         {shirt}
-                      </Draggable>
+                      </DraggableToken>
+                    );
+                  }
+                  const pos = toPx(posPct.x, posPct.y);
+                  return (
+                    <View key={i} style={[styles.shirtWrap, { left: pos.left, top: pos.top }]}>
+                      {shirt}
                     </View>
                   );
-                }
-                return (
-                  <View key={i} style={[styles.shirtWrap, { left: pos.left, top: pos.top }]}>
-                    {shirt}
-                  </View>
-                );
-              })}
+                })}
 
-              {/* Etichette sopra maglie */}
-              {nameLabels.map(lbl => {
-                const assigned = fieldAssignments[lbl.index];
-                if (!assigned) return null;
-                return (
-                  <View
-                    key={`name-${lbl.index}`}
-                    style={[
-                      styles.nameTag,
-                      {
-                        left: lbl.xCenter,
-                        top: Math.max(4, lbl.top),
-                        transform: [{ translateX: -0.5 * (SHIRT_W) }],
-                      },
-                    ]}
-                    pointerEvents="none"
-                  >
-                    <Text style={styles.nameText}>{surnameOf(assigned.name)}</Text>
-                  </View>
-                );
-              })}
+                {/* Etichette sopra maglie */}
+                {nameLabels.map(lbl => {
+                  const assigned = fieldAssignments[lbl.index];
+                  if (!assigned) return null;
+                  return (
+                    <View
+                      key={`name-${lbl.index}`}
+                      style={[
+                        styles.nameTag,
+                        {
+                          left: lbl.xCenter,
+                          top: Math.max(4, lbl.top),
+                          transform: [{ translateX: -0.5 * (SHIRT_W) }],
+                        },
+                      ]}
+                      pointerEvents="none"
+                    >
+                      <Text style={styles.nameText}>{surnameOf(assigned.name)}</Text>
+                    </View>
+                  );
+                })}
+              </Field>
             </View>
 
             {/* Panchina */}
@@ -708,12 +715,11 @@ export default function Schieramento() {
           </Modal>
         </View>
       </SafeAreaView>
-    </GestureHandlerRootView>
+    </>
   );
 }
 
 /* --------------------- STILI --------------------- */
-const LINE = 'rgba(255,255,255,0.7)';
 const styles = StyleSheet.create({
   // SafeArea con stesso background della pagina, così il notch rispetta il design
   safeArea: { flex: 1, backgroundColor: '#f5f7fa' },
@@ -727,34 +733,14 @@ const styles = StyleSheet.create({
   moduleSelectRow: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, backgroundColor: '#fff' },
   modulePicker: { width: '100%' },
 
-  field: {
-    flex: 1,
-    backgroundColor: '#1b7f3b',
-    borderRadius: 12, borderWidth: 3, borderColor: '#0d5f2b',
-    overflow: 'hidden', marginTop: 6,
+  autoBtn: {
+    backgroundColor: '#7c3aed', borderRadius: 8, paddingVertical: 8, alignItems: 'center', marginTop: 4,
   },
-  midLine: { position: 'absolute', left: 0, right: 0, top: '50%', height: 2, backgroundColor: LINE },
-  centerCircle: {
-    position: 'absolute', top: '50%', left: '50%', width: 110, height: 110,
-    marginLeft: -55, marginTop: -55, borderWidth: 2, borderColor: LINE, borderRadius: 55,
-  },
-  penaltyBox: { position: 'absolute', width: '60%', height: '18%', left: '20%', borderColor: LINE, borderWidth: 2 },
-  sixYardBox: { position: 'absolute', width: '36%', height: '6%', left: '32%', borderColor: LINE, borderWidth: 2 },
-  goal: { position: 'absolute', width: '16%', height: 4, left: '42%', backgroundColor: LINE },
-  topPenaltyBox: { top: '4%' }, topSixYard: { top: '4%' }, topGoal: { top: '1.2%' },
-  bottomPenaltyBox: { bottom: '4%' }, bottomSixYard: { bottom: '4%' }, bottomGoal: { bottom: '1.2%' },
+  autoBtnText: { color: 'white', fontWeight: '800' },
+
+  fieldWrap: { flex: 1, marginTop: 6 },
 
   shirtWrap: { position: 'absolute' },
-
-  shirtBody: {
-    width: SHIRT_W, height: SHIRT_H, borderRadius: 10,
-    backgroundColor: '#ffffff',
-    borderWidth: 2, borderColor: 'rgba(0,0,0,0.15)',
-    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-  },
-  shirtStripes: { position: 'absolute', inset: 0, flexDirection: 'row' },
-  shirtEmpty: { opacity: 0.45 },
-  shirtNum: { position: 'absolute', fontWeight: '900', color: '#111', fontSize: 12 },
 
   nameTag: {
     position: 'absolute',
