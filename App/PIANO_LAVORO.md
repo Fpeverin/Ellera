@@ -63,6 +63,49 @@ generiche restano con numeri 1-11 generici.
 data la segnalazione precedente (campo invisibile su web, corretto), questa volta la verifica conta
 doppio prima di considerare il punto davvero chiuso.
 
+### Round 2 — disco, campo realistico, vassoio drag (2026-08-10)
+Dopo il primo giro, feedback negativo netto di Francesco sul risultato visivo: "il drag non mi piace,
+la resa grafica del campo e il modo con cui vengono inseriti i placeholder dei giocatori nel campo
+fanno schifo", con TacticalPad citata come riferimento di qualità. Validato con due round di prototipi
+HTML interattivi (non nel codice dell'app) prima di toccare produzione — confermati da Francesco uno
+per uno:
+- **Round A**: confronto maglia-vs-disco e campo-vecchio-vs-campo-texture → **disco + campo con
+  texture "erba tagliata" confermati come nettamente migliori**.
+- **Round B**: nuovo meccanismo di aggiunta/rimozione token (vassoio con trascinamento diretto sul
+  campo per aggiungere, trascinamento fuori dal campo per rimuovere, con animazione di comparsa/
+  scomparsa) → **confermato "perfetto", richiesta esplicita di implementarlo nell'app reale**.
+
+Implementato in produzione:
+- **`Jersey.tsx`**: da maglia rettangolare a **disco circolare** con bordo scurito (nessun
+  `color-mix()` disponibile in React Native, helper `darken()` manuale).
+- **`Field.tsx`**: campo con texture a bande "erba tagliata" (`TURF_1`/`TURF_2`, 8 bande), dischetti
+  del rigore aggiunti oltre al dischetto centrale già presente.
+- **`DraggableToken.tsx`**: nuova prop `onRemove` — un token trascinato fuori dai margini del campo
+  (con una piccola tolleranza) si rimuove da solo, con una micro-animazione di comparsa all'aggiunta e
+  scomparsa alla rimozione.
+- **`AddTray.tsx` (nuovo)**: vassoio di elementi trascinabili che sostituisce sia il vecchio "tocca per
+  selezionare poi tocca il campo" (Moduli) sia i bottoni a posizione fissa "+ Nostro/+ Avversario/+
+  Pallone" (Tattiche squadra) — un solo gesto di trascinamento dal vassoio al punto esatto del campo.
+  Tecnica: il "fantasma" che segue il dito durante il trascinamento dipinge sopra il campo sfruttando
+  il normale ordine di disegno di React Native (il vassoio va nell'albero JSX **dopo** il campo, nessun
+  Portal/Modal necessario) — per questo in Tattiche squadra i controlli del vassoio sono stati spostati
+  da sopra a **sotto** il campo.
+- **`app/moduli/editor.tsx`** e **`app/squadra/tattiche/editor.tsx`**: riscritti sull'uso di `AddTray`
+  al posto della UI di piazzamento precedente; funzionalità mantenute (numerazione automatica, "un
+  solo pallone" in Tattiche squadra).
+- **Formazione/Live e Tattiche di partita**: non toccate in questo round — i miglioramenti a
+  `Jersey`/`Field` si applicano automaticamente perché sono le stesse primitive condivise, zero
+  modifiche di codice necessarie in quei due file.
+
+**Limite di verifica dell'ambiente di test automatico**: il drag-and-drop reale e tutte le animazioni
+(comparsa/scomparsa token, fantasma durante il trascinamento) **non sono verificabili meccanicamente
+in questa sessione** — il pannello browser automatizzato usato per i test non compone i frame quando
+non è in primo piano, il che sospende `requestAnimationFrame` e quindi ogni animazione basata su di
+esso (confermato con un test diretto: 30s di attesa, zero tick). Verificati invece con successo:
+colori/forme/texture del campo (via ispezione stile calcolato) e la logica di rilevamento del drop
+(entro i confini del campo sì/no). **Verifica dal vero di Francesco necessaria con priorità alta**,
+dato il precedente miss sullo stesso set di funzionalità (campo invisibile su web).
+
 ## Completato
 
 ### PDF Convocazione: replica fedele della Scheda Excel (2026-07-31, verificato 2026-08-03)

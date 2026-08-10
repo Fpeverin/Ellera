@@ -3,14 +3,17 @@ import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import ViewShot, { captureRef, type ViewShotRef } from 'react-native-view-shot';
+import AddTray, { type TrayItem } from '../../components/tactical/AddTray';
 import DraggableToken from '../../components/tactical/DraggableToken';
 import Field, { type FieldMeasure } from '../../components/tactical/Field';
 import { Ball, Jersey } from '../../components/tactical/Jersey';
 import { DEFAULT_SWAP_THRESHOLD_PX, resolveDropTarget } from '../../components/tactical/dropTarget';
 import { loadTactics, saveTactic, type TacticElement } from '../../data/tactics';
 
-const SHIRT_SIZE = { w: 54, h: 36 };
+const DISC_SIZE = { w: 38, h: 38 };
+const TRAY_DISC_SIZE = { w: 30, h: 30 };
 const BALL_SIZE = 22;
+const TRAY_BALL_SIZE = 24;
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -26,6 +29,7 @@ export default function TacticsEditor() {
   const [showNameModal, setShowNameModal] = useState(false);
   const [fieldSize, setFieldSize] = useState<FieldMeasure>({ w: 0, h: 0 });
   const [zoomResetKey, setZoomResetKey] = useState(0);
+  const fieldRef = useRef<View>(null);
 
   const shotRef = useRef<ViewShotRef>(null);
 
@@ -43,22 +47,25 @@ export default function TacticsEditor() {
     })();
   }, [id, isEditing]);
 
-  const addHome = () => {
-    const numbers = elements.filter(e => e.type === 'HOME').map(e => e.number ?? 0);
-    let next = 1; while (numbers.includes(next) && next <= 99) next++;
-    setElements(prev => [...prev, { id: uid(), type: 'HOME', x: 50, y: 80, number: next }]);
-  };
-  const addAway = () => {
-    const numbers = elements.filter(e => e.type === 'AWAY').map(e => e.number ?? 0);
-    let next = 1; while (numbers.includes(next) && next <= 99) next++;
-    setElements(prev => [...prev, { id: uid(), type: 'AWAY', x: 50, y: 20, number: next }]);
-  };
-  const addBall = () => {
-    if (elements.some(e => e.type === 'BALL')) {
-      Alert.alert('Pallone già presente', 'C’è già un pallone: spostalo dove preferisci.');
+  const trayItems: TrayItem[] = [
+    { key: 'home', node: <Jersey variant="home" size={TRAY_DISC_SIZE} /> },
+    { key: 'away', node: <Jersey variant="away" size={TRAY_DISC_SIZE} /> },
+    { key: 'ball', node: <Ball size={TRAY_BALL_SIZE} /> },
+  ];
+
+  const handleDropOnField = (itemKey: string, nx: number, ny: number) => {
+    if (itemKey === 'ball') {
+      if (elements.some(e => e.type === 'BALL')) {
+        Alert.alert('Pallone già presente', 'C’è già un pallone: spostalo dove preferisci.');
+        return;
+      }
+      setElements(prev => [...prev, { id: uid(), type: 'BALL', x: nx, y: ny }]);
       return;
     }
-    setElements(prev => [...prev, { id: uid(), type: 'BALL', x: 50, y: 50 }]);
+    const type = itemKey === 'home' ? 'HOME' : 'AWAY';
+    const numbers = elements.filter(e => e.type === type).map(e => e.number ?? 0);
+    let next = 1; while (numbers.includes(next) && next <= 99) next++;
+    setElements(prev => [...prev, { id: uid(), type, x: nx, y: ny, number: next }]);
   };
 
   const confirmReset = () => {
@@ -73,7 +80,8 @@ export default function TacticsEditor() {
   };
 
   // Trascinare una maglia sopra un'altra le scambia di posizione (il pallone resta escluso, si
-  // sposta normalmente — non ha senso "scambiarlo" con una maglia).
+  // sposta normalmente — non ha senso "scambiarlo" con una maglia). Trascinare fuori dal campo la
+  // rimuove — vedi DraggableToken's `onRemove`.
   const handleMove = (key: string, nx: number, ny: number) => {
     setElements(prev => {
       const moving = prev.find(e => e.id === key);
@@ -163,52 +171,43 @@ export default function TacticsEditor() {
         </Pressable>
       </View>
 
-      {/* TOOLBAR SECONDARIA (4 bottoni) */}
-      <View style={styles.toolsBar}>
-        <Pressable style={[styles.toolBtn, { backgroundColor: '#e0ecff', borderColor: '#93c5fd' }]} onPress={addHome}>
-          <Text style={styles.toolTxt}>👕 Nostro</Text>
-        </Pressable>
-        <Pressable style={[styles.toolBtn, { backgroundColor: '#ffe2e2', borderColor: '#fca5a5' }]} onPress={addAway}>
-          <Text style={styles.toolTxt}>👕 Avversario</Text>
-        </Pressable>
-        <Pressable style={[styles.toolBtn, { backgroundColor: '#fffceb', borderColor: '#fde68a' }]} onPress={addBall}>
-          <Text style={styles.toolTxt}>⚽ Pallone</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.toolBtn, { backgroundColor: '#f3f4f6', borderColor: '#d1d5db' }]}
-          onPress={confirmReset}
-        >
-          <Text style={styles.toolTxt}>♻️ Reset</Text>
-        </Pressable>
-      </View>
-
       {/* CAMPO */}
       <View style={styles.fieldWrap}>
         <View collapsable={false} style={styles.fieldShotOuter}>
           <ViewShot ref={shotRef} style={styles.fieldShot}>
-            <Field zoomable resetKey={zoomResetKey} onMeasure={setFieldSize}>
+            <Field ref={fieldRef} zoomable resetKey={zoomResetKey} onMeasure={setFieldSize}>
               {elements.map((el) => {
                 const isBall = el.type === 'BALL';
-                const size = isBall ? { w: BALL_SIZE, h: BALL_SIZE } : SHIRT_SIZE;
+                const size = isBall ? { w: BALL_SIZE, h: BALL_SIZE } : DISC_SIZE;
                 const child = isBall ? (
                   <Ball size={BALL_SIZE} />
                 ) : (
-                  <Jersey variant={el.type === 'HOME' ? 'home' : 'away'} number={el.number} size={SHIRT_SIZE} />
+                  <Jersey variant={el.type === 'HOME' ? 'home' : 'away'} number={el.number} size={DISC_SIZE} />
                 );
                 return (
-                  <DraggableToken key={el.id} tokenKey={el.id} xPct={el.x} yPct={el.y} size={size} onMove={handleMove}>
-                    <Pressable
-                      style={{ width: size.w, height: size.h, alignItems: 'center', justifyContent: 'center' }}
-                      onLongPress={() => removeAt(el.id)}
-                    >
-                      {child}
-                    </Pressable>
+                  <DraggableToken key={el.id} tokenKey={el.id} xPct={el.x} yPct={el.y} size={size} onMove={handleMove} onRemove={removeAt}>
+                    {child}
                   </DraggableToken>
                 );
               })}
             </Field>
           </ViewShot>
         </View>
+      </View>
+
+      {/* VASSOIO (sotto il campo — deve essere reso dopo, per disegnare sopra quando il "fantasma"
+          esce dal proprio riquadro durante il trascinamento) + Reset */}
+      <View style={styles.bottomBar}>
+        <AddTray
+          items={trayItems}
+          fieldRef={fieldRef}
+          onDrop={handleDropOnField}
+          style={styles.trayInline}
+          hint="Trascina sul campo per aggiungere — trascina un elemento del campo fuori per rimuoverlo."
+        />
+        <Pressable style={styles.resetBtn} onPress={confirmReset}>
+          <Text style={styles.resetBtnText}>♻️ Reset</Text>
+        </Pressable>
       </View>
 
       {/* Modal nome (se manca) */}
@@ -274,22 +273,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
 
-  // Toolbar secondaria
-  toolsBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    gap: 8, paddingHorizontal: 10, paddingVertical: 8,
-    borderBottomWidth: 1, borderColor: '#eef2f7', backgroundColor: '#fafafa',
-  },
-  toolBtn: {
-    flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
-    borderWidth: 1,
-  },
-  toolTxt: { fontWeight: '800', color: '#111' },
-
   // Campo
   fieldWrap: { flex: 1, padding: 10 },
   fieldShotOuter: { flex: 1 },
   fieldShot: { flex: 1, width: '100%' },
+
+  // Vassoio + reset (sotto il campo)
+  bottomBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+    paddingHorizontal: 12, paddingVertical: 10,
+    borderTopWidth: 1, borderColor: '#eef2f7', backgroundColor: '#fafafa',
+  },
+  trayInline: { flex: 1 },
+  resetBtn: {
+    borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14,
+    backgroundColor: '#f3f4f6',
+  },
+  resetBtnText: { fontWeight: '800', color: '#111' },
 
   // Modal nome
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },

@@ -1,39 +1,53 @@
 // app/components/tactical/Jersey.tsx
 //
-// Maglia condivisa da tutte le lavagne tattiche (Moduli, Tattiche squadra, Formazione, Tattiche di
-// partita) — prima erano 4 copie quasi identiche (ShirtOnField/HomeShirt/AwayShirt/BlueWhiteShirt).
+// Token condiviso da tutte le lavagne tattiche (Moduli, Tattiche squadra, Formazione, Tattiche di
+// partita) — prima erano 4 copie quasi identiche di una "maglia" con maniche a due cerchietti, poco
+// leggibile alle dimensioni reali. Ridisegnato come disco colorato con numero (2026-08-10, su
+// richiesta esplicita di Francesco — confronto provato prima con un prototipo interattivo).
 import { StyleSheet, Text, View } from 'react-native';
 
 export type JerseyVariant = 'home' | 'away';
 export type JerseySize = { w: number; h: number };
 
-const HOME_STRIPES: [string, string] = ['#ffffff', '#3b82f6'];
-const AWAY_STRIPES: [string, string] = ['#ef4444', '#b91c1c'];
+const HOME_FILL = '#2b3a67';
+const HOME_INK = '#f3f4f8';
+const AWAY_FILL = '#b8502f';
+const AWAY_INK = '#fbeee7';
+
+/** Scurisce un colore hex di una percentuale (0-1) — non esiste color-mix() in React Native. */
+function darken(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(((n >> 16) & 255) * (1 - amount));
+  const g = Math.round(((n >> 8) & 255) * (1 - amount));
+  const b = Math.round((n & 255) * (1 - amount));
+  return `rgb(${r}, ${g}, ${b})`;
+}
 
 export function Jersey({
   variant = 'home',
   number,
-  size = { w: 54, h: 36 },
+  size = { w: 34, h: 34 },
 }: {
   variant?: JerseyVariant;
   number?: number | string | null;
   size?: JerseySize;
 }) {
-  const [c1, c2] = variant === 'away' ? AWAY_STRIPES : HOME_STRIPES;
-  const sleeveColor = variant === 'away' ? '#ef4444' : '#3b82f6';
-  const borderColor = variant === 'away' ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.15)';
-  const numberColor = variant === 'away' ? '#fff' : '#111';
+  const fill = variant === 'away' ? AWAY_FILL : HOME_FILL;
+  const ink = variant === 'away' ? AWAY_INK : HOME_INK;
+  const d = Math.min(size.w, size.h);
 
   return (
-    <View style={[styles.body, { width: size.w, height: size.h, borderColor }]}>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <View key={i} style={{ flex: 1, backgroundColor: i % 2 === 0 ? c1 : c2 }} />
-      ))}
-      <View style={[styles.sleeve, { left: -10, backgroundColor: sleeveColor }]} />
-      <View style={[styles.sleeve, { right: -10, backgroundColor: sleeveColor }]} />
-      {number != null && number !== '' ? (
-        <Text style={[styles.number, { color: numberColor }]}>{number}</Text>
-      ) : null}
+    <View style={{ width: size.w, height: size.h, alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={[
+          styles.disc,
+          { width: d, height: d, borderRadius: d / 2, backgroundColor: fill, borderColor: darken(fill, 0.3) },
+        ]}
+      >
+        {number != null && number !== '' ? (
+          <Text style={[styles.number, { color: ink, fontSize: Math.max(10, d * 0.36) }]}>{number}</Text>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -41,25 +55,23 @@ export function Jersey({
 export function Ball({ size = 22 }: { size?: number }) {
   return (
     <View style={[styles.ball, { width: size, height: size, borderRadius: size / 2 }]}>
-      <Text style={{ fontWeight: '900' }}>⚽</Text>
+      <Text style={{ fontWeight: '900', fontSize: Math.max(10, size * 0.5) }}>⚽</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  body: {
-    flexDirection: 'row',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
-    overflow: 'hidden',
+  disc: {
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.18,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  sleeve: { position: 'absolute', top: 6, width: 18, height: 18, borderRadius: 5 },
-  number: { position: 'absolute', fontWeight: '900', fontSize: 12 },
+  number: { fontWeight: '800', letterSpacing: -0.3 },
   ball: {
     backgroundColor: '#fff',
     alignItems: 'center',

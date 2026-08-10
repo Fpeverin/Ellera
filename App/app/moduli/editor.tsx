@@ -1,8 +1,9 @@
 // app/moduli/editor.tsx
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AddTray, { type TrayItem } from '../components/tactical/AddTray';
 import DraggableToken from '../components/tactical/DraggableToken';
 import Field from '../components/tactical/Field';
 import { Jersey } from '../components/tactical/Jersey';
@@ -11,7 +12,8 @@ import TeamLogo from '../components/TeamLogo';
 import { loadModules, saveModule } from '../data/modules';
 import { MODULES as DEFAULT_MODULES, type FieldSlot } from '../utils/modules-layout';
 
-const SHIRT_SIZE = { w: 54, h: 36 };
+const DISC_SIZE = { w: 38, h: 38 };
+const TRAY_DISC_SIZE = { w: 30, h: 30 };
 
 export default function ModuleEditor() {
   const router = useRouter();
@@ -19,13 +21,13 @@ export default function ModuleEditor() {
   const isEditing = !!name;
   const isReadOnly = readonly === '1';
 
-  // 11 slot “logici” (se available[i] === true lo slot i non è visibile in campo)
+  // 11 slot “logici” (se available[i] === true lo slot i è nel vassoio, non ancora piazzato)
   const [slots, setSlots] = useState<FieldSlot[]>([]);
   const [available, setAvailable] = useState<boolean[]>(Array(11).fill(true));
-  const [placingIndex, setPlacingIndex] = useState<number | null>(null);
   const [title, setTitle] = useState<string>(name ?? '');
   const [fieldSize, setFieldSize] = useState({ w: 0, h: 0 });
   const [zoomResetKey, setZoomResetKey] = useState(0);
+  const fieldRef = useRef<View>(null);
 
   const [showConfirmReset, setShowConfirmReset] = useState(false);
   const [showConfirmSave, setShowConfirmSave] = useState(false);
@@ -63,30 +65,44 @@ export default function ModuleEditor() {
     })();
   }, [name, isEditing]);
 
-  const jerseyIndices = useMemo(() => Array.from({ length: 11 }, (_, i) => i), []);
   const allPlaced = useMemo(() => available.every(v => !v), [available]);
-  const slotIndexById = useMemo(() => {
-    const map = new Map<string, number>();
-    slots.forEach((s, i) => map.set(s.id, i));
-    return map;
-  }, [slots]);
 
-  const handleTapField = (nx: number, ny: number) => {
-    if (placingIndex === null || isReadOnly) return;
-    if (!available[placingIndex]) { setPlacingIndex(null); return; }
+  const trayItems: TrayItem[] = useMemo(
+    () =>
+      slots
+        .map((_, i) => i)
+        .filter((i) => available[i])
+        .map((i) => ({
+          key: String(i),
+          node: <Jersey variant="home" number={i + 1} size={TRAY_DISC_SIZE} />,
+        })),
+    [slots, available]
+  );
 
+  const handleDropOnField = (itemKey: string, nx: number, ny: number) => {
+    if (isReadOnly) return;
+    const i = Number(itemKey);
+    if (!available[i]) return;
     setSlots(prev => {
       const next = [...prev];
-      const id = next[placingIndex].id;
-      next[placingIndex] = { id, x: nx, y: ny };
+      next[i] = { id: next[i].id, x: nx, y: ny };
       return next;
     });
     setAvailable(prev => {
-      const n = [...prev];
-      n[placingIndex] = false;
-      return n;
+      const next = [...prev];
+      next[i] = false;
+      return next;
     });
-    setPlacingIndex(null);
+  };
+
+  const handleRemoveToTray = (key: string) => {
+    if (isReadOnly) return;
+    const i = Number(key);
+    setAvailable(prev => {
+      const next = [...prev];
+      next[i] = true;
+      return next;
+    });
   };
 
   const handleMove = (key: string, nx: number, ny: number) => {
@@ -122,7 +138,6 @@ export default function ModuleEditor() {
   const actuallyReset = () => {
     setAvailable(Array(11).fill(true));
     setSlots(prev => prev.map(s => ({ ...s, x: 50, y: 50 })));
-    setPlacingIndex(null);
     setShowConfirmReset(false);
     setZoomResetKey((k) => k + 1);
   };
@@ -164,12 +179,7 @@ export default function ModuleEditor() {
           </View>
 
           <View style={styles.fieldWrap}>
-            <Field
-              zoomable
-              resetKey={zoomResetKey}
-              onMeasure={setFieldSize}
-              onTapField={isReadOnly ? undefined : handleTapField}
-            >
+            <Field ref={fieldRef} zoomable resetKey={zoomResetKey} onMeasure={setFieldSize}>
               {slots.map((s, i) =>
                 available[i] ? null : (
                   <DraggableToken
@@ -177,11 +187,12 @@ export default function ModuleEditor() {
                     tokenKey={s.id}
                     xPct={s.x}
                     yPct={s.y}
-                    size={SHIRT_SIZE}
+                    size={DISC_SIZE}
                     editable={!isReadOnly}
                     onMove={handleMove}
+                    onRemove={isReadOnly ? undefined : handleRemoveToTray}
                   >
-                    <Jersey variant="home" number={i + 1} size={SHIRT_SIZE} />
+                    <Jersey variant="home" number={i + 1} size={DISC_SIZE} />
                   </DraggableToken>
                 )
               )}
@@ -218,30 +229,15 @@ export default function ModuleEditor() {
                 placeholder="Es. 4-4-1-1 stretta"
                 style={styles.input}
               />
-              <Text style={[styles.panelTitle, { marginTop: 8 }]}>Maglie disponibili</Text>
-              <View style={styles.jerseysWrap}>
-                {jerseyIndices.map(i =>
-                  available[i] ? (
-                    <Pressable
-                      key={i}
-                      style={[styles.shirtBtn, placingIndex === i && styles.shirtBtnActive]}
-                      onPress={() => setPlacingIndex(i)}
-                    >
-                      <View style={styles.shirtMini}>
-                        {[0, 1, 2, 3, 4].map(k => (
-                          <View key={k} style={{ flex: 1, backgroundColor: k % 2 === 0 ? '#fff' : '#3b82f6' }} />
-                        ))}
-                      </View>
-                      <Text style={styles.shirtNumMini}>{i + 1}</Text>
-                    </Pressable>
-                  ) : null
-                )}
+              <View style={{ marginTop: 12 }}>
+                <AddTray
+                  items={trayItems}
+                  fieldRef={fieldRef}
+                  onDrop={handleDropOnField}
+                  label="Maglie disponibili"
+                  hint="Trascina una maglia sul campo per posizionarla — o una già sul campo fuori dal campo per rimuoverla. Trascina una maglia sopra un'altra per scambiarle di posto. Pizzica con due dita per zoomare."
+                />
               </View>
-              <Text style={styles.helpText}>
-                Tocca una maglia, poi tocca il campo per posizionarla. Trascina per regolare, o
-                trascina una maglia sopra un'altra per scambiarle di posto. Pizzica con due dita per
-                zoomare.
-              </Text>
             </>
           )}
           {isReadOnly && <Text style={{ color: '#6b7280' }}>Modulo predefinito in sola lettura.</Text>}
@@ -355,16 +351,6 @@ const styles = StyleSheet.create({
 
   panelTitle: { fontSize: 16, fontWeight: '800', marginBottom: 6 },
   input: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#fff' },
-  helpText: { color: '#4b5563', fontStyle: 'italic', marginTop: 6 },
-
-  jerseysWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  shirtBtn: {
-    width: '47%', borderRadius: 10, backgroundColor: '#eef2ff',
-    borderWidth: 1, borderColor: '#c7d2fe', paddingVertical: 10, alignItems: 'center',
-  },
-  shirtBtnActive: { borderColor: '#1b7f3b', backgroundColor: '#e6ffe9' },
-  shirtMini: { width: 44, height: 28, borderRadius: 8, overflow: 'hidden', flexDirection: 'row', marginBottom: 4 },
-  shirtNumMini: { fontWeight: '900', color: '#0f172a' },
 
   // Modali
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },

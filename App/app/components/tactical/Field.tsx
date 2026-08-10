@@ -1,24 +1,30 @@
 // app/components/tactical/Field.tsx
 //
-// Sfondo campo condiviso (linee, area, dischetto, porta) per tutte le lavagne tattiche — prima
-// duplicato e leggermente incoerente in 4 file diversi (es. il cerchio di centrocampo era 120px fisso
-// in due file e 110px fisso negli altri due, mai proporzionale al campo). Si automisura via onLayout
-// (mai `Dimensions.get('window')` letto una volta sola — quella è la causa nota del bug "non si
-// adatta se ridimensioni la finestra": qui basta che il contenitore passato dallo screen sia
-// reattivo, es. con `flex: 1`, e questo componente segue).
+// Sfondo campo condiviso (linee, area, dischetto, porta, erba a strisce) per tutte le lavagne
+// tattiche — prima duplicato e leggermente incoerente in 4 file diversi (es. il cerchio di
+// centrocampo era 120px fisso in due file e 110px fisso negli altri due, mai proporzionale al
+// campo). Si automisura via onLayout (mai `Dimensions.get('window')` letto una volta sola — quella
+// è la causa nota del bug "non si adatta se ridimensioni la finestra": qui basta che il contenitore
+// passato dallo screen sia reattivo, es. con `flex: 1`, e questo componente segue).
 //
 // La misura è esposta in due forme, entrambe necessarie:
 // - `useFieldMeasure()` — numeri JS, per chi calcola fuori da un worklet (screen, per lo swap-on-drop).
 // - `useFieldMeasureShared()` — coppia di SharedValue, l'unica leggibile dentro un worklet
 //   (DraggableToken, nel calcolo della posizione finale a fine drag).
+//
+// Espone anche un ref (forwardRef) sulla View del campo — serve ad `AddTray` per misurarne la
+// posizione assoluta sullo schermo (`measureInWindow`) quando si trascina un elemento dal vassoio.
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { LayoutChangeEvent, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, SharedValue, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
 const LINE = 'rgba(255,255,255,0.7)';
+const TURF_1 = '#1b7f3b';
+const TURF_2 = '#187236';
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 2.5;
+const STRIPE_BANDS = 8;
 
 export type FieldMeasure = { w: number; h: number };
 
@@ -37,14 +43,7 @@ export function useFieldMeasureShared(): SharedMeasure {
   return ctx;
 }
 
-export default function Field({
-  style,
-  zoomable,
-  resetKey,
-  onTapField,
-  onMeasure,
-  children,
-}: {
+const Field = React.forwardRef<View, {
   style?: StyleProp<ViewStyle>;
   /** Pinch-to-zoom + pan a due dita — un dito solo resta sempre libero per il drag dei token. */
   zoomable?: boolean;
@@ -54,7 +53,7 @@ export default function Field({
   onTapField?: (nxPct: number, nyPct: number) => void;
   onMeasure?: (measure: FieldMeasure) => void;
   children?: React.ReactNode;
-}) {
+}>(function Field({ style, zoomable, resetKey, onTapField, onMeasure, children }, ref) {
   const [measure, setMeasure] = useState<FieldMeasure>({ w: 0, h: 0 });
   const wShared = useSharedValue(0);
   const hShared = useSharedValue(0);
@@ -136,25 +135,41 @@ export default function Field({
         }
       : null;
 
+  const bands = Array.from({ length: STRIPE_BANDS }, (_, i) => i);
+
   const pitch = (
-    <View style={[styles.field, style]} onLayout={onLayout}>
+    <View ref={ref} style={[styles.field, style]} onLayout={onLayout}>
+      {/* erba a strisce di taglio — puramente decorativo, colori fissi alternati */}
+      {bands.map((i) => (
+        <View
+          key={i}
+          style={{
+            position: 'absolute',
+            left: `${(i / STRIPE_BANDS) * 100}%`,
+            top: 0,
+            width: `${100 / STRIPE_BANDS}%`,
+            height: '100%',
+            backgroundColor: i % 2 === 0 ? TURF_1 : TURF_2,
+          }}
+        />
+      ))}
       <View style={styles.midLine} />
       <View style={[styles.centerCircle, centerCircleStyle]} />
+      <View style={styles.centerSpot} />
       <View style={[styles.penaltyBox, styles.topPenaltyBox]} />
       <View style={[styles.sixYardBox, styles.topSixYard]} />
       <View style={[styles.goal, styles.topGoal]} />
+      <View style={[styles.penaltySpot, styles.topPenaltySpot]} />
       <View style={[styles.penaltyBox, styles.bottomPenaltyBox]} />
       <View style={[styles.sixYardBox, styles.bottomSixYard]} />
       <View style={[styles.goal, styles.bottomGoal]} />
+      <View style={[styles.penaltySpot, styles.bottomPenaltySpot]} />
       {children}
     </View>
   );
 
   const withTap = onTapField ? <GestureDetector gesture={tap}>{pitch}</GestureDetector> : pitch;
 
-  // Il wrapper del pinch/pan anima solo il "transform" — senza una dimensione propria (flex: 1) resta
-  // a grandezza automatica (0), e il campo dentro (width/height "100%") si risolve a zero: invisibile,
-  // senza nessun errore in console. `flex: 1` gli fa riempire lo spazio del genitore.
   const content = zoomable ? (
     <GestureDetector gesture={Gesture.Simultaneous(pinch, pan2)}>
       <Animated.View style={[{ flex: 1 }, zoomStyle]}>{withTap}</Animated.View>
@@ -170,13 +185,14 @@ export default function Field({
       </FieldMeasureSharedContext.Provider>
     </FieldMeasureContext.Provider>
   );
-}
+});
+
+export default Field;
 
 const styles = StyleSheet.create({
   field: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#1b7f3b',
     borderRadius: 12,
     borderWidth: 3,
     borderColor: '#0d5f2b',
@@ -190,13 +206,20 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: LINE,
   },
+  centerSpot: {
+    position: 'absolute', top: '50%', left: '50%', width: 5, height: 5, borderRadius: 2.5,
+    marginLeft: -2.5, marginTop: -2.5, backgroundColor: LINE,
+  },
   penaltyBox: { position: 'absolute', width: '60%', height: '18%', left: '20%', borderColor: LINE, borderWidth: 2 },
   sixYardBox: { position: 'absolute', width: '36%', height: '6%', left: '32%', borderColor: LINE, borderWidth: 2 },
   goal: { position: 'absolute', width: '16%', height: 4, left: '42%', backgroundColor: LINE },
+  penaltySpot: { position: 'absolute', width: 5, height: 5, borderRadius: 2.5, left: '50%', marginLeft: -2.5, backgroundColor: LINE },
   topPenaltyBox: { top: '4%' },
   topSixYard: { top: '4%' },
   topGoal: { top: '1.2%' },
+  topPenaltySpot: { top: '15%' },
   bottomPenaltyBox: { bottom: '4%' },
   bottomSixYard: { bottom: '4%' },
   bottomGoal: { bottom: '1.2%' },
+  bottomPenaltySpot: { bottom: '15%' },
 });

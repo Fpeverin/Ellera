@@ -498,6 +498,77 @@ il campo), già annotato come backlog separato.
 
 Con questa fase si conclude la riprogettazione della lavagna tattica in tutte le sue 4 parti.
 
+## Lavagna tattica — round 2: disco, campo realistico, vassoio drag — 2026-08-10
+
+Dopo aver visto le 4 fasi sopra, Francesco ha dato un feedback netto: il drag non convince, la resa
+grafica del campo e il modo in cui si aggiungono/tolgono le pedine "fanno schifo". Confrontati due
+prototipi interattivi (HTML, fuori dall'app) prima di toccare codice reale — confermato: disco al
+posto della maglietta, campo con erba a strisce e margini veri, e un vassoio da cui si trascina
+direttamente sul campo per aggiungere (mai più "tocca per selezionare, poi tocca per piazzare" o
+bottoni a posizione fissa) — il gesto opposto e simmetrico (trascinare fuori dal campo) rimuove.
+
+### Aggiornamenti alle primitive condivise (si propagano a tutti e 4 gli usi)
+- **`Jersey.tsx`**: da maglia a righe con "maniche" a due cerchietti → disco colorato con numero.
+  `size` resta `{w,h}` per non toccare le chiamate esistenti — il disco usa `Math.min(w,h)` come
+  diametro, centrato nel riquadro. Niente `color-mix()` (non esiste in React Native): un piccolo
+  helper `darken()` scurisce il colore di riempimento per il bordo.
+- **`Field.tsx`**: aggiunta erba a strisce di taglio (8 bande alterne, puro sfondo decorativo),
+  dischetto centrale, dischetti di rigore. **Non** aggiunti gli archi d'angolo/l'arco dell'area — il
+  contenitore ha già gli angoli arrotondati (12px) per lo stile "card" del resto dell'app, un arco
+  geometrico esatto lì sarebbe stato ridondante/confuso, non un dettaglio che valeva la complessità.
+  `Field` ora è un `React.forwardRef` — espone un ref sulla View del campo, usato da `AddTray` per
+  misurarne la posizione assoluta sullo schermo (`measureInWindow`) durante un trascinamento dal
+  vassoio.
+- **`DraggableToken.tsx`**: nuova prop opzionale `onRemove` — se un drag finisce **fuori dai margini
+  del campo** (percentuale raw, non quella clampata, con una tolleranza di 4 punti percentuali per
+  non scambiare un piazzamento legittimo vicino al bordo per un tentativo di rimozione), si chiama
+  `onRemove` invece di bloccare il token al bordo. Aggiunta anche un'animazione di comparsa/scomparsa
+  (`presence`, una shared value 0→1 al mount via `withTiming`, e 1→0 prima della rimozione effettiva)
+  — un token nuovo si "materializza" con un piccolo pop invece di apparire di scatto, e uno rimosso si
+  rimpicciolisce/svanisce prima di sparire dai dati.
+- **`AddTray.tsx`** (nuovo): il vassoio di sorgenti trascinabili. Ogni sorgente resta disponibile
+  (non si consuma da sola — decide lo screen se toglierla, es. Moduli, o lasciarla sempre riusabile,
+  es. Tattiche squadra, semplicemente aggiornando l'array `items` passato). Il "fantasma" che segue
+  il dito **non usa un Portal/Modal**: il vassoio (quindi anche il suo fantasma) viene reso **dopo**
+  il campo nell'albero dei componenti in entrambe le schermate — comportamento di default di React
+  Native (nessun antenato con `overflow: hidden`), il fantasma che esce dai propri confini dipinge
+  semplicemente sopra al campo. Bastano due misurazioni (`measureInWindow` su vassoio e campo,
+  all'inizio del trascinamento) per calcolare la posizione del fantasma e testare se il rilascio è
+  dentro il campo. Il calcolo della posizione del fantasma durante il drag resta **sul thread UI**
+  (nessun `runOnJS` per ogni frame) — solo inizio/fine gesto passano da JS.
+
+### Migrazione Moduli (`app/moduli/editor.tsx`)
+Rimossi `placingIndex`/`handleTapField`/il vecchio pannello "tocca una maglia poi tocca il campo":
+ogni slot non ancora piazzato è ora un elemento di `AddTray`, trascinabile direttamente sul campo.
+Trascinare una maglia già piazzata fuori dal campo la rimanda al vassoio (`onRemove` → `available[i]
+= true`). Swap-on-drop tra maglie già piazzate resta invariato.
+
+### Migrazione Tattiche squadra (`app/squadra/tattiche/editor.tsx`)
+Rimossi i bottoni "+ Nostro/+ Avversario/+ Pallone" (posizione fissa 50/80, 50/20, 50/50) — sostituiti
+da `AddTray` con 3 sorgenti infinite (Nostro/Avversario/Pallone, numerazione auto-assegnata
+all'aggiunta, stessa regola "un solo pallone" di prima). **Cambio di layout**: il vassoio è passato da
+sopra il campo (`toolsBar`) a sotto (`bottomBar`, insieme al bottone Reset) — necessario perché il
+vassoio deve essere reso *dopo* il campo nell'albero per il trucco del fantasma sopra descritto; sopra
+il campo non avrebbe funzionato. Rimozione: trascinare fuori dal campo (`onRemove`) invece della
+pressione lunga nascosta di prima.
+
+### Non toccate (visivo condiviso sì, interazione no)
+`app/eventi/partita/[id]/formazione.tsx` e `.../tattiche.tsx` (Tattiche di partita) ricevono il nuovo
+disco/campo automaticamente (stessi componenti condivisi), ma **nessuna modifica** alla loro logica —
+resta il tap+Modal per l'assegnazione dei giocatori reali, confermato già in un giro precedente.
+
+### Verifica
+`tsc --noEmit` e `npx expo export -p web` puliti. Verificato dal vero con un server locale +
+pagine di debug temporanee (mai committate): colori/forme corretti (disco, colori squadra/avversari,
+strisce del campo — controllati via `getComputedStyle`), struttura DOM corretta. **Non verificabile in
+questo ambiente**: il drag stesso e le animazioni (`withTiming`/`withSpring`) — il pannello browser di
+test risulta "non in compositing" (`requestAnimationFrame` confermato mai invocato, anche aspettando
+a lungo), quindi qualunque animazione risulta bloccata al valore iniziale indipendentemente dal
+codice — non è indicativo di un bug reale (il drag di base, senza le nuove animazioni, era già stato
+verificato funzionante su web prima di questo giro). **Da verificare dal vero da Francesco, con
+priorità alta dato il precedente**: aspetto del disco/campo, trascinamento dal vassoio al campo
+(Moduli e Tattiche squadra), trascinamento fuori dal campo per rimuovere, swap tra maglie, zoom.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)
