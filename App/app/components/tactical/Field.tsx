@@ -152,9 +152,12 @@ export default function Field({
 
   const withTap = onTapField ? <GestureDetector gesture={tap}>{pitch}</GestureDetector> : pitch;
 
+  // Il wrapper del pinch/pan anima solo il "transform" — senza una dimensione propria (flex: 1) resta
+  // a grandezza automatica (0), e il campo dentro (width/height "100%") si risolve a zero: invisibile,
+  // senza nessun errore in console. `flex: 1` gli fa riempire lo spazio del genitore.
   const content = zoomable ? (
     <GestureDetector gesture={Gesture.Simultaneous(pinch, pan2)}>
-      <Animated.View style={zoomStyle}>{withTap}</Animated.View>
+      <Animated.View style={[{ flex: 1 }, zoomStyle]}>{withTap}</Animated.View>
     </GestureDetector>
   ) : (
     withTap
