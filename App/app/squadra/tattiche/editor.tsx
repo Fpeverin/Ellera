@@ -2,6 +2,7 @@
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import ViewShot, { captureRef, type ViewShotRef } from 'react-native-view-shot';
 import AddTray, { type TrayItem } from '../../components/tactical/AddTray';
 import DraggableToken from '../../components/tactical/DraggableToken';
@@ -153,7 +154,7 @@ export default function TacticsEditor() {
 
   /* --------------------------- UI -------------------------- */
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* TOOLBAR SUPERIORE */}
       <View style={styles.topBar}>
         <Pressable style={styles.iconBtn} onPress={() => router.back()} accessibilityLabel="Indietro">
@@ -166,6 +167,9 @@ export default function TacticsEditor() {
           style={styles.topInput}
           placeholderTextColor="#9ca3af"
         />
+        <Pressable style={styles.iconBtn} onPress={confirmReset} accessibilityLabel="Ripulisci campo">
+          <Text style={styles.iconTxt}>♻️</Text>
+        </Pressable>
         <Pressable style={[styles.iconBtn, styles.saveBtn]} onPress={requestSave} accessibilityLabel="Salva tattica">
           <Text style={[styles.iconTxt, { color: 'white' }]}>💾</Text>
         </Pressable>
@@ -196,7 +200,7 @@ export default function TacticsEditor() {
       </View>
 
       {/* VASSOIO (sotto il campo — deve essere reso dopo, per disegnare sopra quando il "fantasma"
-          esce dal proprio riquadro durante il trascinamento) + Reset */}
+          esce dal proprio riquadro durante il trascinamento) */}
       <View style={styles.bottomBar}>
         <AddTray
           items={trayItems}
@@ -205,9 +209,6 @@ export default function TacticsEditor() {
           style={styles.trayInline}
           hint="Trascina sul campo per aggiungere — trascina un elemento del campo fuori per rimuoverlo."
         />
-        <Pressable style={styles.resetBtn} onPress={confirmReset}>
-          <Text style={styles.resetBtnText}>♻️ Reset</Text>
-        </Pressable>
       </View>
 
       {/* Modal nome (se manca) */}
@@ -242,7 +243,7 @@ export default function TacticsEditor() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -278,18 +279,12 @@ const styles = StyleSheet.create({
   fieldShotOuter: { flex: 1 },
   fieldShot: { flex: 1, width: '100%' },
 
-  // Vassoio + reset (sotto il campo)
+  // Vassoio (sotto il campo)
   bottomBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-    paddingHorizontal: 12, paddingVertical: 10,
+    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 16,
     borderTopWidth: 1, borderColor: '#eef2f7', backgroundColor: '#fafafa',
   },
   trayInline: { flex: 1 },
-  resetBtn: {
-    borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14,
-    backgroundColor: '#f3f4f6',
-  },
-  resetBtnText: { fontWeight: '800', color: '#111' },
 
   // Modal nome
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },

@@ -40,8 +40,14 @@ type PickTarget =
   | { kind: 'FIELD'; index: number }
   | { kind: 'BENCH'; index: number };
 
-// helper per mostrare solo il cognome
-const surnameOf = (full: string) => (full || '').trim().split(/\s+/)[0];
+// helper per mostrare solo il cognome — il nome è salvato come "Cognome Nome" (il cognome può
+// essere composto da più parole, es. "Di Marzo": l'ultima parola è sempre il nome, tutto il resto
+// è il cognome)
+const surnameOf = (full: string) => {
+  const parts = (full || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return parts[0] || '';
+  return parts.slice(0, -1).join(' ');
+};
 
 export default function Schieramento() {
   const { id: matchId } = useLocalSearchParams<{ id: string }>();
@@ -430,8 +436,9 @@ export default function Schieramento() {
   // --- UI ---
   return (
     <>
-      {/* SAFE AREA: evita sovrapposizione con notch mantenendo lo sfondo coerente */}
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      {/* SAFE AREA: evita sovrapposizione con notch e con i bottoni di gesture in basso, mantenendo
+          lo sfondo coerente */}
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.wrap}>
           {/* SINISTRA */}
           <View style={styles.left}>

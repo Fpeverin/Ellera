@@ -168,80 +168,69 @@ export default function ModuleEditor() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.container}>
-        {/* SINISTRA - Campo */}
-        <View style={styles.leftCol}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TeamLogo size={24} style={{ marginRight: 6 }} />
-            <Text style={styles.title}>
-              {isEditing ? (title || 'Modifica Modulo') : 'Nuovo Modulo'}
-              {isReadOnly ? ' (solo lettura)' : ''}
-            </Text>
-          </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 8 }}>
+          <TeamLogo size={24} style={{ marginRight: 6 }} />
+          <Text style={styles.title}>
+            {isEditing ? (title || 'Modifica Modulo') : 'Nuovo Modulo'}
+            {isReadOnly ? ' (solo lettura)' : ''}
+          </Text>
+        </View>
 
-          <View style={styles.fieldWrap}>
-            <Field ref={fieldRef} zoomable resetKey={zoomResetKey} onMeasure={setFieldSize}>
-              {slots.map((s, i) =>
-                available[i] ? null : (
-                  <DraggableToken
-                    key={s.id}
-                    tokenKey={s.id}
-                    xPct={s.x}
-                    yPct={s.y}
-                    size={DISC_SIZE}
-                    editable={!isReadOnly}
-                    onMove={handleMove}
-                    onRemove={isReadOnly ? undefined : handleRemoveToTray}
-                  >
-                    <Jersey variant="home" number={i + 1} size={DISC_SIZE} />
-                  </DraggableToken>
-                )
-              )}
-            </Field>
-          </View>
-
-          {!isReadOnly && (
-            <>
-              <Text style={styles.counterText}>Maglie piazzate: {11 - available.filter(Boolean).length}/11</Text>
-              <View style={styles.bottomBar}>
-                <Pressable style={[styles.btn, { backgroundColor: '#d46f00' }]} onPress={requestReset}>
-                  <Text style={styles.btnText}>Reset</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.btn, { backgroundColor: allPlaced ? '#1b7f3b' : '#9ca3af' }]}
-                  disabled={!allPlaced}
-                  onPress={requestSave}
+        {/* CAMPO */}
+        <View style={styles.fieldWrap}>
+          <Field ref={fieldRef} zoomable resetKey={zoomResetKey} onMeasure={setFieldSize}>
+            {slots.map((s, i) =>
+              available[i] ? null : (
+                <DraggableToken
+                  key={s.id}
+                  tokenKey={s.id}
+                  xPct={s.x}
+                  yPct={s.y}
+                  size={DISC_SIZE}
+                  editable={!isReadOnly}
+                  onMove={handleMove}
+                  onRemove={isReadOnly ? undefined : handleRemoveToTray}
                 >
-                  <Text style={styles.btnText}>{isEditing ? 'Aggiorna' : 'Salva'}</Text>
-                </Pressable>
-              </View>
-            </>
-          )}
+                  <Jersey variant="home" number={i + 1} size={DISC_SIZE} />
+                </DraggableToken>
+              )
+            )}
+          </Field>
         </View>
 
-        {/* DESTRA - Pannello */}
-        <View style={styles.rightCol}>
-          {!isReadOnly && (
-            <>
-              <Text style={styles.panelTitle}>Nome modulo</Text>
-              <TextInput
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Es. 4-4-1-1 stretta"
-                style={styles.input}
-              />
-              <View style={{ marginTop: 12 }}>
-                <AddTray
-                  items={trayItems}
-                  fieldRef={fieldRef}
-                  onDrop={handleDropOnField}
-                  label="Maglie disponibili"
-                  hint="Trascina una maglia sul campo per posizionarla — o una già sul campo fuori dal campo per rimuoverla. Trascina una maglia sopra un'altra per scambiarle di posto. Pizzica con due dita per zoomare."
-                />
-              </View>
-            </>
-          )}
-          {isReadOnly && <Text style={{ color: '#6b7280' }}>Modulo predefinito in sola lettura.</Text>}
-        </View>
+        {/* VASSOIO + CONTROLLI (sotto il campo — il vassoio deve essere reso dopo il campo, per
+            disegnare sopra quando il "fantasma" esce dal proprio riquadro durante il trascinamento) */}
+        {!isReadOnly && (
+          <View style={styles.bottomPanel}>
+            <Text style={styles.counterText}>Maglie piazzate: {11 - available.filter(Boolean).length}/11</Text>
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
+              placeholder="Nome modulo (es. 4-4-1-1 stretta)"
+              style={styles.input}
+            />
+            <AddTray
+              items={trayItems}
+              fieldRef={fieldRef}
+              onDrop={handleDropOnField}
+              label="Maglie disponibili"
+              hint="Trascina una maglia sul campo per posizionarla — o una già sul campo fuori dal campo per rimuoverla. Trascina una maglia sopra un'altra per scambiarle di posto. Pizzica con due dita per zoomare."
+            />
+            <View style={styles.bottomBar}>
+              <Pressable style={[styles.btn, { backgroundColor: '#d46f00' }]} onPress={requestReset}>
+                <Text style={styles.btnText}>Reset</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.btn, { backgroundColor: allPlaced ? '#1b7f3b' : '#9ca3af' }]}
+                disabled={!allPlaced}
+                onPress={requestSave}
+              >
+                <Text style={styles.btnText}>{isEditing ? 'Aggiorna' : 'Salva'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+        {isReadOnly && <Text style={{ color: '#6b7280', paddingHorizontal: 12, paddingBottom: 12 }}>Modulo predefinito in sola lettura.</Text>}
       </View>
 
       {/* --- MODALI --- */}
@@ -337,19 +326,20 @@ export default function ModuleEditor() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#f5f7fa' },
-  container: { flex: 1, flexDirection: 'row', backgroundColor: '#f5f7fa' },
-  leftCol: { flex: 7, padding: 12 },
-  rightCol: { flex: 3, padding: 12, borderLeftWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#f5f7fa' },
   title: { fontSize: 20, fontWeight: '800', marginBottom: 8 },
 
-  fieldWrap: { flex: 1, minHeight: 400 },
+  fieldWrap: { flex: 1, minHeight: 320, paddingHorizontal: 12 },
 
-  bottomBar: { flexDirection: 'row', gap: 10, marginTop: 10 },
-  btn: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8 },
+  bottomPanel: {
+    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 16,
+    borderTopWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', gap: 10,
+  },
+  bottomBar: { flexDirection: 'row', gap: 10 },
+  btn: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, flex: 1 },
   btnText: { color: 'white', fontWeight: '800', textAlign: 'center' },
-  counterText: { marginTop: 8, color: '#374151', fontWeight: '700' },
+  counterText: { color: '#374151', fontWeight: '700' },
 
-  panelTitle: { fontSize: 16, fontWeight: '800', marginBottom: 6 },
   input: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#fff' },
 
   // Modali

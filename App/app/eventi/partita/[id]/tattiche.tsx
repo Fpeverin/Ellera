@@ -35,9 +35,12 @@ const LEGEND_MAX_W = Math.min(360, Math.round(SCREEN_W * 0.3)); // <= 30% (cap a
 
 /* ------------------------------- HELPERS ------------------------------ */
 
+// il nome è salvato come "Cognome Nome" — il cognome può essere composto da più parole (es. "Di
+// Marzo"): l'ultima parola è sempre il nome, tutto il resto è il cognome
 const surnameOf = (full: string) => {
-  const parts = (full || '').trim().split(/\s+/);
-  return parts[0] || (full || '').trim();
+  const parts = (full || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return parts[0] || '';
+  return parts.slice(0, -1).join(' ');
 };
 
 /* -------------------------------- VIEW -------------------------------- */
