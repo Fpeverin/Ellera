@@ -55,8 +55,13 @@ generiche restano con numeri 1-11 generici.
   non tocca mai la panchina, chiede conferma solo se sovrascrive una disposizione manuale già
   presente. **Da verificare dal vero — la fase più delicata**: drag/swap/sostituzione in Live, e
   "Disponi automaticamente" pre-partita.
-- **Fase 4 (da fare)**: `app/eventi/partita/[id]/tattiche.tsx` — restyle visivo puro, interazione
-  tap+Modal invariata (confermato da Francesco: resta legata ai convocati reali, nessun drag).
+- **Fase 4 (fatta)**: `app/eventi/partita/[id]/tattiche.tsx` — restyle visivo puro (`Field`/`Jersey`/
+  `Ball`), interazione tap+Modal invariata (confermato: resta legata ai convocati reali, nessun drag,
+  polling sostituzioni live e matching FIFO bit-per-bit identici).
+
+**Tutte le 4 fasi sono implementate.** Resta da fare la verifica dal vero di Francesco su ciascuna —
+data la segnalazione precedente (campo invisibile su web, corretto), questa volta la verifica conta
+doppio prima di considerare il punto davvero chiuso.
 
 ## Completato
 

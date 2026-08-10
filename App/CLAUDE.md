@@ -484,6 +484,20 @@ swap tra due maglie, una sostituzione live, "Disponi automaticamente" pre-partit
 aggiustamenti manuali — confermare che tutto si salvi correttamente e che `live.tsx` (legge solo
 `live_formation`, mai `lineup`/`positions`) non abbia alcuna regressione.
 
+### Fase 4 — Tattiche di partita (`app/eventi/partita/[id]/tattiche.tsx`)
+Ultima fase, restyle **visivo puro**: sostituito il disegno inline del campo con `Field zoomable` e
+`BlueWhiteShirt`/`RedShirt`/il pallone inline con `Jersey`/`Ball` condivisi. **Nessun** `DraggableToken`
+né swap-on-drop qui — questo file non ha mai avuto drag (solo tap che apre il picker giocatore, tenuta
+premuta per svuotare) e resta legato ai giocatori reali convocati, confermato esplicitamente da
+Francesco: introdurre drag sarebbe un cambio di logica, non solo visivo. Il polling ogni 2s e il
+matching FIFO delle sostituzioni live restano bit-per-bit identici (nessuna riga toccata in quella
+parte del file). L'altezza del campo (`FIELD_H_MODAL`) resta un valore fisso calcolato da
+`Dimensions.get('window')` come prima — `Field` la accetta com'è, non serve renderla reattiva per
+uno scopo puramente visivo; non toccato nemmeno `IS_NARROW`/`LEGEND_MAX_W` (layout della legenda, non
+il campo), già annotato come backlog separato.
+
+Con questa fase si conclude la riprogettazione della lavagna tattica in tutte le sue 4 parti.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

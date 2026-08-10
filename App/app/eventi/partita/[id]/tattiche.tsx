@@ -3,6 +3,8 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Field from '../../../components/tactical/Field';
+import { Ball, Jersey } from '../../../components/tactical/Jersey';
 import TeamLogo from '../../../components/TeamLogo';
 import { useAuth } from '../../../context/AuthContext';
 import { CalendarEvent, loadEvents, saveEvents } from '../../../data/events';
@@ -37,35 +39,6 @@ const surnameOf = (full: string) => {
   const parts = (full || '').trim().split(/\s+/);
   return parts[0] || (full || '').trim();
 };
-
-/* ------------------------------- SHIRTS ------------------------------- */
-
-function BlueWhiteShirt({ empty, number }: { empty?: boolean; number?: number }) {
-  return (
-    <View style={[styles.shirtBody, empty && styles.shirtEmpty]}>
-      <View style={styles.shirtStripes}>
-        {[0,1,2,3,4].map(i => (
-          <View key={i} style={{ flex:1, backgroundColor: i%2===0 ? '#ffffff' : '#60a5fa' }} />
-        ))}
-      </View>
-      {/* Mostro il numero SOLO se è assegnato un giocatore */}
-      {(!empty && number) ? <Text style={styles.shirtNum}>{number}</Text> : null}
-    </View>
-  );
-}
-
-function RedShirt({ number }: { number?: number }) {
-  return (
-    <View style={[styles.shirtBody, { borderColor: 'rgba(0,0,0,0.2)' }] }>
-      <View style={styles.shirtStripes}>
-        {[0,1,2,3,4].map(i => (
-          <View key={i} style={{ flex:1, backgroundColor: i%2===0 ? '#ef4444' : '#b91c1c' }} />
-        ))}
-      </View>
-      {number ? <Text style={[styles.shirtNum, { color: '#fff' }]}>{number}</Text> : null}
-    </View>
-  );
-}
 
 /* -------------------------------- VIEW -------------------------------- */
 
@@ -388,51 +361,42 @@ export default function TattichePartita() {
                   <View style={{ flexDirection: IS_NARROW ? 'column' : 'row', gap: 12, alignItems: 'stretch' }}>
                     {/* CAMPO: SOLO MAGLIE/PALLONE, NESSUNA ETICHETTA */}
                     <View style={{ flex: 1, minWidth: 0 }}>
-                      <View style={[styles.field, { height: FIELD_H_MODAL }]}>
-                        {/* linee campo */}
-                        <View style={styles.midLine} />
-                        <View style={styles.centerCircle} />
-                        <View style={[styles.penaltyBox, styles.topPenaltyBox]} />
-                        <View style={[styles.sixYardBox, styles.topSixYard]} />
-                        <View style={[styles.goal, styles.topGoal]} />
-                        <View style={[styles.penaltyBox, styles.bottomPenaltyBox]} />
-                        <View style={[styles.sixYardBox, styles.bottomSixYard]} />
-                        <View style={[styles.goal, styles.bottomGoal]} />
+                      <View style={{ height: FIELD_H_MODAL }}>
+                        <Field zoomable>
+                          {tactic.elements.map((el) => {
+                            const elH = el.type === 'BALL' ? BALL_SIZE : SHIRT_H;
+                            const top = (el.y / 100) * FIELD_H_MODAL - elH / 2;
 
-                        {tactic.elements.map((el) => {
-                          const elW = el.type === 'BALL' ? BALL_SIZE : SHIRT_W;
-                          const elH = el.type === 'BALL' ? BALL_SIZE : SHIRT_H;
-
-                          const top = (el.y / 100) * FIELD_H_MODAL - elH / 2;
-
-                          if (el.type === 'BALL') {
+                            if (el.type === 'BALL') {
+                              return (
+                                <View key={el.id} style={[styles.abs, { left: `${el.x}%`, top }]}>
+                                  <Ball size={BALL_SIZE} />
+                                </View>
+                              );
+                            }
+                            if (el.type === 'AWAY') {
+                              return (
+                                <View key={el.id} style={[styles.abs, { left: `${el.x}%`, top, marginLeft: -SHIRT_W / 2 }]}>
+                                  <Jersey variant="away" number={el.number} size={{ w: SHIRT_W, h: SHIRT_H }} />
+                                </View>
+                              );
+                            }
+                            // HOME (assegnabile): mostra numero SOLO se c'è un giocatore assegnato (numero proveniente da "Formazione")
+                            const assignedId = current[el.id] || null;
+                            const jerseyNumber = assignedId ? numbersMap[assignedId] : undefined;
                             return (
-                              <View key={el.id} style={[styles.abs, { left: `${el.x}%`, top } ]}>
-                                <View style={styles.ball}><Text style={{ fontSize: 16 }}>⚽</Text></View>
+                              <View key={el.id} style={[styles.abs, { left: `${el.x}%`, top, marginLeft: -SHIRT_W / 2 }]}>
+                                <Pressable
+                                  style={{ opacity: assignedId ? 1 : 0.45 }}
+                                  onPress={readOnly ? undefined : () => setPickerState({ open: true, tacticId: tid, elementId: el.id })}
+                                  onLongPress={readOnly ? undefined : () => assignedId && setAssign(tid, el.id, null)}
+                                >
+                                  <Jersey variant="home" number={jerseyNumber} size={{ w: SHIRT_W, h: SHIRT_H }} />
+                                </Pressable>
                               </View>
                             );
-                          }
-                          if (el.type === 'AWAY') {
-                            return (
-                              <View key={el.id} style={[styles.abs, { left: `${el.x}%`, top, marginLeft: -SHIRT_W/2 }] }>
-                                <RedShirt number={el.number} />
-                              </View>
-                            );
-                          }
-                          // HOME (assegnabile): mostra numero SOLO se c'è un giocatore assegnato (numero proveniente da "Formazione")
-                          const assignedId = current[el.id] || null;
-                          const jerseyNumber = assignedId ? numbersMap[assignedId] : undefined;
-                          return (
-                            <View key={el.id} style={[styles.abs, { left: `${el.x}%`, top, marginLeft: -SHIRT_W/2 }]}>
-                              <Pressable
-                                onPress={readOnly ? undefined : () => setPickerState({ open: true, tacticId: tid, elementId: el.id })}
-                                onLongPress={readOnly ? undefined : () => assignedId && setAssign(tid, el.id, null)}
-                              >
-                                <BlueWhiteShirt empty={!assignedId} number={jerseyNumber} />
-                              </Pressable>
-                            </View>
-                          );
-                        })}
+                          })}
+                        </Field>
                       </View>
 
                       {/* AZIONI */}
@@ -556,8 +520,6 @@ export default function TattichePartita() {
 
 /* -------------------------------- STYLES -------------------------------- */
 
-const LINE = 'rgba(255,255,255,0.7)';
-
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#fff' },
   container: { flex:1, backgroundColor:'#fff' },
@@ -628,42 +590,7 @@ const styles = StyleSheet.create({
   legendHint: { marginTop: 10, padding: 8, backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb' },
   legendHintText: { color: '#334155', fontSize: 12 },
 
-  field: {
-    width: '100%',
-    backgroundColor: '#1b7f3b',
-    borderRadius: 12, borderWidth: 3, borderColor: '#0d5f2b',
-    overflow: 'hidden',
-    alignSelf: 'center',
-  },
   abs: { position: 'absolute' as const },
-  midLine: { position: 'absolute', left: 0, right: 0, top: '50%', height: 2, backgroundColor: LINE },
-  centerCircle: {
-    position: 'absolute', top: '50%', left: '50%', width: 110, height: 110,
-    marginLeft: -55, marginTop: -55, borderWidth: 2, borderColor: LINE, borderRadius: 55,
-  },
-  penaltyBox: { position: 'absolute', width: '60%', height: '18%', left: '20%', borderColor: LINE, borderWidth: 2 },
-  sixYardBox: { position: 'absolute', width: '36%', height: '6%', left: '32%', borderColor: LINE, borderWidth: 2 },
-  goal: { position: 'absolute', width: '16%', height: 4, left: '42%', backgroundColor: LINE },
-  topPenaltyBox: { top: '4%' }, topSixYard: { top: '4%' }, topGoal: { top: '1.2%' },
-  bottomPenaltyBox: { bottom: '4%' }, bottomSixYard: { bottom: '4%' }, bottomGoal: { bottom: '1.2%' },
-
-  // Maglie
-  shirtBody: {
-    width: SHIRT_W, height: SHIRT_H, borderRadius: 10,
-    backgroundColor: '#ffffff',
-    borderWidth: 2, borderColor: 'rgba(0,0,0,0.15)',
-    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-  },
-  shirtStripes: { position: 'absolute', inset: 0, flexDirection: 'row' },
-  shirtEmpty: { opacity: 0.45 },
-  shirtNum: { position: 'absolute', fontWeight: '900', color: '#111', fontSize: 12 },
-
-  // Pallone
-  ball: {
-    width: BALL_SIZE, height: BALL_SIZE, borderRadius: BALL_SIZE/2,
-    backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: '#111',
-  },
 
   // Pulsanti footer modale
   modalBtn: {
