@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import CompetitionModal from './components/partite/CompetitionModal';
 import CompetitionRulesModal from './components/partite/CompetitionRulesModal';
 import ConfirmDeleteModal from './components/partite/ConfirmDeleteModal';
+import EditMatchModal from './components/partite/EditMatchModal';
 import MatchEventCard from './components/partite/MatchEventCard';
 import TeamLogo from './components/TeamLogo';
 import { useAuth } from './context/AuthContext';
@@ -57,6 +58,9 @@ export default function Partite() {
   // modali creazione
   const [showSingleModal, setShowSingleModal] = useState(false);
   const [showCompModal, setShowCompModal] = useState(false);
+
+  // modifica data/ora/luogo (solo Admin)
+  const [editingMatch, setEditingMatch] = useState<MatchEventRow | null>(null);
 
   // cancellazioni
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -144,6 +148,25 @@ export default function Partite() {
       past: past.sort(sortFn).reverse(), // passate: più recenti per prime
     };
   }, [filteredEvents]);
+
+  // modifica data/ora/luogo di una partita già creata (solo Admin)
+  const handleSaveEditedMatch = async (
+    eventId: string,
+    patch: { date: string; time: string; location: string }
+  ) => {
+    setBusy(true);
+    try {
+      const all: CalendarEvent[] = await loadEvents();
+      const updated = all.map((ev) => (ev.id === eventId ? { ...ev, ...patch } : ev));
+      await saveEvents(updated);
+      setEditingMatch(null);
+      refreshEvents();
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare le modifiche.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   // elimina singola
   const actuallyDeleteOne = async () => {
@@ -307,7 +330,12 @@ export default function Partite() {
 
     return (
       <View style={{ marginBottom: 8 }}>
-        <MatchEventCard item={item as any} onPress={openPartita as any} onDelete={readOnly ? undefined : (id) => setConfirmDeleteId(id)} />
+        <MatchEventCard
+          item={item as any}
+          onPress={openPartita as any}
+          onEdit={isAdmin ? (ev) => setEditingMatch(ev as MatchEventRow) : undefined}
+          onDelete={readOnly ? undefined : (id) => setConfirmDeleteId(id)}
+        />
         {result ? (
           <View style={styles.resultRow}>
             <Text style={styles.resultText}>{result}</Text>
@@ -468,6 +496,14 @@ export default function Partite() {
           onClose={() => setShowRulesModal(false)}
         />
       )}
+
+      {/* Modale: modifica data/ora/luogo (solo Admin) */}
+      <EditMatchModal
+        visible={!!editingMatch}
+        event={editingMatch}
+        onClose={() => setEditingMatch(null)}
+        onSave={handleSaveEditedMatch}
+      />
 
       {/* Modale: scegli competizione da cancellare */}
       <Modal visible={showChooseCompModal} transparent animationType="fade" onRequestClose={() => setShowChooseCompModal(false)}>

@@ -820,6 +820,15 @@ precisa.
 ### Partite (`app/partite.tsx` + `eventi/partita/[id]/*`)
 - Creazione partita singola o per competizione/girone (`CompetitionModal`), filtro per competizione.
 - Eliminazione singola partita, per competizione, o totale (con conferme dedicate).
+- **Modifica data/ora/luogo di una partita già creata** (bottone "✏️" sulla card, **solo Admin** —
+  2026-08-22, prima non esisteva alcun modo di correggerli se non eliminare e ricreare la partita):
+  nuovo `app/components/partite/EditMatchModal.tsx`, stesso stile del modale di creazione ma solo
+  data/ora/luogo (avversario/competizione/casa-trasferta non si toccano — cambiarli sostituirebbe la
+  partita, non ne correggerebbe i dati). `MatchEventCard` ha una nuova prop opzionale `onEdit`,
+  passata da `partite.tsx` solo quando `isAdmin` (Staff non la vede, coerente con la richiesta
+  esplicita "l'Admin deve avere la possibilità"). Il salvataggio ricarica tutti gli eventi, aggiorna
+  quello modificato e richiama `saveEvents` — stesso pattern già usato per le cancellazioni in questo
+  file, nessuna nuova funzione in `app/data/events.ts`.
 - **Export/Import Excel per competizione** (`app/data/calendarFile.ts`, visibile solo con una
   competizione specifica selezionata nel filtro): match per avversario+casa/trasferta — importando
   aggiorna solo data/ora/luogo, mai punteggio/formazione/cartellini di una partita già giocata.

@@ -11,10 +11,11 @@ type MatchEvent = CalendarEvent & {
 interface MatchEventCardProps {
   item: MatchEvent;
   onPress: (item: MatchEvent) => void;
+  onEdit?: (item: MatchEvent) => void;
   onDelete?: (id: string) => void;
 }
 
-export default function MatchEventCard({ item, onPress, onDelete }: MatchEventCardProps) {
+export default function MatchEventCard({ item, onPress, onEdit, onDelete }: MatchEventCardProps) {
   const comp = item.competition || '—';
   const ha = item.homeAway || 'CASA';
 
@@ -30,6 +31,11 @@ export default function MatchEventCard({ item, onPress, onDelete }: MatchEventCa
           {item.date || '—'} · {item.time || '--:--'} · {item.location || '—'}
         </Text>
       </Pressable>
+      {onEdit && (
+        <Pressable style={styles.trashBtn} onPress={() => onEdit(item)}>
+          <Text style={{ fontSize: 18 }}>✏️</Text>
+        </Pressable>
+      )}
       {onDelete && (
         <Pressable style={styles.trashBtn} onPress={() => onDelete(item.id)}>
           <Text style={{ fontSize: 18 }}>🗑️</Text>

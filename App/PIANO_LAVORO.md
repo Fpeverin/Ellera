@@ -112,6 +112,16 @@ dato il precedente miss sullo stesso set di funzionalità (campo invisibile su w
 
 ## Completato
 
+### Modifica data/ora/luogo partita, solo Admin (2026-08-22)
+Richiesta di Francesco: prima non c'era alcun modo di correggere data/ora/luogo di una partita già
+creata — bisognava eliminarla e ricrearla (perdendo convocazione/formazione/eventi già registrati).
+Bottone "✏️" sulla card in Partite, solo Admin, apre `EditMatchModal` (nuovo componente, stesso
+stile del modale di creazione ma solo questi 3 campi). Confermato con Francesco: "Luogo" resta un
+campo unico (copre anche il nome dello stadio), nessuna modifica allo schema dati.
+**Da verificare dal vero**: modificare una partita già passata/con dati registrati (convocazione,
+formazione, eventi live) e controllare che nulla di quei dati venga toccato — la modifica dovrebbe
+riguardare solo data/ora/luogo.
+
 ### Fix: su iPhone impossibile uscire da molte pagine (2026-08-21)
 Segnalato da Francesco: su iPhone non si riusciva a "navigare la pagina" (tornare indietro) in
 Moduli, Convocazione, Formazione, Live, Allenamenti, Calendario, Partite. **Non è un problema di
