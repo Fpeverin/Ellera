@@ -143,15 +143,24 @@ a Convocazione/Live — quella pagina è comunque solo Staff/Admin) e nuova sche
 `app/eventi/partita/[id]/listaGara.tsx`. Contenuto specificato da Francesco: numeri **1-11 titolari**
 e **12-20 panchina** assegnati a giocatori, più 6 ruoli di staff dedicati (Allenatore,
 Vice-Allenatore, Preparatore Atletico, Preparatore Portieri, Fisioterapista, Dirigente
-Accompagnatore) — ciascuno scelto **prima tra i convocati della partita, con rosa/staff completi
-come ripiego**. Nuova colonna `lista_gara` su `match_live` (dettagli tecnici in CLAUDE.md) — **da
-eseguire su Supabase**: `App/supabase/25_schema_lista_gara.sql`. Aggiunto anche **"📄 Esporta PDF"**
-(stesso pattern della Convocazione: loghi + info partita, layout generico — il modello ufficiale
-resta da fare più avanti, vedi Backlog).
+Accompagnatore) — i numeri scelti prima tra i convocati poi sul resto della rosa, i ruoli di staff
+**solo** tra le persone della Rosa Staff (mai i giocatori — corretto il 2026-08-22, vedi sotto).
+Nuova colonna `lista_gara` su `match_live` (dettagli tecnici in CLAUDE.md) — **da eseguire su
+Supabase**: `App/supabase/25_schema_lista_gara.sql`. Aggiunto anche **"📄 Esporta PDF"** (stesso
+pattern della Convocazione: loghi + info partita, layout generico — il modello ufficiale resta da
+fare più avanti, vedi Backlog).
+
+### Lista Gara: correzioni dopo il primo giro (2026-08-22)
+Feedback di Francesco: **non deve essere possibile assegnare un giocatore a un ruolo di staff**
+(prima era permesso come ripiego se nessuno in Staff era adatto — ora i 6 ruoli pescano solo dalla
+Rosa Staff), **restyling grafico** (card colorate per sezione, pillole di conteggio, badge colorati
+per numeri/ruoli — dettagli in CLAUDE.md, "va tutto bene, la grafica è migliorabile" era il feedback
+esatto), e un **bottone "✕" rosso dedicato** su ogni riga assegnata per svuotarla (sostituisce la
+pressione lunga, non abbastanza scopribile).
 **Da verificare dal vero** (non testabile in questo ambiente senza un account/dati reali): apertura
-della schermata con convocati già impostati, assegnazione/rimozione di un numero e di un ruolo di
-staff, che il salvataggio persista alla riapertura della pagina, e il PDF generato (loghi/testo
-corretti, tutte le righe presenti anche vuote).
+della schermata con convocati già impostati, assegnazione/rimozione con la ✕ di un numero e di un
+ruolo di staff (e che ora **non** compaiano giocatori tra i candidati di un ruolo), che il
+salvataggio persista alla riapertura della pagina, il PDF generato, e il nuovo aspetto grafico.
 
 ### PDF Convocazione: replica fedele della Scheda Excel (2026-07-31, verificato 2026-08-03)
 Ricevuto da Francesco il file originale "Scheda Convocazione Ellera.xlsx" (analizzato con `openpyxl`:

@@ -2,10 +2,10 @@
 //
 // Tab "Lista Gara", solo Staff/Admin: numeri 1-11 (titolari) e 12-20 (panchina) assegnati ai
 // giocatori, più 6 ruoli di staff dedicati (Allenatore/Vice-Allenatore/Preparatore Atletico/
-// Preparatore Portieri/Fisioterapista/Dirigente Accompagnatore). Ogni assegnazione si sceglie
-// prima tra i convocati di questa partita, con la rosa/staff completi come ripiego (richiesta di
-// Francesco, 2026-08-21) — nessun vincolo di reparto sui ruoli di staff, solo un ordinamento che
-// mette i convocati in cima.
+// Preparatore Portieri/Fisioterapista/Dirigente Accompagnatore). I numeri si scelgono prima tra i
+// convocati di questa partita, con la rosa completa come ripiego; i ruoli di staff si scelgono
+// solo tra le persone della Rosa Staff (mai tra i giocatori — richiesta esplicita di Francesco,
+// 2026-08-22), convocati prima, poi il resto.
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -53,6 +53,14 @@ const STAFF_ROLE_LABELS: Record<ListaGaraStaffRole, string> = {
   preparatorePortieri: 'Preparatore Portieri',
   fisioterapista: 'Fisioterapista',
   dirigenteAccompagnatore: 'Dirigente Accompagnatore',
+};
+const STAFF_ROLE_ABBR: Record<ListaGaraStaffRole, string> = {
+  allenatore: 'ALL',
+  viceAllenatore: 'VICE',
+  preparatoreAtletico: 'P.ATL',
+  preparatorePortieri: 'P.POR',
+  fisioterapista: 'FISIO',
+  dirigenteAccompagnatore: 'DIR',
 };
 
 const STARTER_NUMBERS = Array.from({ length: 11 }, (_, i) => i + 1); // 1..11
@@ -181,19 +189,13 @@ export default function ListaGara() {
     };
   };
 
-  /** Candidati per un ruolo di staff: convocati (staff + giocatori) prima, poi il resto di staff e rosa. */
+  /** Candidati per un ruolo di staff: solo persone della Rosa Staff (mai giocatori) — convocati prima, poi il resto. */
   const candidatesForStaffRole = () => {
     const convocatiStaff = staffMembers.filter((s) => convocatiStaffIds.includes(s.id));
     const otherStaff = staffMembers.filter((s) => !convocatiStaffIds.includes(s.id));
-    const convocatiPlayers = players.filter((p) => convocatiPlayerIds.includes(p.id));
-    const otherPlayers = players.filter((p) => !convocatiPlayerIds.includes(p.id));
     return {
-      convocati: [
-        ...convocatiStaff.map((s) => ({ kind: 'staff' as const, id: s.id, name: s.name })),
-        ...convocatiPlayers.map((p) => ({ kind: 'player' as const, id: p.id, name: p.name })),
-      ],
+      convocati: convocatiStaff.map((s) => ({ kind: 'staff' as const, id: s.id, name: s.name })),
       staff: otherStaff.map((s) => ({ kind: 'staff' as const, id: s.id, name: s.name })),
-      players: otherPlayers.map((p) => ({ kind: 'player' as const, id: p.id, name: p.name })),
     };
   };
 
@@ -311,41 +313,54 @@ export default function ListaGara() {
     );
   }
 
-  const renderNumberRow = (number: number) => {
+  const renderNumberRow = (number: number, variant: 'starter' | 'bench') => {
     const name = nameForNumber(number);
+    const badgeStyle = variant === 'starter' ? styles.numberBadgeStarter : styles.numberBadgeBench;
     return (
-      <Pressable
-        key={number}
-        style={styles.row}
-        onPress={() => setPickerTarget({ kind: 'number', number })}
-        onLongPress={() => name && clearNumber(number)}
-      >
-        <View style={styles.numberBadge}>
-          <Text style={styles.numberBadgeText}>{number}</Text>
-        </View>
-        <Text style={[styles.rowText, !name && styles.rowTextEmpty]}>
-          {name ?? 'Tocca per assegnare'}
-        </Text>
-      </Pressable>
+      <View key={number} style={[styles.row, name ? styles.rowFilled : styles.rowEmpty]}>
+        <Pressable style={styles.rowMain} onPress={() => setPickerTarget({ kind: 'number', number })}>
+          <View style={[styles.numberBadge, badgeStyle]}>
+            <Text style={styles.numberBadgeText}>{number}</Text>
+          </View>
+          <Text style={[styles.rowText, !name && styles.rowTextEmpty]}>
+            {name ?? 'Tocca per assegnare'}
+          </Text>
+        </Pressable>
+        {name && (
+          <Pressable style={styles.removeBtn} onPress={() => clearNumber(number)} accessibilityLabel="Rimuovi">
+            <Text style={styles.removeBtnText}>✕</Text>
+          </Pressable>
+        )}
+      </View>
     );
   };
 
   const renderStaffRow = (role: ListaGaraStaffRole) => {
     const name = nameForStaffRole(role);
     return (
-      <Pressable
-        key={role}
-        style={styles.row}
-        onPress={() => setPickerTarget({ kind: 'staff', role })}
-        onLongPress={() => name && clearStaffRole(role)}
-      >
-        <Text style={styles.staffRoleLabel}>{STAFF_ROLE_LABELS[role]}</Text>
-        <Text style={[styles.rowText, !name && styles.rowTextEmpty, { flex: 1, textAlign: 'right' }]}>
-          {name ?? 'Tocca per assegnare'}
-        </Text>
-      </Pressable>
+      <View key={role} style={[styles.row, name ? styles.rowFilled : styles.rowEmpty]}>
+        <Pressable style={styles.rowMain} onPress={() => setPickerTarget({ kind: 'staff', role })}>
+          <View style={styles.staffBadge}>
+            <Text style={styles.staffBadgeText}>{STAFF_ROLE_ABBR[role]}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.staffRoleLabel}>{STAFF_ROLE_LABELS[role]}</Text>
+            <Text style={[styles.rowText, !name && styles.rowTextEmpty]}>
+              {name ?? 'Tocca per assegnare'}
+            </Text>
+          </View>
+        </Pressable>
+        {name && (
+          <Pressable style={styles.removeBtn} onPress={() => clearStaffRole(role)} accessibilityLabel="Rimuovi">
+            <Text style={styles.removeBtnText}>✕</Text>
+          </Pressable>
+        )}
+      </View>
     );
   };
+
+  const filledCount = (numbers: number[]) => numbers.filter((n) => !!nameForNumber(n)).length;
+  const staffFilledCount = LISTA_GARA_STAFF_ROLES.filter((r) => !!nameForStaffRole(r)).length;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -363,21 +378,39 @@ export default function ListaGara() {
         )}
 
         <Text style={styles.hint}>
-          Tocca un numero o un ruolo per assegnarlo — tocca a lungo per svuotarlo.
+          Tocca un numero o un ruolo per assegnarlo — tocca la ✕ rossa per svuotarlo.
         </Text>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Titolari (1-11)</Text>
-          {STARTER_NUMBERS.map(renderNumberRow)}
+          <View style={styles.sectionHeaderRow}>
+            <View style={[styles.sectionAccent, { backgroundColor: '#1b7f3b' }]} />
+            <Text style={styles.sectionTitle}>Titolari</Text>
+            <View style={styles.sectionCountPill}>
+              <Text style={styles.sectionCountPillText}>{filledCount(STARTER_NUMBERS)}/11</Text>
+            </View>
+          </View>
+          {STARTER_NUMBERS.map((n) => renderNumberRow(n, 'starter'))}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Panchina (12-20)</Text>
-          {BENCH_NUMBERS.map(renderNumberRow)}
+          <View style={styles.sectionHeaderRow}>
+            <View style={[styles.sectionAccent, { backgroundColor: '#475569' }]} />
+            <Text style={styles.sectionTitle}>Panchina</Text>
+            <View style={styles.sectionCountPill}>
+              <Text style={styles.sectionCountPillText}>{filledCount(BENCH_NUMBERS)}/9</Text>
+            </View>
+          </View>
+          {BENCH_NUMBERS.map((n) => renderNumberRow(n, 'bench'))}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Staff</Text>
+          <View style={styles.sectionHeaderRow}>
+            <View style={[styles.sectionAccent, { backgroundColor: '#4f46e5' }]} />
+            <Text style={styles.sectionTitle}>Staff</Text>
+            <View style={styles.sectionCountPill}>
+              <Text style={styles.sectionCountPillText}>{staffFilledCount}/6</Text>
+            </View>
+          </View>
           {LISTA_GARA_STAFF_ROLES.map(renderStaffRow)}
         </View>
 
@@ -437,6 +470,7 @@ export default function ListaGara() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
+            <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>
               {pickerTarget?.kind === 'number'
                 ? `Numero ${pickerTarget.number}`
@@ -469,7 +503,7 @@ export default function ListaGara() {
               })()}
 
               {pickerTarget?.kind === 'staff' && (() => {
-                const { convocati, staff, players: otherPlayers } = candidatesForStaffRole();
+                const { convocati, staff } = candidatesForStaffRole();
                 const role = pickerTarget.role;
                 return (
                   <>
@@ -485,12 +519,11 @@ export default function ListaGara() {
                         <Text style={styles.pickerRowText}>{c.name}</Text>
                       </Pressable>
                     ))}
-                    {otherPlayers.length > 0 && <Text style={styles.pickerGroupLabel}>Giocatori</Text>}
-                    {otherPlayers.map((c) => (
-                      <Pressable key={`${c.kind}-${c.id}`} style={styles.pickerRow} onPress={() => assignStaffRole(role, c)}>
-                        <Text style={styles.pickerRowText}>{c.name}</Text>
-                      </Pressable>
-                    ))}
+                    {convocati.length === 0 && staff.length === 0 && (
+                      <Text style={{ color: '#6b7280', padding: 12 }}>
+                        Nessuna persona in Staff — aggiungila da Gestione Squadra → Staff.
+                      </Text>
+                    )}
                   </>
                 );
               })()}
@@ -516,30 +549,62 @@ const styles = StyleSheet.create({
   title: { flex: 1, fontSize: 24, fontWeight: '800', color: '#1a202c' },
   matchTitle: { fontSize: 18, fontWeight: '700', color: '#1a202c', marginTop: 8 },
   matchSub: { fontSize: 14, color: '#64748b' },
-  hint: { fontSize: 13, color: '#6b7280', marginTop: 12, fontStyle: 'italic' },
+  hint: {
+    fontSize: 13, color: '#6b7280', marginTop: 12, paddingBottom: 12,
+    borderBottomWidth: 1, borderColor: '#e5e7eb',
+  },
 
-  section: { marginTop: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: '#1a202c', marginBottom: 8 },
+  section: {
+    marginTop: 16, backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#e5e7eb',
+    padding: 12,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  sectionAccent: { width: 4, height: 18, borderRadius: 2 },
+  sectionTitle: { flex: 1, fontSize: 15, fontWeight: '800', color: '#1a202c' },
+  sectionCountPill: { backgroundColor: '#f1f5f9', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  sectionCountPillText: { fontSize: 12, fontWeight: '800', color: '#475569' },
 
   row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: '#e5e7eb',
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 10, borderWidth: 1,
     paddingVertical: 10, paddingHorizontal: 12, marginBottom: 6,
   },
+  rowFilled: { backgroundColor: '#fff', borderColor: '#e5e7eb' },
+  rowEmpty: { backgroundColor: '#fafafa', borderColor: '#d1d5db', borderStyle: 'dashed' },
+  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  removeBtn: {
+    width: 28, height: 28, borderRadius: 14, marginLeft: 10,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: '#fef2f2',
+    borderWidth: 1, borderColor: '#fecaca',
+  },
+  removeBtnText: { color: '#dc2626', fontWeight: '800', fontSize: 13 },
   numberBadge: {
-    width: 30, height: 30, borderRadius: 15, backgroundColor: '#1b7f3b',
+    width: 30, height: 30, borderRadius: 15,
     alignItems: 'center', justifyContent: 'center',
   },
+  numberBadgeStarter: { backgroundColor: '#1b7f3b' },
+  numberBadgeBench: { backgroundColor: '#475569' },
   numberBadgeText: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  staffRoleLabel: { fontWeight: '700', color: '#374151' },
+  staffBadge: {
+    minWidth: 46, height: 24, borderRadius: 12, paddingHorizontal: 6,
+    backgroundColor: '#4f46e5', alignItems: 'center', justifyContent: 'center',
+  },
+  staffBadgeText: { color: '#fff', fontWeight: '800', fontSize: 11 },
+  staffRoleLabel: { fontWeight: '700', color: '#374151', fontSize: 13, marginBottom: 2 },
   rowText: { fontSize: 15, color: '#111', fontWeight: '600' },
   rowTextEmpty: { color: '#9ca3af', fontWeight: '400', fontStyle: 'italic' },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalBox: { backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, maxHeight: '80%' },
+  modalBox: {
+    backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, maxHeight: '80%',
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: -2 },
+  },
+  modalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#e5e7eb', alignSelf: 'center', marginBottom: 10 },
   modalTitle: { fontSize: 18, fontWeight: '800', marginBottom: 10, color: '#1a202c' },
   pickerGroupLabel: { fontSize: 12, fontWeight: '800', color: '#6b7280', marginTop: 10, marginBottom: 4, textTransform: 'uppercase' },
-  pickerRow: { paddingVertical: 10, paddingHorizontal: 8, borderBottomWidth: 1, borderColor: '#f1f5f9' },
+  pickerRow: { paddingVertical: 12, paddingHorizontal: 10, borderBottomWidth: 1, borderColor: '#f1f5f9', borderRadius: 8 },
   pickerRowText: { fontSize: 15, color: '#111' },
   modalCancelBtn: { marginTop: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: '#f3f4f6', borderRadius: 8 },
   modalCancelBtnText: { fontWeight: '800', color: '#111' },
@@ -547,6 +612,8 @@ const styles = StyleSheet.create({
   pdfBtn: {
     marginTop: 24, paddingVertical: 14, borderRadius: 10, alignItems: 'center',
     backgroundColor: '#1b7f3b',
+    shadowColor: '#1b7f3b', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
   pdfBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
 

@@ -642,12 +642,16 @@ quella singola partita, es. player-coach: non è un errore, resta selezionabile)
   `saveListaGara` (default `{numbers:{}, staff:{}}` se la colonna è ancora vuota, stesso pattern
   delle altre get/set granulari).
 - **`app/eventi/partita/[id]/listaGara.tsx`**: tre sezioni (Titolari 1-11, Panchina 12-20, Staff) —
-  ogni riga si tocca per aprire un picker (modale a fondo schermo, sezioni "Convocati" poi
-  "Altri giocatori in rosa"/"Staff"/"Giocatori" come ripiego) e si tiene premuta per svuotarla.
-  **Vincolo di unicità solo sui numeri** (un giocatore non può occupare due numeri contemporaneamente
-  — l'elenco candidati per un numero esclude chi occupa già un altro numero): i 6 ruoli di staff
-  sono indipendenti tra loro, nessun vincolo incrociato. Autosalva a ogni tocco, nessun bottone
-  "Salva" esplicito (stesso stile di Convocazione/Formazione).
+  ogni riga si tocca per aprire un picker (modale a fondo schermo, sezione "Convocati" poi il
+  ripiego) e si tiene premuta per svuotarla. I numeri pescano dalla rosa giocatori (convocati poi
+  resto della rosa), i 6 ruoli di staff **solo** dalla Rosa Staff (convocati poi resto dello Staff
+  — **mai i giocatori**, corretto il 2026-08-22 dopo un giro in cui erano selezionabili anche loro
+  come ripiego: Francesco ha chiarito che non deve essere possibile). **Vincolo di unicità solo sui
+  numeri** (un giocatore non può occupare due numeri contemporaneamente — l'elenco candidati per un
+  numero esclude chi occupa già un altro numero): i 6 ruoli di staff sono indipendenti tra loro,
+  nessun vincolo incrociato. Autosalva a ogni tocco, nessun bottone "Salva" esplicito (stesso stile
+  di Convocazione/Formazione).
+
 ### Lista Gara: export PDF (2026-08-21)
 Bottone "📄 Esporta PDF" in fondo alla schermata, stesso pattern di
 `app/eventi/partita/[id]/convocazione.tsx` (modale pre-export per Competizione/Giornata, Luogo,
@@ -659,6 +663,26 @@ numeri stampati, non solo quelli occupati. **Nessun "Ritrovo"** (pertinente alla
 a un modulo per l'arbitro). **Il modello reale (layout ufficiale) sarà implementato più tardi**,
 quando Francesco fornirà un riferimento — per ora è un layout generico coerente con quello della
 Convocazione, non una replica di un documento federale specifico.
+
+### Lista Gara: restyling schermata (2026-08-22)
+Feedback di Francesco ("va tutto bene, la grafica è migliorabile"): ogni sezione (Titolari/Panchina/
+Staff) è ora una card bianca con angoli arrotondati e una barra colorata d'accento accanto al
+titolo, più una pillola con il conteggio compilato (es. "7/11") per capire a colpo d'occhio cosa
+manca. Il pallino del numero cambia colore per sezione (verde brand per i Titolari, grigio-ardesia
+per la Panchina) e i 6 ruoli di staff hanno un badge con sigla colorata (viola/indaco — "ALL",
+"VICE", "P.ATL", "P.POR", "FISIO", "DIR") invece del solo testo. Una riga non ancora assegnata ha
+bordo tratteggiato e sfondo leggermente più chiaro per invitare a compilarla, una già assegnata ha
+bordo continuo. Aggiunte anche piccole rifiniture (ombra leggera sulle card/sul bottone PDF,
+maniglietta in cima al modale di selezione). Resta un restyling "leggero" (stessa struttura a lista
+verticale, non una griglia) — non verificato dal vero in questo giro, per lo stesso limite
+dell'ambiente di test già segnalato più volte in questo file.
+
+**Rimozione con bottone dedicato (2026-08-22, stesso giorno)**: la pressione lunga per svuotare una
+riga è stata sostituita da un bottone "✕" rosso, sempre visibile a destra di ogni riga già
+assegnata (numero o ruolo di staff) — richiesta esplicita di Francesco, la pressione lunga non era
+scopribile/comoda quanto un bottone dedicato. Ogni riga ora è una `View` con dentro due `Pressable`
+distinti (`rowMain` per aprire il picker, `removeBtn` per svuotare) invece di un unico `Pressable`
+con `onLongPress`.
 
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
