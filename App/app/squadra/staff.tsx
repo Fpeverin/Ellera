@@ -8,12 +8,14 @@ import NotifyRecipientsPicker from '../components/NotifyRecipientsPicker';
 import { useAuth } from '../context/AuthContext';
 import { loadPendingInvites, revokeInvite, type PendingInvite } from '../data/invites';
 import {
+  loadListaGaraShowStaff,
   loadNotifyConfig,
   loadOrgLogoUrl,
   loadShowTrainingAttendance,
   loadStaffExportPermissions,
   loadStaffRoleOptions,
   loadSurveysEnabled,
+  saveListaGaraShowStaff,
   saveNotifyConfig,
   saveShowTrainingAttendance,
   saveStaffExportPermission,
@@ -63,6 +65,8 @@ export default function AdminScreen() {
   const [surveysBusy, setSurveysBusy] = useState(false);
   const [exportPermissions, setExportPermissions] = useState<StaffExportPermissions>(DEFAULT_EXPORT_PERMISSIONS);
   const [exportPermissionsBusy, setExportPermissionsBusy] = useState(false);
+  const [listaGaraShowStaff, setListaGaraShowStaff] = useState(true);
+  const [listaGaraShowStaffBusy, setListaGaraShowStaffBusy] = useState(false);
 
   const [confirmRemove, setConfirmRemove] = useState<OrgMember | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState<PendingInvite | null>(null);
@@ -77,7 +81,7 @@ export default function AdminScreen() {
     if (!membership) return;
     setLoading(true);
     try {
-      const [m, p, logo, roles, staff, showAttendance, notifyLive, notifyEdit, surveysOn, exportPerms] = await Promise.all([
+      const [m, p, logo, roles, staff, showAttendance, notifyLive, notifyEdit, surveysOn, exportPerms, listaGaraStaff] = await Promise.all([
         loadOrgMembers(membership.orgId),
         loadPendingInvites(membership.orgId),
         loadOrgLogoUrl(),
@@ -88,6 +92,7 @@ export default function AdminScreen() {
         loadNotifyConfig('player_edit'),
         loadSurveysEnabled(),
         loadStaffExportPermissions(),
+        loadListaGaraShowStaff(),
       ]);
       setMembers(m);
       setPending(p);
@@ -99,6 +104,7 @@ export default function AdminScreen() {
       setNotifyPlayerEdit(notifyEdit);
       setSurveysEnabled(surveysOn);
       setExportPermissions(exportPerms);
+      setListaGaraShowStaff(listaGaraStaff);
     } catch {
       Alert.alert('Errore', 'Impossibile caricare i dati dello staff.');
     } finally {
@@ -198,6 +204,19 @@ export default function AdminScreen() {
       Alert.alert('Errore', 'Impossibile salvare l\'impostazione.');
     } finally {
       setSurveysBusy(false);
+    }
+  };
+
+  const handleToggleListaGaraShowStaff = async (value: boolean) => {
+    setListaGaraShowStaffBusy(true);
+    setListaGaraShowStaff(value);
+    try {
+      await saveListaGaraShowStaff(value);
+    } catch {
+      setListaGaraShowStaff(!value);
+      Alert.alert('Errore', 'Impossibile salvare l\'impostazione.');
+    } finally {
+      setListaGaraShowStaffBusy(false);
     }
   };
 
@@ -385,6 +404,21 @@ export default function AdminScreen() {
               </Text>
             </View>
             <Switch value={surveysEnabled} onValueChange={handleToggleSurveys} disabled={surveysBusy} />
+          </View>
+
+          <View style={styles.switchRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.configLabel}>Staff nella Lista Gara</Text>
+              <Text style={styles.cardHint}>
+                Se disattivato, la sezione Staff (Allenatore, Vice-Allenatore, ecc.) non compare più
+                nella Lista Gara di nessuna partita, né a schermo né nel PDF.
+              </Text>
+            </View>
+            <Switch
+              value={listaGaraShowStaff}
+              onValueChange={handleToggleListaGaraShowStaff}
+              disabled={listaGaraShowStaffBusy}
+            />
           </View>
 
           <Text style={[styles.configLabel, { marginTop: 12 }]}>Permessi Staff</Text>

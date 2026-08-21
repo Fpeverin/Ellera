@@ -684,6 +684,35 @@ scopribile/comoda quanto un bottone dedicato. Ogni riga ora è una `View` con de
 distinti (`rowMain` per aprire il picker, `removeBtn` per svuotare) invece di un unico `Pressable`
 con `onLongPress`.
 
+## Lista Gara: Staff configurabile dall'Admin + Capitano/Vice Capitano — 2026-08-22
+
+Due richieste di Francesco insieme.
+
+**Sezione Staff configurabile**: prima la sezione Staff (Allenatore/Vice-Allenatore/ecc.) era
+sempre presente in Lista Gara. Ora l'Admin può disattivarla — di base resta attiva.
+- Schema — `App/supabase/26_schema_lista_gara_staff_toggle.sql`: `organizations.lista_gara_show_staff`
+  boolean, default `true` (stesso pattern di `show_training_attendance`/`surveys_enabled` — nessuna
+  nuova policy RLS).
+- `app/data/organization.ts`: `loadListaGaraShowStaff`/`saveListaGaraShowStaff`.
+- UI: nuovo switch "Staff nella Lista Gara" in Gestione Squadra → Admin → Configurazioni
+  (`app/squadra/staff.tsx`), accanto agli altri switch on/off della sezione (Registro presenze,
+  Sondaggi).
+- `app/eventi/partita/[id]/listaGara.tsx`: carica l'impostazione all'apertura; se disattivata, la
+  sezione Staff non compare **né a schermo né nel PDF** (nel PDF la colonna Staff viene omessa del
+  tutto, non lasciata vuota — il layout a colonne resta corretto con una sola colonna).
+
+**Capitano e Vice Capitano**: su ogni riga numero già assegnata (Titolari o Panchina) sono apparsi
+due chip "C"/"VC" accanto alla ✕ di rimozione — toccarli marca quel numero come capitano/vice
+capitano (si escludono a vicenda: marcare "C" su un numero che era "VC" lo sposta a "C", mai
+entrambi sulla stessa riga; toccare di nuovo lo stesso chip lo disattiva). Legato al **numero**, non
+alla persona: se il numero viene svuotato con la ✕, la designazione capitano/vice si azzera insieme
+(evita di lasciare un riferimento a un numero ormai senza giocatore).
+- `app/data/matchLive.ts`: `ListaGaraData` ha due nuovi campi opzionali, `captainNumber`/
+  `viceCaptainNumber` ("1".."20").
+- Nel PDF: il nome del capitano/vice ha un suffisso `<b>(C)</b>`/`<b>(VC)</b>` accanto al nome, sia
+  nella colonna Titolari sia in quella Panchina (un capitano può essere in panchina, es. se parte di
+  riserva).
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

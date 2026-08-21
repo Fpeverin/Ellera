@@ -112,6 +112,18 @@ dato il precedente miss sullo stesso set di funzionalità (campo invisibile su w
 
 ## Completato
 
+### Lista Gara: Staff configurabile + Capitano/Vice Capitano (2026-08-22)
+Due richieste di Francesco: la sezione Staff nella Lista Gara deve poter essere disattivata
+dall'Admin (di base è attiva) — nuovo switch in Admin → Configurazioni, applicato sia a schermo sia
+nel PDF (colonna omessa del tutto, non lasciata vuota). E un modo semplice per indicare Capitano/
+Vice Capitano: due chip "C"/"VC" su ogni riga numero già assegnata, mostrati anche nel PDF vicino al
+nome ("(C)"/"(VC)"). Dettagli tecnici in CLAUDE.md — **da eseguire su Supabase**:
+`App/supabase/26_schema_lista_gara_staff_toggle.sql`.
+**Da verificare dal vero**: attivare/disattivare lo switch Staff e controllare che scompaia/
+riapparisca sia a schermo sia nel PDF; marcare un capitano e un vice (anche in panchina) e
+controllare che compaiano corretti nel PDF; che svuotare un numero con la ✕ tolga anche
+l'eventuale capitano/vice legato a quel numero.
+
 ### Modifica data/ora/luogo partita, solo Admin (2026-08-22)
 Richiesta di Francesco: prima non c'era alcun modo di correggere data/ora/luogo di una partita già
 creata — bisognava eliminarla e ricrearla (perdendo convocazione/formazione/eventi già registrati).

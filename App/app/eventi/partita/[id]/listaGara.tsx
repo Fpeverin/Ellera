@@ -21,7 +21,7 @@ import {
   loadListaGara,
   saveListaGara,
 } from '../../../data/matchLive';
-import { loadOrgLogoUrl, opponentLogoUrlFromPath } from '../../../data/organization';
+import { loadListaGaraShowStaff, loadOrgLogoUrl, opponentLogoUrlFromPath } from '../../../data/organization';
 import { loadStaffMembers, StaffMember } from '../../../data/staffRoster';
 import { usePlayers } from '../../../hooks/usePlayers';
 import { printOrShareHtml } from '../../../utils/webExport';
@@ -106,16 +106,18 @@ export default function ListaGara() {
   const [opponentLogoUrl, setOpponentLogoUrl] = useState<string | null>(null);
   const [exportForm, setExportForm] = useState<ExportForm | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [showStaffSection, setShowStaffSection] = useState(true);
 
   useEffect(() => {
     (async () => {
       if (!matchId) return;
-      const [events, conv, staff, lg, orgLogo] = await Promise.all([
+      const [events, conv, staff, lg, orgLogo, showStaff] = await Promise.all([
         loadEvents(),
         loadConvocazione(matchId),
         loadStaffMembers(),
         loadListaGara(matchId),
         loadOrgLogoUrl(),
+        loadListaGaraShowStaff(),
       ]);
       const ev = events.find((e) => `${e.id}` === `${matchId}`) ?? null;
       setEvent(ev);
@@ -124,6 +126,7 @@ export default function ListaGara() {
       setStaffMembers(staff);
       setData(lg);
       setOrgLogoUrl(orgLogo);
+      setShowStaffSection(showStaff);
       const opponentLogoPath = (ev as any)?.opponentLogoPath;
       setOpponentLogoUrl(opponentLogoPath ? opponentLogoUrlFromPath(opponentLogoPath) : null);
       setLoading(false);
@@ -144,9 +147,34 @@ export default function ListaGara() {
     setPickerTarget(null);
   };
   const clearNumber = (number: number) => {
+    const key = String(number);
     const nextNumbers = { ...data.numbers };
-    delete nextNumbers[String(number)];
-    persist({ ...data, numbers: nextNumbers });
+    delete nextNumbers[key];
+    const next: ListaGaraData = { ...data, numbers: nextNumbers };
+    if (data.captainNumber === key) delete next.captainNumber;
+    if (data.viceCaptainNumber === key) delete next.viceCaptainNumber;
+    persist(next);
+  };
+
+  /** Capitano/Vice — a chiave "numero", non alla persona: toccare la stessa etichetta la
+   * disattiva, un ruolo esclude l'altro (non si può essere sia C che VC sulla stessa riga). */
+  const toggleCaptain = (number: number) => {
+    const key = String(number);
+    const isCaptain = data.captainNumber === key;
+    persist({
+      ...data,
+      captainNumber: isCaptain ? undefined : key,
+      viceCaptainNumber: !isCaptain && data.viceCaptainNumber === key ? undefined : data.viceCaptainNumber,
+    });
+  };
+  const toggleViceCaptain = (number: number) => {
+    const key = String(number);
+    const isVice = data.viceCaptainNumber === key;
+    persist({
+      ...data,
+      viceCaptainNumber: isVice ? undefined : key,
+      captainNumber: !isVice && data.captainNumber === key ? undefined : data.captainNumber,
+    });
   };
 
   const assignStaffRole = (role: ListaGaraStaffRole, ref: PersonRef) => {
@@ -213,20 +241,30 @@ export default function ListaGara() {
     if (!exportForm) return;
     setExporting(true);
     try {
+      const nameCellHtml = (n: number) => {
+        const name = nameForNumber(n);
+        if (!name) return '—';
+        const key = String(n);
+        const suffix =
+          data.captainNumber === key ? ' <b>(C)</b>' : data.viceCaptainNumber === key ? ' <b>(VC)</b>' : '';
+        return `${esc(name)}${suffix}`;
+      };
       const titolariRows = STARTER_NUMBERS
-        .map((n) => `<tr><td class="numCell">${n}</td><td>${esc(nameForNumber(n) ?? '—')}</td></tr>`)
+        .map((n) => `<tr><td class="numCell">${n}</td><td>${nameCellHtml(n)}</td></tr>`)
         .join('');
       const panchinaRows = BENCH_NUMBERS
-        .map((n) => `<tr><td class="numCell">${n}</td><td>${esc(nameForNumber(n) ?? '—')}</td></tr>`)
+        .map((n) => `<tr><td class="numCell">${n}</td><td>${nameCellHtml(n)}</td></tr>`)
         .join('');
-      const staffRows = LISTA_GARA_STAFF_ROLES
-        .map(
-          (role) => `
-            <tr class="roleRow"><td colspan="2">${esc(STAFF_ROLE_LABELS[role])}</td></tr>
-            <tr class="nameRow"><td colspan="2">${esc(nameForStaffRole(role) ?? '—')}</td></tr>
-          `
-        )
-        .join('');
+      const staffRows = showStaffSection
+        ? LISTA_GARA_STAFF_ROLES
+            .map(
+              (role) => `
+                <tr class="roleRow"><td colspan="2">${esc(STAFF_ROLE_LABELS[role])}</td></tr>
+                <tr class="nameRow"><td colspan="2">${esc(nameForStaffRole(role) ?? '—')}</td></tr>
+              `
+            )
+            .join('')
+        : '';
 
       const styles = `
         <style>
@@ -279,10 +317,12 @@ export default function ListaGara() {
                 <div class="sectionHeader">Panchina (12-20)</div>
                 <table class="list">${panchinaRows}</table>
               </div>
+              ${showStaffSection ? `
               <div class="col">
                 <div class="sectionHeader">Staff</div>
                 <table class="list">${staffRows}</table>
               </div>
+              ` : ''}
             </div>
           </body>
         </html>
@@ -315,6 +355,9 @@ export default function ListaGara() {
 
   const renderNumberRow = (number: number, variant: 'starter' | 'bench') => {
     const name = nameForNumber(number);
+    const key = String(number);
+    const isCaptain = data.captainNumber === key;
+    const isVice = data.viceCaptainNumber === key;
     const badgeStyle = variant === 'starter' ? styles.numberBadgeStarter : styles.numberBadgeBench;
     return (
       <View key={number} style={[styles.row, name ? styles.rowFilled : styles.rowEmpty]}>
@@ -326,6 +369,24 @@ export default function ListaGara() {
             {name ?? 'Tocca per assegnare'}
           </Text>
         </Pressable>
+        {name && (
+          <>
+            <Pressable
+              style={[styles.captainChip, isCaptain && styles.captainChipActive]}
+              onPress={() => toggleCaptain(number)}
+              accessibilityLabel="Capitano"
+            >
+              <Text style={[styles.captainChipText, isCaptain && styles.captainChipTextActive]}>C</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.captainChip, isVice && styles.viceCaptainChipActive]}
+              onPress={() => toggleViceCaptain(number)}
+              accessibilityLabel="Vice Capitano"
+            >
+              <Text style={[styles.captainChipText, isVice && styles.captainChipTextActive]}>VC</Text>
+            </Pressable>
+          </>
+        )}
         {name && (
           <Pressable style={styles.removeBtn} onPress={() => clearNumber(number)} accessibilityLabel="Rimuovi">
             <Text style={styles.removeBtnText}>✕</Text>
@@ -378,7 +439,8 @@ export default function ListaGara() {
         )}
 
         <Text style={styles.hint}>
-          Tocca un numero o un ruolo per assegnarlo — tocca la ✕ rossa per svuotarlo.
+          Tocca un numero o un ruolo per assegnarlo — tocca la ✕ rossa per svuotarlo. Su un giocatore
+          già assegnato, tocca "C"/"VC" per indicare capitano/vice capitano.
         </Text>
 
         <View style={styles.section}>
@@ -403,16 +465,18 @@ export default function ListaGara() {
           {BENCH_NUMBERS.map((n) => renderNumberRow(n, 'bench'))}
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={[styles.sectionAccent, { backgroundColor: '#4f46e5' }]} />
-            <Text style={styles.sectionTitle}>Staff</Text>
-            <View style={styles.sectionCountPill}>
-              <Text style={styles.sectionCountPillText}>{staffFilledCount}/6</Text>
+        {showStaffSection && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={[styles.sectionAccent, { backgroundColor: '#4f46e5' }]} />
+              <Text style={styles.sectionTitle}>Staff</Text>
+              <View style={styles.sectionCountPill}>
+                <Text style={styles.sectionCountPillText}>{staffFilledCount}/6</Text>
+              </View>
             </View>
+            {LISTA_GARA_STAFF_ROLES.map(renderStaffRow)}
           </View>
-          {LISTA_GARA_STAFF_ROLES.map(renderStaffRow)}
-        </View>
+        )}
 
         <Pressable style={styles.pdfBtn} onPress={openExportModal}>
           <Text style={styles.pdfBtnText}>📄 Esporta PDF</Text>
@@ -580,6 +644,15 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#fecaca',
   },
   removeBtnText: { color: '#dc2626', fontWeight: '800', fontSize: 13 },
+  captainChip: {
+    minWidth: 28, height: 24, borderRadius: 12, paddingHorizontal: 6, marginLeft: 6,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#fff', borderWidth: 1, borderColor: '#d1d5db',
+  },
+  captainChipActive: { backgroundColor: '#f59e0b', borderColor: '#f59e0b' },
+  viceCaptainChipActive: { backgroundColor: '#fde68a', borderColor: '#f59e0b' },
+  captainChipText: { fontSize: 11, fontWeight: '800', color: '#6b7280' },
+  captainChipTextActive: { color: '#78350f' },
   numberBadge: {
     width: 30, height: 30, borderRadius: 15,
     alignItems: 'center', justifyContent: 'center',

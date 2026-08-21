@@ -68,6 +68,8 @@ export type ListaGaraStaffRole = typeof LISTA_GARA_STAFF_ROLES[number];
 export type ListaGaraData = {
   numbers: Record<string, string>; // "1".."20" -> playerId
   staff: Partial<Record<ListaGaraStaffRole, string>>;
+  captainNumber?: string;     // "1".."20" — numero del capitano, se indicato
+  viceCaptainNumber?: string; // "1".."20" — numero del vice capitano, se indicato
 };
 
 async function getColumn<T>(eventId: string, column: string): Promise<T | null> {
