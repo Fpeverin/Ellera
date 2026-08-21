@@ -713,6 +713,13 @@ alla persona: se il numero viene svuotato con la ✕, la designazione capitano/v
   nella colonna Titolari sia in quella Panchina (un capitano può essere in panchina, es. se parte di
   riserva).
 
+**Anno di nascita accanto al nome (stesso giorno)**: richiesta di Francesco — utile per l'arbitro
+verificare le categorie Under/Over. `nameForNumber()` (unico punto usato sia a schermo sia nel PDF)
+mostra ora "Nome Cognome · AAAA" invece del solo nome, quando il giocatore ha un `year` valido
+(`Player.year`, sempre popolato salvo giocatori creati senza data di nascita). Solo per i numeri
+1-20 (giocatori) — la Rosa Staff non ha un anno di nascita tracciato, `nameForStaffRole()` non è
+toccata.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

@@ -124,6 +124,12 @@ riapparisca sia a schermo sia nel PDF; marcare un capitano e un vice (anche in p
 controllare che compaiano corretti nel PDF; che svuotare un numero con la ✕ tolga anche
 l'eventuale capitano/vice legato a quel numero.
 
+### Lista Gara: anno di nascita accanto al nome (2026-08-22, stesso giorno)
+Richiesta di Francesco: utile per l'arbitro verificare le categorie Under/Over. Ogni giocatore
+assegnato a un numero mostra ora "Nome Cognome · AAAA" sia a schermo sia nel PDF (solo per i
+giocatori, non per lo Staff — non ha un anno di nascita tracciato). Nessuna modifica allo schema
+dati (l'anno è già su `players.year`).
+
 ### Modifica data/ora/luogo partita, solo Admin (2026-08-22)
 Richiesta di Francesco: prima non c'era alcun modo di correggere data/ora/luogo di una partita già
 creata — bisognava eliminarla e ricrearla (perdendo convocazione/formazione/eventi già registrati).

@@ -191,7 +191,9 @@ export default function ListaGara() {
   const nameForNumber = (number: number): string | null => {
     const playerId = data.numbers[String(number)];
     if (!playerId) return null;
-    return playersById.get(playerId)?.name ?? '(giocatore rimosso)';
+    const p = playersById.get(playerId);
+    if (!p) return '(giocatore rimosso)';
+    return p.year ? `${p.name} · ${p.year}` : p.name;
   };
 
   const nameForStaffRole = (role: ListaGaraStaffRole): string | null => {
