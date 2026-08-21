@@ -1111,7 +1111,14 @@ const yellowCount = new Map<string, number>();
   return (
     <SafeAreaView style={[styles.safeArea, { paddingTop: insets.top, paddingBottom: insets.bottom }]} edges={['top', 'bottom']}>
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 24 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 12, paddingTop: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingTop: 8 }}>
+          <Pressable
+            style={styles.backBtn}
+            onPress={() => router.replace('/partite')}
+            accessibilityLabel="Torna a Partite"
+          >
+            <Text style={styles.backBtnTxt}>← Partite</Text>
+          </Pressable>
           <TeamLogo size={26} />
         </View>
         {/* HEADER MATCH */}
@@ -1989,6 +1996,12 @@ const yellowCount = new Map<string, number>();
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#f1f5f9' },
   container: { flex: 1, backgroundColor: '#f1f5f9' },
+
+  backBtn: {
+    paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8,
+    borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#fff',
+  },
+  backBtnTxt: { fontSize: 14, fontWeight: '800', color: '#111' },
 
   scoreBoard: {
     flexDirection: 'row',

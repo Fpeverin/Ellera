@@ -357,8 +357,11 @@ export default function Allenamenti() {
     <SafeAreaView style={styles.container} edges={['top','bottom']}>
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
+          <Pressable style={styles.backBtn} onPress={() => router.back()} accessibilityLabel="Indietro">
+            <Text style={styles.backBtnTxt}>←</Text>
+          </Pressable>
           <TeamLogo size={32} style={{ marginRight: 8 }} />
-          <Text style={styles.title}>Allenamenti</Text>
+          <Text style={[styles.title, { flex: 1 }]}>Allenamenti</Text>
         </View>
         <Text style={styles.subtitle}>Gestisci tutti gli allenamenti della squadra</Text>
       </View>
@@ -590,7 +593,12 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 24,
   },
-  headerTitleRow: { flexDirection: 'row', alignItems: 'center' },
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff',
+  },
+  backBtnTxt: { fontSize: 18, fontWeight: '800', color: '#111' },
   title: {
     fontSize: 32,
     fontWeight: '800',

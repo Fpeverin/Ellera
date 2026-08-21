@@ -54,6 +54,22 @@ export type ConvocazioneData = {
   meals: Record<string, string>;
 };
 
+/** Chiave "ruolo" -> valore "player:<id>" | "staff:<id>" (un giocatore puo' coprire un ruolo di
+ * staff per quella singola partita, es. player-coach — da qui il prefisso). */
+export const LISTA_GARA_STAFF_ROLES = [
+  'allenatore',
+  'viceAllenatore',
+  'preparatoreAtletico',
+  'preparatorePortieri',
+  'fisioterapista',
+  'dirigenteAccompagnatore',
+] as const;
+export type ListaGaraStaffRole = typeof LISTA_GARA_STAFF_ROLES[number];
+export type ListaGaraData = {
+  numbers: Record<string, string>; // "1".."20" -> playerId
+  staff: Partial<Record<ListaGaraStaffRole, string>>;
+};
+
 async function getColumn<T>(eventId: string, column: string): Promise<T | null> {
   const { data, error } = await supabase
     .from('match_live')
@@ -108,6 +124,11 @@ export const saveTacticsAssignments = (eventId: string, assignments: AssignState
 export const loadConvocazione = (eventId: string) => getColumn<ConvocazioneData>(eventId, 'convocazione');
 export const saveConvocazione = (eventId: string, data: ConvocazioneData) =>
   setColumn(eventId, 'convocazione', data);
+
+export const loadListaGara = (eventId: string) =>
+  getColumn<ListaGaraData>(eventId, 'lista_gara').then((v) => v ?? { numbers: {}, staff: {} });
+export const saveListaGara = (eventId: string, data: ListaGaraData) =>
+  setColumn(eventId, 'lista_gara', data);
 
 /** Cancella l'intera riga di una partita (usato quando si archivia la stagione). */
 export async function deleteMatchLive(eventId: string): Promise<void> {

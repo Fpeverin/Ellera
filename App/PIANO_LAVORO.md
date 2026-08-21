@@ -24,7 +24,11 @@ prossima idea non appena viene in mente.
 - **Menu pranzo configurabile in Convocazione** (rimosso dalla UI il 2026-07-30 su richiesta di
   Francesco, da riprogettare): piatti disponibili e scelta per ciascun convocato. Deve essere "molto
   più configurabile" di come era stato costruito la prima volta — da ridiscutere il design prima di
-  reintrodurlo (i campi `menuItems`/`meals` restano comunque nella colonna dati di ogni partita).
+  reintrodurlo (i campi `menuItems`/`meals` restano comunque nella colonna dati di ciascun partita).
+- **Lista Gara: modello reale**: l'export PDF (vedi Completato, 2026-08-21) usa per ora un layout
+  generico coerente con quello della Convocazione — Francesco ha detto esplicitamente che il modello
+  ufficiale (probabilmente serve una foto/scan del documento federale reale, come già fatto per la
+  Scheda Convocazione Excel) lo implementeremo più avanti.
 
 ## In corso
 
@@ -107,6 +111,47 @@ colori/forme/texture del campo (via ispezione stile calcolato) e la logica di ri
 dato il precedente miss sullo stesso set di funzionalità (campo invisibile su web).
 
 ## Completato
+
+### Fix: su iPhone impossibile uscire da molte pagine (2026-08-21)
+Segnalato da Francesco: su iPhone non si riusciva a "navigare la pagina" (tornare indietro) in
+Moduli, Convocazione, Formazione, Live, Allenamenti, Calendario, Partite. **Non è un problema di
+gesture assorbite** dalla lavagna tattica (ipotesi iniziale) — la causa reale: l'app si usa su iPhone
+come PWA "Aggiunta a Home" (`display: "standalone"` nel manifest, vedi sezione Webapp in CLAUDE.md),
+e in quella modalità **non esiste né lo swipe di sistema né un tasto indietro del browser** — a
+differenza dell'app nativa Android o di un tab Safari normale. Tutte queste pagine sono `headerShown:
+false` (header nativo disattivato a livello root) con un header **fatto a mano** che non aveva mai
+incluso un bottone indietro, perché su Android/desktop/Safari-in-tab una via per tornare indietro
+c'era sempre stata comunque — su iPhone PWA diventavano invece un vicolo cieco reale.
+- Aggiunto un bottone "←" coerente (stesso stile in tutte) in cima a: `app/moduli/index.tsx`,
+  `app/moduli/editor.tsx`, `app/allenamenti.tsx`, `app/calendario.tsx`, `app/partite.tsx`,
+  `app/eventi/partita/[id]/index.tsx`, `.../convocazione.tsx`, `.../formazione.tsx` (nuova topBar
+  dedicata, prima assente), `.../listaGara.tsx` (nuovo, vedi sotto).
+- `.../live.tsx`: bottone "← Partite" che va con `router.replace('/partite')` invece di
+  `router.back()` — un semplice "indietro" rientrerebbe nella pagina scelta-partita, che con la
+  partita già avviata reindirizza subito di nuovo a Live (rimbalzo), quindi si salta dritti alla
+  lista.
+- `.../tattiche.tsx` (di partita) aveva già un bottone "Chiudi" funzionante — solo corretto un uso
+  scorretto di `useRouter()` chiamato dentro un `onPress` invece della variabile `router` già in
+  scope (funzionava comunque, ma viola le regole dei Hook).
+- **Non toccate** (già con header nativo e bottone indietro "di serie" via `Stack.Screen` in
+  `app/squadra/_layout.tsx`): Rosa, Statistiche, Archivio, Admin, Staff, Sondaggi, Tattiche squadra
+  (l'elenco — l'editor invece aveva già un suo bottone indietro proprio dal giro precedente).
+
+### Lista Gara (2026-08-21)
+Nuova card "🧾 LISTA GARA" nella pagina scelta-partita (`app/eventi/partita/[id]/index.tsx`, accanto
+a Convocazione/Live — quella pagina è comunque solo Staff/Admin) e nuova schermata
+`app/eventi/partita/[id]/listaGara.tsx`. Contenuto specificato da Francesco: numeri **1-11 titolari**
+e **12-20 panchina** assegnati a giocatori, più 6 ruoli di staff dedicati (Allenatore,
+Vice-Allenatore, Preparatore Atletico, Preparatore Portieri, Fisioterapista, Dirigente
+Accompagnatore) — ciascuno scelto **prima tra i convocati della partita, con rosa/staff completi
+come ripiego**. Nuova colonna `lista_gara` su `match_live` (dettagli tecnici in CLAUDE.md) — **da
+eseguire su Supabase**: `App/supabase/25_schema_lista_gara.sql`. Aggiunto anche **"📄 Esporta PDF"**
+(stesso pattern della Convocazione: loghi + info partita, layout generico — il modello ufficiale
+resta da fare più avanti, vedi Backlog).
+**Da verificare dal vero** (non testabile in questo ambiente senza un account/dati reali): apertura
+della schermata con convocati già impostati, assegnazione/rimozione di un numero e di un ruolo di
+staff, che il salvataggio persista alla riapertura della pagina, e il PDF generato (loghi/testo
+corretti, tutte le righe presenti anche vuote).
 
 ### PDF Convocazione: replica fedele della Scheda Excel (2026-07-31, verificato 2026-08-03)
 Ricevuto da Francesco il file originale "Scheda Convocazione Ellera.xlsx" (analizzato con `openpyxl`:

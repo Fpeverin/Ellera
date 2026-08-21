@@ -86,6 +86,9 @@ export default function PartitaIndexChooser() {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={{ padding: 20 }}>
         <View style={styles.titleRow}>
+          <Pressable style={styles.backBtn} onPress={() => router.back()} accessibilityLabel="Indietro">
+            <Text style={styles.backBtnTxt}>←</Text>
+          </Pressable>
           <Text style={styles.title}>Ellera{event?.opponent ? ` - ${event.opponent}` : ''}</Text>
           <TeamLogo size={28} />
         </View>
@@ -106,6 +109,15 @@ export default function PartitaIndexChooser() {
           </Pressable>
 
           <Pressable
+            style={[styles.actionCard, styles.listaGaraCard]}
+            onPress={() => router.push(`/eventi/partita/${matchId}/listaGara`)}
+          >
+            <Text style={styles.actionIcon}>🧾</Text>
+            <Text style={styles.actionTitle}>LISTA GARA</Text>
+            <Text style={styles.actionSubtitle}>Numeri e staff</Text>
+          </Pressable>
+
+          <Pressable
             style={[styles.actionCard, styles.liveCard]}
             onPress={() => router.push(`/eventi/partita/${matchId}/live`)}
           >
@@ -122,8 +134,13 @@ export default function PartitaIndexChooser() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f7fa' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f7fa' },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: 20, fontWeight: '800', color: '#1a202c' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff',
+  },
+  backBtnTxt: { fontSize: 18, fontWeight: '800', color: '#111' },
+  title: { flex: 1, fontSize: 20, fontWeight: '800', color: '#1a202c' },
   subtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
 
   preMatchInfo: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
@@ -132,12 +149,13 @@ const styles = StyleSheet.create({
   preMatchVs: { fontSize: 14, fontWeight: '700', color: '#94a3b8' },
   preMatchHint: { fontSize: 13, color: '#94a3b8', marginTop: 20 },
 
-  cardsRow: { flexDirection: 'row', gap: 12, marginTop: 28 },
+  cardsRow: { flexDirection: 'row', gap: 10, marginTop: 28 },
   actionCard: {
     flex: 1,
     backgroundColor: 'white',
     borderRadius: 16,
-    paddingVertical: 24,
+    paddingVertical: 20,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -146,8 +164,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   convocazioneCard: { backgroundColor: '#dcfce7' },
+  listaGaraCard: { backgroundColor: '#e0e7ff' },
   liveCard: { backgroundColor: '#fee2e2' },
-  actionIcon: { fontSize: 32 },
-  actionTitle: { fontSize: 15, fontWeight: '900', marginTop: 10, color: '#0f172a' },
+  actionIcon: { fontSize: 28 },
+  actionTitle: { fontSize: 13, fontWeight: '900', marginTop: 8, color: '#0f172a' },
   actionSubtitle: { fontSize: 12, color: '#6b7280', marginTop: 4, textAlign: 'center', paddingHorizontal: 8 },
 });

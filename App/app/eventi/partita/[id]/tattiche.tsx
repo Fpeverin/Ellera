@@ -252,7 +252,7 @@ export default function TattichePartita() {
                 <Text style={styles.btnText}>+ Aggiungi</Text>
               </Pressable>
             )}
-            <Pressable style={[styles.btn, { backgroundColor: '#9ca3af' }]} onPress={() => useRouter().back()}>
+            <Pressable style={[styles.btn, { backgroundColor: '#9ca3af' }]} onPress={() => router.back()}>
               <Text style={styles.btnText}>Chiudi</Text>
             </Pressable>
           </View>

@@ -353,6 +353,9 @@ export default function Partite() {
   return (
     <SafeAreaView style={styles.container} edges={['top','bottom']}>
       <View style={styles.titleRow}>
+        <Pressable style={styles.backBtn} onPress={() => router.back()} accessibilityLabel="Indietro">
+          <Text style={styles.backBtnTxt}>←</Text>
+        </Pressable>
         <TeamLogo size={32} style={{ marginRight: 8 }} />
         <Text style={styles.title}>Partite</Text>
       </View>
@@ -632,7 +635,12 @@ function SingleMatchModal({
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  titleRow: { flexDirection: 'row', alignItems: 'center' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff',
+  },
+  backBtnTxt: { fontSize: 18, fontWeight: '800', color: '#111' },
   title: { fontSize: 22, fontWeight: '700', marginBottom: 12 },
 
   // Filtri

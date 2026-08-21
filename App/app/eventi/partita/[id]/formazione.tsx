@@ -439,13 +439,19 @@ export default function Schieramento() {
       {/* SAFE AREA: evita sovrapposizione con notch e con i bottoni di gesture in basso, mantenendo
           lo sfondo coerente */}
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <View style={styles.topBar}>
+          <Pressable style={styles.backBtn} onPress={() => router.back()} accessibilityLabel="Indietro">
+            <Text style={styles.backBtnTxt}>←</Text>
+          </Pressable>
+          <Text style={styles.topBarTitle}>Formazione</Text>
+          <TeamLogo size={24} />
+        </View>
         <View style={styles.wrap}>
           {/* SINISTRA */}
           <View style={styles.left}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Text style={styles.sectionTitle}>Modulo</Text>
               {liveMode ? <Text style={{ color: '#b45309', fontWeight: '800' }}>LIVE: solo drag posizioni</Text> : null}
-              <TeamLogo size={24} />
             </View>
             <View style={[styles.moduleSelectRow, (liveMode || readOnly) && { opacity: 0.6 }]}>
               <Picker
@@ -730,6 +736,17 @@ export default function Schieramento() {
 const styles = StyleSheet.create({
   // SafeArea con stesso background della pagina, così il notch rispetta il design
   safeArea: { flex: 1, backgroundColor: '#f5f7fa' },
+
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4,
+  },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff',
+  },
+  backBtnTxt: { fontSize: 18, fontWeight: '800', color: '#111' },
+  topBarTitle: { flex: 1, fontSize: 18, fontWeight: '800', color: '#1a202c' },
 
   wrap: { flex: 1, flexDirection: 'row', backgroundColor: '#f5f7fa' },
   left: { flex: 7, padding: 12, gap: 8 },

@@ -168,9 +168,12 @@ export default function ModuleEditor() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.container}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 8 }}>
+          <Pressable style={styles.backBtn} onPress={() => router.back()} accessibilityLabel="Indietro">
+            <Text style={styles.backBtnTxt}>←</Text>
+          </Pressable>
           <TeamLogo size={24} style={{ marginRight: 6 }} />
-          <Text style={styles.title}>
+          <Text style={[styles.title, { flex: 1 }]}>
             {isEditing ? (title || 'Modifica Modulo') : 'Nuovo Modulo'}
             {isReadOnly ? ' (solo lettura)' : ''}
           </Text>
@@ -327,6 +330,11 @@ export default function ModuleEditor() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#f5f7fa' },
   container: { flex: 1, backgroundColor: '#f5f7fa' },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff',
+  },
+  backBtnTxt: { fontSize: 18, fontWeight: '800', color: '#111' },
   title: { fontSize: 20, fontWeight: '800', marginBottom: 8 },
 
   fieldWrap: { flex: 1, minHeight: 320, paddingHorizontal: 12 },

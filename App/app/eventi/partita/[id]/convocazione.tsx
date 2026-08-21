@@ -397,8 +397,11 @@ export default function Convocazione() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={styles.title}>Convocazione</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Pressable style={styles.backBtn} onPress={() => router.back()} accessibilityLabel="Indietro">
+            <Text style={styles.backBtnTxt}>←</Text>
+          </Pressable>
+          <Text style={[styles.title, { flex: 1 }]}>Convocazione</Text>
           <TeamLogo size={28} />
         </View>
         <Text style={styles.matchTitle}>{formatMatchTitle(event)}</Text>
@@ -571,6 +574,11 @@ export default function Convocazione() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f7fa' },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff',
+  },
+  backBtnTxt: { fontSize: 18, fontWeight: '800', color: '#111' },
   title: { fontSize: 24, fontWeight: '800', color: '#1a202c' },
   matchTitle: { fontSize: 18, fontWeight: '700', color: '#1a202c', marginTop: 8 },
   matchSub: { fontSize: 14, color: '#64748b' },

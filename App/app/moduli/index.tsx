@@ -85,6 +85,9 @@ export default function ModuliIndex() {
       <View style={styles.container}>
         <View style={styles.topBar}>
           <View style={styles.topBarTitleRow}>
+            <Pressable style={styles.backBtn} onPress={() => router.back()} accessibilityLabel="Indietro">
+              <Text style={styles.backBtnTxt}>←</Text>
+            </Pressable>
             <TeamLogo size={28} style={{ marginRight: 8 }} />
             <Text style={styles.title}>Moduli</Text>
           </View>
@@ -142,7 +145,12 @@ const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 16, paddingTop: 8, backgroundColor: '#fff' },
 
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  topBarTitleRow: { flexDirection: 'row', alignItems: 'center' },
+  topBarTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff',
+  },
+  backBtnTxt: { fontSize: 18, fontWeight: '800', color: '#111' },
   title: { fontSize: 22, fontWeight: '800' },
   createBtn: { backgroundColor: '#1b7f3b', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
   createBtnText: { color: 'white', fontWeight: '800' },

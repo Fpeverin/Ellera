@@ -569,6 +569,97 @@ verificato funzionante su web prima di questo giro). **Da verificare dal vero da
 priorità alta dato il precedente**: aspetto del disco/campo, trascinamento dal vassoio al campo
 (Moduli e Tattiche squadra), trascinamento fuori dal campo per rimuovere, swap tra maglie, zoom.
 
+## Fix layout Moduli/Tattiche squadra + cognomi composti nel live — 2026-08-21
+
+Feedback di Francesco dopo il round 2 sopra: titolo header duplicato "tattiche/editor" in Tattiche
+squadra, vassoio Moduli da spostare da laterale a sotto il campo (come Tattiche squadra), vassoio/
+reset di Tattiche squadra coperti dai bottoni di gesture dello smartphone, e un cognome composto
+("Di Marzo") troncato a "Di" in Formazione/Tattiche di partita.
+- `app/squadra/_layout.tsx`: nuovo `Stack.Screen name="tattiche/editor" options={{ headerShown:
+  false }}` — quella schermata ha già una sua topbar custom (indietro/nome/salva), l'header nativo
+  era ridondante e mostrava il nome tecnico della route.
+- `app/squadra/tattiche/editor.tsx`: Reset spostato accanto al Salva nella topbar, solo icona;
+  `SafeAreaView edges={['top','bottom']}` (prima solo `View`) così vassoio e controlli non finiscono
+  sotto i bottoni di gesture.
+- `app/moduli/editor.tsx`: stesso vassoio (`AddTray`) spostato da un pannello laterale a sotto il
+  campo — layout ora verticale come Tattiche squadra, non più a due colonne.
+- `app/eventi/partita/[id]/formazione.tsx`: stessa estensione della safe-area anche in basso.
+- **Bug cognomi composti**: `surnameOf()` (duplicato in `formazione.tsx` e in `.../tattiche.tsx` di
+  partita) prendeva solo la **prima parola** del nome salvato (convenzione "Cognome Nome" di questa
+  squadra) — corretto per prendere tutte le parole tranne l'ultima, quindi "Di Marzo Luca" mostra
+  "Di Marzo" invece di "Di".
+
+## Lista Gara (entry point) + fix navigazione iPhone (PWA senza bottone indietro) — 2026-08-21
+
+Due segnalazioni di Francesco insieme.
+
+**Lista Gara**: nuova card "🧾 LISTA GARA" nella pagina scelta-partita
+(`app/eventi/partita/[id]/index.tsx`, accanto a Convocazione/Live) e nuova schermata
+`app/eventi/partita/[id]/listaGara.tsx` — solo Staff/Admin (quella pagina non è raggiungibile dai
+Giocatori). Contenuto specificato da Francesco il giorno dopo — vedi sezione dedicata più sotto.
+
+**Navigazione iPhone**: segnalato "non si riesce a navigare la pagina" su iPhone, ipotesi iniziale di
+Francesco "gesture non gestite". **Causa reale, diversa**: da iPhone l'app si usa come PWA "Aggiungi
+a Home" (`display: "standalone"` nel manifest — vedi sezione Webapp più sopra), modalità in cui **non
+esiste né lo swipe di sistema né un tasto indietro del browser** (a differenza dell'app nativa
+Android o di un tab Safari normale). Molte schermate con header custom (`headerShown: false` a
+livello root, `app/_layout.tsx`) non avevano mai incluso un bottone indietro proprio, perché su
+Android/desktop/Safari-in-tab una via per tornare indietro c'era comunque — su iPhone PWA diventavano
+un vicolo cieco reale, non un problema di gesture assorbite dalla lavagna tattica.
+- Aggiunto un bottone "←" coerente in cima a: `app/moduli/index.tsx`, `app/moduli/editor.tsx`,
+  `app/allenamenti.tsx`, `app/calendario.tsx`, `app/partite.tsx`,
+  `app/eventi/partita/[id]/index.tsx`, `.../convocazione.tsx`, `.../formazione.tsx` (nuova topBar
+  dedicata), `.../listaGara.tsx` (nuovo, nasce già con bottone indietro).
+- `.../live.tsx`: bottone "← Partite" con `router.replace('/partite')` invece di `router.back()` —
+  un `back()` semplice rientrerebbe nella pagina scelta-partita, che con la partita già avviata
+  reindirizza subito di nuovo a Live (rimbalzo); si salta dritti alla lista partite.
+- `.../tattiche.tsx` (di partita) aveva già un bottone "Chiudi" funzionante — solo corretto un uso
+  scorretto di `useRouter()` chiamato dentro un `onPress` invece della variabile `router` già in
+  scope (funzionava comunque via i suoi effetti collaterali, ma viola le regole dei Hook di React).
+- **Non toccate** (hanno già un header nativo con bottone indietro "di serie", tramite
+  `Stack.Screen` in `app/squadra/_layout.tsx`): Rosa, Statistiche, Archivio, Admin, Staff, Sondaggi,
+  Tattiche squadra (l'elenco — l'editor aveva già un suo bottone indietro dal giro precedente).
+- **Regola da tenere a mente per ogni nuova schermata futura con header custom** (`headerShown:
+  false`): serve sempre un bottone indietro proprio, non basta contare su swipe/back del sistema —
+  su iPhone in modalità PWA "Aggiungi a Home" semplicemente non esiste.
+
+## Lista Gara: contenuto — 2026-08-21
+
+Specifica di Francesco per la nuova schermata (vedi entry point sopra): **numeri 1-11 (titolari) e
+12-20 (panchina)** assegnati a giocatori, più **6 ruoli di staff dedicati** — Allenatore,
+Vice-Allenatore, Preparatore Atletico, Preparatore Portieri, Fisioterapista, Dirigente
+Accompagnatore. Ogni assegnazione va scelta **prima tra i convocati di questa partita, con rosa/
+staff completi come ripiego** (istruzione esplicita, ricevuta come messaggio successivo nella stessa
+richiesta) — nessun altro vincolo sui ruoli di staff (un giocatore può coprire un ruolo di staff per
+quella singola partita, es. player-coach: non è un errore, resta selezionabile).
+
+- **Schema** — `App/supabase/25_schema_lista_gara.sql`: colonna `lista_gara` jsonb su `match_live`
+  (stesso pattern di goals/subs/cards/lineup/convocazione — un valore per partita, nessuna nuova
+  policy RLS, la tabella è già scritta da chi è Staff/Admin). Struttura: `{ numbers:
+  Record<"1".."20", playerId>, staff: Record<ruolo, "player:<id>" | "staff:<id>"> }` — il prefisso
+  `player:`/`staff:` sui valori di `staff` indica da quale tabella viene l'id scelto.
+- **`app/data/matchLive.ts`**: `LISTA_GARA_STAFF_ROLES` (le 6 chiavi), `loadListaGara`/
+  `saveListaGara` (default `{numbers:{}, staff:{}}` se la colonna è ancora vuota, stesso pattern
+  delle altre get/set granulari).
+- **`app/eventi/partita/[id]/listaGara.tsx`**: tre sezioni (Titolari 1-11, Panchina 12-20, Staff) —
+  ogni riga si tocca per aprire un picker (modale a fondo schermo, sezioni "Convocati" poi
+  "Altri giocatori in rosa"/"Staff"/"Giocatori" come ripiego) e si tiene premuta per svuotarla.
+  **Vincolo di unicità solo sui numeri** (un giocatore non può occupare due numeri contemporaneamente
+  — l'elenco candidati per un numero esclude chi occupa già un altro numero): i 6 ruoli di staff
+  sono indipendenti tra loro, nessun vincolo incrociato. Autosalva a ogni tocco, nessun bottone
+  "Salva" esplicito (stesso stile di Convocazione/Formazione).
+### Lista Gara: export PDF (2026-08-21)
+Bottone "📄 Esporta PDF" in fondo alla schermata, stesso pattern di
+`app/eventi/partita/[id]/convocazione.tsx` (modale pre-export per Competizione/Giornata, Luogo,
+Data, Ora — prepopolati dalla partita — poi `printOrShareHtml`): banner "Lista Gara", intestazione
+con logo squadra/titolo partita+competizione+data+luogo/logo avversario, due colonne (Titolari 1-11
++ Panchina 12-20 a sinistra, Staff a destra). **A differenza della Convocazione, ogni riga compare
+sempre** (anche se non ancora assegnata, mostra "—") — un vero foglio di gara pre-partita ha tutti i
+numeri stampati, non solo quelli occupati. **Nessun "Ritrovo"** (pertinente alla Convocazione, non
+a un modulo per l'arbitro). **Il modello reale (layout ufficiale) sarà implementato più tardi**,
+quando Francesco fornirà un riferimento — per ora è un layout generico coerente con quello della
+Convocazione, non una replica di un documento federale specifico.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)
