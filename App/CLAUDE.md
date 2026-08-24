@@ -1124,6 +1124,74 @@ condiviso **`app/utils/eventDisplay.ts`** (elimina anche una duplicazione: `pill
   griglia mensile (Home e Calendario) compaiano le icone ⚽/🏃, che partite di competizioni diverse
   abbiano colori diversi e che il numero di giornata sia leggibile nella pillola.
 
+### Altre Partite: Competizione/Giornata impostabili sul posto — 2026-08-24 (terzo giro)
+Feedback di Francesco: "Non capisco perché per usare Altre Partite devo aver già messo
+Competizione e Giornata [altrove] — voglio inserire i record manualmente in qualsiasi momento."
+`app/eventi/partita/[id]/altrePartite.tsx`: rimosso il banner che bloccava l'intera sezione se la
+partita non aveva ancora Competizione/Giornata — sostituito con due campi **editabili direttamente
+in questa schermata** (card in cima, sempre visibile), che salvano su `patchEventData(matchId,
+{competition, giornata})` al blur di ciascun campo (stessa colonna letta da MatchEventCard/
+EditMatchModal/CompetitionModal — restano coerenti ovunque). Solo l'elenco/aggiunta incontri resta
+condizionato ad averle entrambe compilate (messaggio leggero inline, non più un blocco a piena
+pagina), perché la chiave di condivisione tra le nostre partite della stessa giornata resta
+`(competition, giornata)` — invariato lo scopo della funzionalità, sparita solo la necessità di
+uscire dalla schermata per compilarle prima.
+
+### Squadre fisse per competizione (nome, stadio, stemma) — 2026-08-24 (stesso giorno)
+Richiesta di Francesco: poter configurare le squadre di una competizione una volta sola (con
+stadio e stemma) e riusarle come scelta rapida ovunque si scelga un avversario/le squadre di un
+incontro, invece di ridigitare sempre lo stesso nome a mano.
+- **Schema** — `App/supabase/28_schema_competition_teams.sql`: tabella `competition_teams` (id,
+  org_id, competition, name, stadium, logo_path) — chiave `(org_id, competition)`, stesso
+  principio di `competition_rules`/`matchday_fixtures` (le competizioni sono testo libero, non
+  un'entità a parte). Lo stemma **riusa il bucket Storage esistente `team-logos`** (path
+  `{org_id}/competition-team-{id}.{ext}`, nessuna policy nuova necessaria) invece di crearne uno
+  dedicato: è un dettaglio voluto, non solo un'ottimizzazione — quando una squadra viene scelta dai
+  chip, il suo `logo_path` diventa direttamente l'`opponentLogoPath` della partita creata, che si
+  risolve sempre con `opponentLogoUrlFromPath()` puntata a `team-logos`; un bucket diverso qui
+  avrebbe prodotto un URL rotto ovunque lo stemma avversario viene mostrato. Aggiunta anche
+  `organizations.home_stadium` (colonna testo) — lo stadio di casa della propria squadra, un solo
+  valore per organizzazione.
+- **`app/data/competitionTeams.ts`** (nuovo): `loadCompetitionTeams(competition)`,
+  `addCompetitionTeam`, `updateCompetitionTeam`, `removeCompetitionTeam`,
+  `uploadCompetitionTeamLogo(teamId, localUri)` (stesso pattern upload di `playerMedia.ts`).
+  `app/data/organization.ts`: `loadHomeStadium`/`saveHomeStadium`.
+- **`app/components/partite/CompetitionTeamsModal.tsx`** (nuovo, condiviso): elenco squadre di una
+  competizione — nome e stadio editabili inline (autosalva al blur), stemma caricabile toccando
+  un'icona 📷 per riga (`expo-image-picker`, stesso flusso del logo squadra in Admin), "+" per
+  aggiungerne una nuova. Nessun bottone "Salva" esplicito.
+  - Raggiungibile da **Partite** (nuovo bottone "🏟️ Squadre" accanto a "⚙️ Regole", visibile solo
+    con una competizione specifica selezionata nel filtro — stesso posizionamento di
+    `CompetitionRulesModal`).
+  - Raggiungibile anche da **dentro "Crea Calendario Competizione"** (`CompetitionModal.tsx`,
+    nuovo bottone "🏟️ Configura Squadre della competizione", abilitato quando il nome competizione
+    non è vuoto) — così le squadre si configurano nello stesso momento in cui si crea il
+    calendario, senza uscire dal flusso.
+- **Riuso automatico** (il punto centrale della richiesta): ovunque si sceglie un avversario/una
+  squadra da un elenco già configurato, sotto il campo compare una riga di chip (nome + stemma se
+  presente) — toccarne uno imposta il nome **e**, se il campo Luogo è ancora vuoto, lo precompila
+  (stadio della squadra se si gioca in TRASFERTA, `home_stadium` dell'organizzazione se si gioca in
+  CASA) **e** collega lo stemma configurato come `opponentLogoPath` della partita creata (stesso
+  campo, in `events.data`, già consumato da `MatchEventCard`/pagina pre-partita per mostrare lo
+  stemma avversario — prima si poteva impostare solo a mano dal tab Convocazione).
+  - `CompetitionModal.tsx`: chip per ogni round, sotto "Avversario" (`pickTeamForRound`); il
+    nuovo campo `NewRound.opponentLogoPath` arriva fino a `handleCreateCompetition`
+    (`PartiteTab.tsx`) che lo scrive sull'evento creato.
+  - `SingleMatchModal` (inline in `PartiteTab.tsx`): stessa logica (`pickTeam`), squadre caricate
+    in base al testo digitato nel campo Competizione di quel modale.
+  - `altrePartite.tsx`: chip sotto "Squadra Casa"/"Squadra Trasferta" nel modale incontro, più lo
+    stemma mostrato direttamente nella card di ogni incontro quando il nome squadra corrisponde a
+    una squadra configurata.
+  - In tutti i casi resta possibile digitare un nome libero non in elenco (nessun vincolo, solo
+    una scorciatoia in più).
+- **Admin** (`app/squadra/staff.tsx`, sezione Configurazioni): nuovo campo "Stadio di casa"
+  (autosalva al blur) — `organizations.home_stadium`.
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti. **Da verificare dal vero**:
+  configurare 2-3 squadre con stadio e stemma per una competizione, creare un calendario partite
+  scegliendo quelle squadre dai chip e controllare che Luogo/stemma si precompilino correttamente
+  sia in CASA sia in TRASFERTA; verificare lo stesso per la creazione di una singola partita e per
+  le due squadre di un incontro in Altre Partite.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

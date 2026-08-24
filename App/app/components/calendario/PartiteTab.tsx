@@ -8,16 +8,18 @@
 import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import CompetitionModal from '../partite/CompetitionModal';
 import CompetitionRulesModal from '../partite/CompetitionRulesModal';
+import CompetitionTeamsModal from '../partite/CompetitionTeamsModal';
 import ConfirmDeleteModal from '../partite/ConfirmDeleteModal';
 import EditMatchModal from '../partite/EditMatchModal';
 import MatchEventCard from '../partite/MatchEventCard';
 import { useAuth } from '../../context/AuthContext';
 import { downloadMatchesTemplate, exportMatchesToXlsx, pickAndParseMatchesXlsx, planMatchesImport } from '../../data/calendarFile';
+import { CompetitionTeam, loadCompetitionTeams } from '../../data/competitionTeams';
 import { CalendarEvent, loadEvents, saveEvents } from '../../data/events';
-import { loadStaffExportPermissions } from '../../data/organization';
+import { loadHomeStadium, loadStaffExportPermissions } from '../../data/organization';
 
 /* -------------------------------------------------------------------------- */
 /*                                Tipi locali                                 */
@@ -40,6 +42,7 @@ type NewRound = {
   homeAway: 'CASA' | 'TRASFERTA';
   location: string;
   giornata: string;
+  opponentLogoPath?: string;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -81,6 +84,7 @@ export default function PartiteTab() {
 
   const [busy, setBusy] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [showTeamsModal, setShowTeamsModal] = useState(false);
 
   const refreshEvents = async () => {
     const list = await loadEvents();
@@ -226,6 +230,7 @@ export default function PartiteTab() {
     giornata: string;
     homeAway: 'CASA' | 'TRASFERTA';
     location: string;
+    opponentLogoPath?: string;
   }) => {
     const all: CalendarEvent[] = await loadEvents();
 
@@ -249,6 +254,7 @@ export default function PartiteTab() {
       competition: matchData.competition || undefined,
       giornata: matchData.giornata || undefined,
       homeAway: matchData.homeAway,
+      opponentLogoPath: matchData.opponentLogoPath || undefined,
       formationSlots: undefined,
       benchIds: [],
       tacticsIds: [],
@@ -292,6 +298,7 @@ export default function PartiteTab() {
         competition: competitionData.name,
         giornata: r.giornata || undefined,
         homeAway: r.homeAway,
+        opponentLogoPath: r.opponentLogoPath || undefined,
         formationSlots: undefined,
         benchIds: [],
         tacticsIds: [],
@@ -452,9 +459,14 @@ export default function PartiteTab() {
             </>
           )}
           {compFilter !== ALL_COMP && (
-            <Pressable style={styles.xlsxBtn} onPress={() => setShowRulesModal(true)}>
-              <Text style={styles.xlsxBtnText}>⚙️ Regole</Text>
-            </Pressable>
+            <>
+              <Pressable style={styles.xlsxBtn} onPress={() => setShowRulesModal(true)}>
+                <Text style={styles.xlsxBtnText}>⚙️ Regole</Text>
+              </Pressable>
+              <Pressable style={styles.xlsxBtn} onPress={() => setShowTeamsModal(true)}>
+                <Text style={styles.xlsxBtnText}>🏟️ Squadre</Text>
+              </Pressable>
+            </>
           )}
         </View>
       )}
@@ -496,11 +508,18 @@ export default function PartiteTab() {
         onCreateCompetition={handleCreateCompetition}
       />
       {compFilter !== ALL_COMP && (
-        <CompetitionRulesModal
-          visible={showRulesModal}
-          competition={compFilter}
-          onClose={() => setShowRulesModal(false)}
-        />
+        <>
+          <CompetitionRulesModal
+            visible={showRulesModal}
+            competition={compFilter}
+            onClose={() => setShowRulesModal(false)}
+          />
+          <CompetitionTeamsModal
+            visible={showTeamsModal}
+            competition={compFilter}
+            onClose={() => setShowTeamsModal(false)}
+          />
+        </>
       )}
 
       {/* Modale: modifica data/ora/luogo (solo Admin) */}
@@ -607,6 +626,7 @@ function SingleMatchModal({
     giornata: string;
     homeAway: 'CASA' | 'TRASFERTA';
     location: string;
+    opponentLogoPath?: string;
   }) => void;
 }) {
   const [date, setDate] = useState('');
@@ -616,11 +636,36 @@ function SingleMatchModal({
   const [giornata, setGiornata] = useState('');
   const [homeAway, setHomeAway] = useState<'CASA' | 'TRASFERTA'>('CASA');
   const [location, setLocation] = useState('');
+  const [opponentLogoPath, setOpponentLogoPath] = useState<string | undefined>(undefined);
+  const [teams, setTeams] = useState<CompetitionTeam[]>([]);
+  const [homeStadium, setHomeStadium] = useState('');
 
   const canSave = date && TIME_RE.test(time) && opponent && location;
 
   const reset = () => {
     setDate(''); setTime(''); setOpponent(''); setCompetition(''); setGiornata(''); setHomeAway('CASA'); setLocation('');
+    setOpponentLogoPath(undefined);
+  };
+
+  useEffect(() => {
+    if (visible) loadHomeStadium().then(setHomeStadium).catch(() => {});
+  }, [visible]);
+
+  useEffect(() => {
+    const name = competition.trim();
+    if (!name) { setTeams([]); return; }
+    loadCompetitionTeams(name).then(setTeams).catch(() => setTeams([]));
+  }, [competition]);
+
+  // Scelta rapida di una squadra configurata per questa competizione: riusa nome, stadio (per il
+  // Luogo, se non già scritto a mano) e stemma — stessa logica di CompetitionModal.
+  const pickTeam = (team: CompetitionTeam) => {
+    setOpponent(team.name);
+    setOpponentLogoPath(team.logoPath || undefined);
+    if (!location) {
+      const auto = homeAway === 'CASA' ? homeStadium : team.stadium;
+      if (auto) setLocation(auto);
+    }
   };
 
   return (
@@ -636,7 +681,26 @@ function SingleMatchModal({
           <TextInput value={time} onChangeText={setTime} placeholder="15:00" style={styles.input} />
 
           <Text style={styles.label}>Avversario</Text>
-          <TextInput value={opponent} onChangeText={setOpponent} placeholder="Es. Real Quartiere" style={styles.input} />
+          <TextInput
+            value={opponent}
+            onChangeText={(v) => { setOpponent(v); setOpponentLogoPath(undefined); }}
+            placeholder="Es. Real Quartiere"
+            style={styles.input}
+          />
+          {teams.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
+              {teams.map((t) => (
+                <Pressable
+                  key={t.id}
+                  style={[styles.teamChip, opponent === t.name && styles.teamChipActive]}
+                  onPress={() => pickTeam(t)}
+                >
+                  {t.logoUrl && <Image source={{ uri: t.logoUrl }} style={styles.teamChipLogo} />}
+                  <Text style={[styles.teamChipText, opponent === t.name && styles.teamChipTextActive]}>{t.name}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
 
           <Text style={styles.label}>Competizione (opzionale)</Text>
           <TextInput value={competition} onChangeText={setCompetition} placeholder="Es. Coppa CSI" style={styles.input} />
@@ -663,7 +727,7 @@ function SingleMatchModal({
               style={[styles.cta, { backgroundColor: '#1b7f3b', flex: 1, opacity: canSave ? 1 : 0.6 }]}
               disabled={!canSave}
               onPress={() => {
-                onCreateMatch({ date, time, opponent, competition, giornata, homeAway, location });
+                onCreateMatch({ date, time, opponent, competition, giornata, homeAway, location, opponentLogoPath });
                 reset();
               }}
             >
@@ -699,6 +763,16 @@ const styles = StyleSheet.create({
   bottomActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
   cta: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center' },
   ctaText: { color: 'white', fontWeight: '800' },
+
+  teamChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderWidth: 1, borderColor: '#d1d5db', borderRadius: 999,
+    paddingHorizontal: 10, paddingVertical: 5, marginRight: 6, backgroundColor: '#fff',
+  },
+  teamChipActive: { backgroundColor: '#1b7f3b', borderColor: '#1b7f3b' },
+  teamChipLogo: { width: 16, height: 16, resizeMode: 'contain' },
+  teamChipText: { fontSize: 12, fontWeight: '600', color: '#374151' },
+  teamChipTextActive: { color: '#fff' },
 
   // Sezioni
   section: { marginTop: 16, marginBottom: 8 },

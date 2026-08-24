@@ -5,16 +5,22 @@
 // (org_id, competition, giornata) — vedi app/data/matchdayFixtures.ts: un incontro inserito da una
 // qualsiasi delle nostre partite di quella giornata compare automaticamente anche dalle altre.
 // Sola lettura per il Giocatore (stesso principio di tutte le altre schermate di partita).
+//
+// Competizione/Giornata si impostano DIRETTAMENTE qui (2026-08-24, feedback di Francesco: prima
+// bisognava averle già impostate altrove — Calendario/Partite — prima di poter usare la sezione,
+// un blocco inutile). Cambiarle qui aggiorna anche la partita stessa (stessa colonna letta da
+// MatchEventCard/EditMatchModal), così restano coerenti ovunque.
 import * as DocumentPicker from 'expo-document-picker';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TeamLogo from '../../../components/TeamLogo';
 import { useAuth } from '../../../context/AuthContext';
-import { CalendarEvent, loadEvents } from '../../../data/events';
+import { CompetitionTeam, loadCompetitionTeams } from '../../../data/competitionTeams';
+import { CalendarEvent, loadEvents, patchEventData } from '../../../data/events';
 import {
   addFixture,
   addFixtureAttachment,
@@ -54,15 +60,30 @@ export default function AltrePartite() {
 
   const [loading, setLoading] = useState(true);
   const [event, setEvent] = useState<CalendarEvent | null>(null);
+  const [competitionInput, setCompetitionInput] = useState('');
+  const [giornataInput, setGiornataInput] = useState('');
+  const [savingMeta, setSavingMeta] = useState(false);
   const [fixtures, setFixtures] = useState<MatchdayFixture[]>([]);
   const [attachmentsByFixture, setAttachmentsByFixture] = useState<Record<string, FixtureAttachment[]>>({});
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
 
-  const competition = ((event as any)?.competition || '').trim();
-  const giornata = ((event as any)?.giornata || '').trim();
+  const competition = competitionInput.trim();
+  const giornata = giornataInput.trim();
   const hasMatchdayKey = !!competition && !!giornata;
+
+  const loadFixturesFor = async (comp: string, g: string) => {
+    if (!comp || !g) {
+      setFixtures([]);
+      setAttachmentsByFixture({});
+      return;
+    }
+    const list = await loadFixtures(comp, g);
+    setFixtures(list);
+    const pairs = await Promise.all(list.map((f) => loadFixtureAttachments(f.id).then((a) => [f.id, a] as const)));
+    setAttachmentsByFixture(Object.fromEntries(pairs));
+  };
 
   useEffect(() => {
     (async () => {
@@ -72,19 +93,43 @@ export default function AltrePartite() {
       setEvent(ev);
       const comp = ((ev as any)?.competition || '').trim();
       const g = ((ev as any)?.giornata || '').trim();
-      if (comp && g) {
-        const list = await loadFixtures(comp, g);
-        setFixtures(list);
-        const pairs = await Promise.all(list.map((f) => loadFixtureAttachments(f.id).then((a) => [f.id, a] as const)));
-        setAttachmentsByFixture(Object.fromEntries(pairs));
-      }
+      setCompetitionInput(comp);
+      setGiornataInput(g);
+      await loadFixturesFor(comp, g);
       setLoading(false);
     })();
   }, [matchId]);
 
-  const reloadFixtures = async () => {
-    const list = await loadFixtures(competition, giornata);
-    setFixtures(list);
+  const reloadFixtures = () => loadFixturesFor(competition, giornata);
+
+  // Squadre fisse configurate per questa competizione (app/data/competitionTeams.ts) — scelta
+  // rapida per le due squadre di un incontro, invece di ridigitare ogni volta lo stesso nome.
+  const [teams, setTeams] = useState<CompetitionTeam[]>([]);
+  useEffect(() => {
+    if (!competition) { setTeams([]); return; }
+    loadCompetitionTeams(competition).then(setTeams).catch(() => setTeams([]));
+  }, [competition]);
+
+  // Salva Competizione/Giornata direttamente sulla partita (stessa colonna di Calendario/
+  // EditMatchModal) appena si esce dal campo — nessun bisogno di andare altrove per impostarle
+  // prima di poter usare questa sezione.
+  const saveMeta = async (nextCompetition: string, nextGiornata: string) => {
+    if (!matchId) return;
+    const comp = nextCompetition.trim();
+    const g = nextGiornata.trim();
+    const prevComp = ((event as any)?.competition || '').trim();
+    const prevG = ((event as any)?.giornata || '').trim();
+    if (comp === prevComp && g === prevG) return; // niente da salvare
+    setSavingMeta(true);
+    try {
+      await patchEventData(matchId, { competition: comp || undefined, giornata: g || undefined });
+      setEvent((prev) => (prev ? { ...prev, competition: comp || undefined, giornata: g || undefined } : prev));
+      await loadFixturesFor(comp, g);
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare Competizione/Giornata.');
+    } finally {
+      setSavingMeta(false);
+    }
   };
 
   const openAddModal = () => setForm({ ...EMPTY_FORM });
@@ -199,19 +244,42 @@ export default function AltrePartite() {
           <TeamLogo size={28} />
         </View>
         <Text style={styles.matchTitle}>{formatMatchTitle(event)}</Text>
-        {hasMatchdayKey && (
-          <Text style={styles.matchSub}>{competition} · {giornata}ª giornata</Text>
-        )}
 
-        {!hasMatchdayKey ? (
-          <View style={styles.banner}>
-            <Text style={styles.bannerTitle}>Competizione/Giornata non impostate</Text>
-            <Text style={styles.bannerText}>
-              Per usare questa sezione imposta prima Competizione e Giornata per questa partita, da
-              Calendario/Partite (bottone "✏️" sulla card, solo Admin).
-            </Text>
+        <View style={styles.metaCard}>
+          <View style={styles.metaRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Competizione</Text>
+              <TextInput
+                style={styles.input}
+                value={competitionInput}
+                onChangeText={setCompetitionInput}
+                onBlur={() => saveMeta(competitionInput, giornataInput)}
+                placeholder="Es. Campionato"
+                editable={!readOnly}
+              />
+            </View>
+            <View style={{ width: 110 }}>
+              <Text style={styles.label}>Giornata</Text>
+              <TextInput
+                style={styles.input}
+                value={giornataInput}
+                onChangeText={setGiornataInput}
+                onBlur={() => saveMeta(competitionInput, giornataInput)}
+                placeholder="Es. 25"
+                editable={!readOnly}
+              />
+            </View>
           </View>
-        ) : (
+          {savingMeta && <Text style={styles.metaSaving}>Salvataggio…</Text>}
+          {!hasMatchdayKey && (
+            <Text style={styles.metaHint}>
+              Inserisci Competizione e Giornata per iniziare ad aggiungere gli incontri — vengono
+              condivise automaticamente con le altre nostre partite della stessa giornata.
+            </Text>
+          )}
+        </View>
+
+        {hasMatchdayKey && (
           <>
             {fixtures.length === 0 && (
               <View style={styles.emptyState}>
@@ -226,11 +294,15 @@ export default function AltrePartite() {
             {fixtures.map((f) => {
               const hasScore = f.homeScore != null && f.awayScore != null;
               const attachments = attachmentsByFixture[f.id] ?? [];
+              const homeLogo = teams.find((t) => t.name === f.homeTeam)?.logoUrl;
+              const awayLogo = teams.find((t) => t.name === f.awayTeam)?.logoUrl;
               return (
                 <View key={f.id} style={styles.fixtureCard}>
                   <View style={styles.fixtureHeaderRow}>
                     <Text style={styles.fixtureTeams} numberOfLines={2}>
-                      {f.homeTeam} <Text style={styles.fixtureVs}>vs</Text> {f.awayTeam}
+                      {homeLogo && <Image source={{ uri: homeLogo }} style={styles.fixtureTeamLogo} />}
+                      {' '}{f.homeTeam} <Text style={styles.fixtureVs}>vs</Text> {f.awayTeam}
+                      {awayLogo && <Image source={{ uri: awayLogo }} style={styles.fixtureTeamLogo} />}
                     </Text>
                     <View style={styles.scoreBadge}>
                       <Text style={styles.scoreBadgeText}>
@@ -303,6 +375,20 @@ export default function AltrePartite() {
                 onChangeText={(v) => setForm((f) => (f ? { ...f, homeTeam: v } : f))}
                 placeholder="Nome squadra"
               />
+              {teams.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.teamChipsRow}>
+                  {teams.map((t) => (
+                    <Pressable
+                      key={t.id}
+                      style={[styles.teamChip, form?.homeTeam === t.name && styles.teamChipActive]}
+                      onPress={() => setForm((f) => (f ? { ...f, homeTeam: t.name } : f))}
+                    >
+                      {t.logoUrl && <Image source={{ uri: t.logoUrl }} style={styles.teamChipLogo} />}
+                      <Text style={[styles.teamChipText, form?.homeTeam === t.name && styles.teamChipTextActive]}>{t.name}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              )}
               <Text style={styles.label}>Squadra Trasferta</Text>
               <TextInput
                 style={styles.input}
@@ -310,6 +396,20 @@ export default function AltrePartite() {
                 onChangeText={(v) => setForm((f) => (f ? { ...f, awayTeam: v } : f))}
                 placeholder="Nome squadra"
               />
+              {teams.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.teamChipsRow}>
+                  {teams.map((t) => (
+                    <Pressable
+                      key={t.id}
+                      style={[styles.teamChip, form?.awayTeam === t.name && styles.teamChipActive]}
+                      onPress={() => setForm((f) => (f ? { ...f, awayTeam: t.name } : f))}
+                    >
+                      {t.logoUrl && <Image source={{ uri: t.logoUrl }} style={styles.teamChipLogo} />}
+                      <Text style={[styles.teamChipText, form?.awayTeam === t.name && styles.teamChipTextActive]}>{t.name}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              )}
               <Text style={styles.label}>Risultato</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <TextInput
@@ -361,15 +461,15 @@ const styles = StyleSheet.create({
   },
   backBtnTxt: { fontSize: 18, fontWeight: '800', color: '#111' },
   title: { flex: 1, fontSize: 24, fontWeight: '800', color: '#1a202c' },
-  matchTitle: { fontSize: 18, fontWeight: '700', color: '#1a202c', marginTop: 8 },
-  matchSub: { fontSize: 14, color: '#64748b', marginBottom: 8 },
+  matchTitle: { fontSize: 18, fontWeight: '700', color: '#1a202c', marginTop: 8, marginBottom: 12 },
 
-  banner: {
-    marginTop: 16, backgroundColor: '#fffbeb', borderRadius: 12, borderWidth: 1, borderColor: '#fde68a',
-    padding: 14,
+  metaCard: {
+    backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#e5e7eb',
+    padding: 14, marginBottom: 4,
   },
-  bannerTitle: { fontWeight: '800', color: '#92400e', marginBottom: 4 },
-  bannerText: { color: '#92400e', fontSize: 13, lineHeight: 18 },
+  metaRow: { flexDirection: 'row', gap: 10 },
+  metaSaving: { marginTop: 8, fontSize: 12, color: '#6b7280', fontStyle: 'italic' },
+  metaHint: { marginTop: 10, fontSize: 13, color: '#92400e', lineHeight: 18 },
 
   emptyState: { alignItems: 'center', paddingVertical: 32 },
   emptyIcon: { fontSize: 32, marginBottom: 8 },
@@ -384,6 +484,7 @@ const styles = StyleSheet.create({
   },
   fixtureHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   fixtureTeams: { flex: 1, fontSize: 15, fontWeight: '700', color: '#1a202c' },
+  fixtureTeamLogo: { width: 16, height: 16 },
   fixtureVs: { color: '#9ca3af', fontWeight: '400' },
   scoreBadge: { backgroundColor: '#f1f5f9', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   scoreBadgeText: { fontWeight: '800', color: '#1a202c' },
@@ -422,6 +523,16 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: '800', marginBottom: 10, color: '#1a202c' },
   label: { fontSize: 13, fontWeight: '700', color: '#374151', marginTop: 8, marginBottom: 4 },
   input: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#fff' },
+  teamChipsRow: { marginTop: 6 },
+  teamChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderWidth: 1, borderColor: '#d1d5db', borderRadius: 999,
+    paddingHorizontal: 10, paddingVertical: 5, marginRight: 6, backgroundColor: '#fff',
+  },
+  teamChipActive: { backgroundColor: '#1b7f3b', borderColor: '#1b7f3b' },
+  teamChipLogo: { width: 16, height: 16, resizeMode: 'contain' },
+  teamChipText: { fontSize: 12, fontWeight: '600', color: '#374151' },
+  teamChipTextActive: { color: '#fff' },
   btn: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   btnOutline: { backgroundColor: '#f3f4f6' },
   btnOutlineText: { fontWeight: '800', color: '#111' },

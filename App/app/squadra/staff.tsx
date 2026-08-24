@@ -8,6 +8,7 @@ import NotifyRecipientsPicker from '../components/NotifyRecipientsPicker';
 import { useAuth } from '../context/AuthContext';
 import { loadPendingInvites, revokeInvite, type PendingInvite } from '../data/invites';
 import {
+  loadHomeStadium,
   loadListaGaraShowStaff,
   loadNotifyConfig,
   loadOrgLogoUrl,
@@ -15,6 +16,7 @@ import {
   loadStaffExportPermissions,
   loadStaffRoleOptions,
   loadSurveysEnabled,
+  saveHomeStadium,
   saveListaGaraShowStaff,
   saveNotifyConfig,
   saveShowTrainingAttendance,
@@ -67,6 +69,8 @@ export default function AdminScreen() {
   const [exportPermissionsBusy, setExportPermissionsBusy] = useState(false);
   const [listaGaraShowStaff, setListaGaraShowStaff] = useState(true);
   const [listaGaraShowStaffBusy, setListaGaraShowStaffBusy] = useState(false);
+  const [homeStadium, setHomeStadium] = useState('');
+  const [homeStadiumBusy, setHomeStadiumBusy] = useState(false);
 
   const [confirmRemove, setConfirmRemove] = useState<OrgMember | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState<PendingInvite | null>(null);
@@ -81,7 +85,7 @@ export default function AdminScreen() {
     if (!membership) return;
     setLoading(true);
     try {
-      const [m, p, logo, roles, staff, showAttendance, notifyLive, notifyEdit, surveysOn, exportPerms, listaGaraStaff] = await Promise.all([
+      const [m, p, logo, roles, staff, showAttendance, notifyLive, notifyEdit, surveysOn, exportPerms, listaGaraStaff, homeStadiumValue] = await Promise.all([
         loadOrgMembers(membership.orgId),
         loadPendingInvites(membership.orgId),
         loadOrgLogoUrl(),
@@ -93,6 +97,7 @@ export default function AdminScreen() {
         loadSurveysEnabled(),
         loadStaffExportPermissions(),
         loadListaGaraShowStaff(),
+        loadHomeStadium(),
       ]);
       setMembers(m);
       setPending(p);
@@ -105,6 +110,7 @@ export default function AdminScreen() {
       setSurveysEnabled(surveysOn);
       setExportPermissions(exportPerms);
       setListaGaraShowStaff(listaGaraStaff);
+      setHomeStadium(homeStadiumValue);
     } catch {
       Alert.alert('Errore', 'Impossibile caricare i dati dello staff.');
     } finally {
@@ -217,6 +223,17 @@ export default function AdminScreen() {
       Alert.alert('Errore', 'Impossibile salvare l\'impostazione.');
     } finally {
       setListaGaraShowStaffBusy(false);
+    }
+  };
+
+  const handleSaveHomeStadium = async () => {
+    setHomeStadiumBusy(true);
+    try {
+      await saveHomeStadium(homeStadium.trim());
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare lo stadio di casa.');
+    } finally {
+      setHomeStadiumBusy(false);
     }
   };
 
@@ -404,6 +421,24 @@ export default function AdminScreen() {
               </Text>
             </View>
             <Switch value={surveysEnabled} onValueChange={handleToggleSurveys} disabled={surveysBusy} />
+          </View>
+
+          <View style={{ marginTop: 12 }}>
+            <Text style={styles.configLabel}>Stadio di casa</Text>
+            <Text style={styles.cardHint}>
+              Usato per precompilare il Luogo quando crei una partita in CASA scegliendo
+              l'avversario da "🏟️ Squadre" (Partite → una competizione → Squadre).
+            </Text>
+            <View style={styles.addRow}>
+              <TextInput
+                style={[styles.input, { flex: 1, marginVertical: 0 }]}
+                placeholder="Es. Stadio Comunale"
+                value={homeStadium}
+                onChangeText={setHomeStadium}
+                onBlur={handleSaveHomeStadium}
+              />
+              {homeStadiumBusy && <ActivityIndicator size="small" color="#1b7f3b" />}
+            </View>
           </View>
 
           <View style={styles.switchRow}>

@@ -115,6 +115,21 @@ export async function saveSurveysEnabled(value: boolean): Promise<void> {
   if (error) throw error;
 }
 
+/** Stadio di casa della propria squadra — usato per prepopolare il "Luogo" di una partita in CASA
+ * quando si sceglie una squadra configurata (vedi app/data/competitionTeams.ts) per l'avversario. */
+export async function loadHomeStadium(): Promise<string> {
+  const orgId = getCurrentOrgId();
+  const { data, error } = await supabase.from('organizations').select('home_stadium').eq('id', orgId).maybeSingle();
+  if (error) throw error;
+  return data?.home_stadium ?? '';
+}
+
+export async function saveHomeStadium(value: string): Promise<void> {
+  const orgId = getCurrentOrgId();
+  const { error } = await supabase.from('organizations').update({ home_stadium: value || null }).eq('id', orgId);
+  if (error) throw error;
+}
+
 /* ---------------- Permessi Staff: Importa/Esporta/Modello (e "Seleziona" in Rosa) ---------------- */
 
 export type StaffExportArea = 'rosa' | 'partite' | 'allenamenti';

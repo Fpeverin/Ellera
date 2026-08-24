@@ -1,6 +1,7 @@
 // app/components/partite/CompetitionModal.tsx
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -10,6 +11,9 @@ import {
   View,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
+import { CompetitionTeam, loadCompetitionTeams } from '../../data/competitionTeams';
+import { loadHomeStadium } from '../../data/organization';
+import CompetitionTeamsModal from './CompetitionTeamsModal';
 
 type CalendarDay = {
   dateString: string;
@@ -26,6 +30,7 @@ type NewRound = {
   homeAway: 'CASA' | 'TRASFERTA';
   location: string;
   giornata: string;
+  opponentLogoPath?: string;
 };
 
 interface CompetitionModalProps {
@@ -44,6 +49,33 @@ export default function CompetitionModal({ visible, onClose, onCreateCompetition
   const [roundsCount, setRoundsCount] = useState('10');
   const [rounds, setRounds] = useState<NewRound[]>([]);
   const [datePickerRoundIdx, setDatePickerRoundIdx] = useState<number | null>(null);
+  const [teams, setTeams] = useState<CompetitionTeam[]>([]);
+  const [homeStadium, setHomeStadium] = useState('');
+  const [showTeamsModal, setShowTeamsModal] = useState(false);
+
+  useEffect(() => {
+    if (visible) loadHomeStadium().then(setHomeStadium).catch(() => {});
+  }, [visible]);
+
+  const reloadTeams = () => {
+    const name = compName.trim();
+    if (!name) { setTeams([]); return; }
+    loadCompetitionTeams(name).then(setTeams).catch(() => setTeams([]));
+  };
+
+  useEffect(() => {
+    if (!visible) return;
+    reloadTeams();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, compName]);
+
+  /** Luogo automatico da proporre (solo se il round non ne ha già uno scritto a mano): lo stadio
+   * di casa configurato in Admin se giochiamo in CASA, lo stadio della squadra scelta (se
+   * configurato) se giochiamo in TRASFERTA. */
+  const computeAutoLocation = (opponent: string, homeAway: 'CASA' | 'TRASFERTA'): string | undefined => {
+    if (homeAway === 'CASA') return homeStadium || undefined;
+    return teams.find((t) => t.name === opponent)?.stadium || undefined;
+  };
 
   const generateRounds = (n: number) => {
     const arr: NewRound[] = [];
@@ -99,7 +131,25 @@ export default function CompetitionModal({ visible, onClose, onCreateCompetition
 
   const updateRound = (idx: number, field: keyof NewRound, value: string | 'CASA' | 'TRASFERTA') => {
     const updated = [...rounds];
-    updated[idx] = { ...updated[idx], [field]: value };
+    const round = { ...updated[idx], [field]: value } as NewRound;
+    if ((field === 'opponent' || field === 'homeAway') && !round.location) {
+      const auto = computeAutoLocation(round.opponent, round.homeAway);
+      if (auto) round.location = auto;
+    }
+    updated[idx] = round;
+    setRounds(updated);
+  };
+
+  /** Scelta di una squadra configurata dai chip: oltre al nome, riusa automaticamente stadio
+   * (per il Luogo, se non già scritto a mano) e stemma della squadra per questo round. */
+  const pickTeamForRound = (idx: number, team: CompetitionTeam) => {
+    const updated = [...rounds];
+    const round = { ...updated[idx], opponent: team.name, opponentLogoPath: team.logoPath || undefined };
+    if (!round.location) {
+      const auto = computeAutoLocation(round.opponent, round.homeAway);
+      if (auto) round.location = auto;
+    }
+    updated[idx] = round;
     setRounds(updated);
   };
 
@@ -111,6 +161,7 @@ export default function CompetitionModal({ visible, onClose, onCreateCompetition
   }, [visible]);
 
   return (
+    <>
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <View style={styles.sheet}>
@@ -123,6 +174,13 @@ export default function CompetitionModal({ visible, onClose, onCreateCompetition
               placeholder="Esempio: Coppa / Campionato"
               style={[styles.input, !compName && styles.inputWarn]}
             />
+            <Pressable
+              style={[styles.teamsConfigBtn, !compName.trim() && { opacity: 0.5 }]}
+              onPress={() => setShowTeamsModal(true)}
+              disabled={!compName.trim()}
+            >
+              <Text style={styles.teamsConfigBtnText}>🏟️ Configura Squadre della competizione</Text>
+            </Pressable>
 
             <Text style={styles.label}>Numero giornate</Text>
             <TextInput
@@ -159,6 +217,22 @@ export default function CompetitionModal({ visible, onClose, onCreateCompetition
                     placeholder="Nome avversario"
                     style={[styles.inputMini, rowErr.opponent && styles.inputError]}
                   />
+                  {teams.length > 0 && (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.teamChipsRow}>
+                      {teams.map((t) => (
+                        <Pressable
+                          key={t.id}
+                          style={[styles.teamChip, r.opponent === t.name && styles.teamChipActive]}
+                          onPress={() => pickTeamForRound(idx, t)}
+                        >
+                          {t.logoUrl && <Image source={{ uri: t.logoUrl }} style={styles.teamChipLogo} />}
+                          <Text style={[styles.teamChipText, r.opponent === t.name && styles.teamChipTextActive]}>
+                            {t.name}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  )}
 
                   <Text style={styles.labelMini}>Data</Text>
                   <View style={styles.dateRow}>
@@ -250,6 +324,15 @@ export default function CompetitionModal({ visible, onClose, onCreateCompetition
         </View>
       </View>
     </Modal>
+    <CompetitionTeamsModal
+      visible={showTeamsModal}
+      competition={compName.trim()}
+      onClose={() => {
+        setShowTeamsModal(false);
+        reloadTeams();
+      }}
+    />
+    </>
   );
 }
 
@@ -306,6 +389,24 @@ const styles = StyleSheet.create({
   inputError: {
     borderColor: '#b91c1c',
   },
+  teamsConfigBtn: {
+    marginTop: 8,
+    backgroundColor: '#eef2f7',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  teamsConfigBtnText: { color: '#1b4f7f', fontWeight: '700', fontSize: 13 },
+  teamChipsRow: { marginTop: 6 },
+  teamChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderWidth: 1, borderColor: '#d1d5db', borderRadius: 999,
+    paddingHorizontal: 10, paddingVertical: 5, marginRight: 6, backgroundColor: '#fff',
+  },
+  teamChipActive: { backgroundColor: '#1b4f7f', borderColor: '#1b4f7f' },
+  teamChipLogo: { width: 16, height: 16, resizeMode: 'contain' },
+  teamChipText: { fontSize: 12, fontWeight: '600', color: '#374151' },
+  teamChipTextActive: { color: '#fff' },
   roundCard: {
     backgroundColor: '#f9fafb',
     borderRadius: 8,

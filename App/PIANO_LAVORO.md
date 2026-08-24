@@ -145,6 +145,20 @@ icona ⚽/🏃 a ogni pillola/riga evento, un colore stabile per competizione (h
 competizione sempre stesso colore), e il numero di giornata mostrato per primo nella pillola (prima
 del troncamento a una riga). Vedi CLAUDE.md per i dettagli tecnici completi.
 
+**Fix — terzo giro (2026-08-24)**: Francesco non voleva dover impostare Competizione/Giornata
+altrove prima di poter usare Altre Partite — ora si impostano direttamente in quella schermata
+(due campi editabili in cima, autosalvano sulla partita al blur), il resto della sezione resta
+condizionato ad averle compilate ma con un avviso leggero, non più un blocco a piena pagina.
+
+**Nuovo, stesso giorno — Squadre fisse per competizione**: su richiesta di Francesco, ora si
+possono configurare una volta le squadre di una competizione (nome, stadio, stemma —
+`CompetitionTeamsModal.tsx` nuovo, raggiungibile da Partite e da dentro "Crea Calendario
+Competizione") e riusarle come scelta rapida (chip) ovunque si sceglie un avversario o le squadre
+di un incontro: creazione calendario competizione, creazione partita singola, Altre Partite.
+Scegliendo una squadra dai chip si precompilano automaticamente anche Luogo (dallo stadio della
+squadra in trasferta, o dal nuovo "Stadio di casa" configurabile in Admin se si gioca in casa) e lo
+stemma avversario della partita. Vedi CLAUDE.md per i dettagli tecnici completi.
+
 ### Statistiche: gol subiti dal portiere come numero negativo (2026-08-24)
 La colonna "Gol" per il ruolo Portiere mostra già i gol subiti invece di quelli fatti — richiesta di
 Francesco: mostrarli come numero negativo (-1, -2, ...) invece di un numero semplice che poteva
