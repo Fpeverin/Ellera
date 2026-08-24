@@ -1082,6 +1082,48 @@ componenti; nessuna funzionalità persa.
   esattamente come prima; il tap su un giorno della griglia mensile deve aprire l'evento giusto; il
   passaggio da Live a "torna a Partite" deve aprire il Calendario già sul tab Partite.
 
+### Fix: griglia 4 riquadri poco leggibile + icone/colori/giornata nel calendario mensile — 2026-08-24 (secondo giro)
+Feedback di Francesco dopo il primo giro: "I quattro quadrati sulla partita non si vedono bene, sul
+calendario (sia Home sia Calendario) devono vedersi le icone e deve essere in qualche modo
+evidenziato il numero della giornata e la competizione (anche con colori diversi in base alla
+competizione)".
+
+**Griglia 4 riquadri** (`app/eventi/partita/[id]/index.tsx`, Punto 4): causa reale — il contenitore
+attorno alla griglia non aveva `flex: 1`, quindi la griglia si dimensionava solo in base
+all'`aspectRatio` delle card (piccola, con molto spazio vuoto sotto, ben lontana da "quasi tutto lo
+schermo" come da richiesta originale), e `width: '48%'` + `gap: 12` in un `flexWrap` poteva far
+"saltare" la seconda card a capo su schermi stretti per arrotondamento (grafica non prevedibile).
+**Fix**: struttura a due righe esplicite (`gridRow`, una per coppia di riquadri) invece di
+`flexWrap`, ciascuna `flex: 1` dentro un contenitore `cardsGrid` anch'esso `flex: 1` — la griglia
+ora riempie davvero lo spazio verticale disponibile sotto l'intestazione, indipendentemente dalla
+larghezza schermo. Aggiunto anche un cerchietto colorato dietro ogni icona (`iconBadge`, un colore
+diverso per riquadro) per renderle più leggibili, bordo sottile sulle card e sottotitolo di
+competizione/giornata sotto il titolo partita.
+
+**Calendario mensile** (`app/components/MonthCalendarGrid.tsx`, usato sia da Home sia dal nuovo
+Calendario): le pillole degli eventi mostravano solo testo (nessuna icona) e MAI la giornata — solo
+"Ellera - Avversario · Competizione", troncato a una riga già prima della giornata. Nuovo file
+condiviso **`app/utils/eventDisplay.ts`** (elimina anche una duplicazione: `pillColor`/
+`formatEventPill` esistevano identiche sia in `MonthCalendarGrid.tsx` sia in `app/index.tsx`):
+- `eventColor(ev)`: allenamento sempre verde; una partita **senza** competizione resta rossa (come
+  prima); una partita **con** competizione prende un colore stabile ricavato da un hash del nome
+  competizione (stessa competizione → sempre lo stesso colore, tra una tavolozza di 8) — soddisfa
+  "colori diversi in base alla competizione".
+- `eventIcon(ev)`: ⚽ per le partite, 🏃 per gli allenamenti — anteposto al testo di ogni pillola e
+  di ogni riga della modale "Eventi del giorno" e del blocco "Oggi/Domani" in Home.
+  `eventCompactLabel(ev)`: pensata per lo spazio minuscolo di una pillola nella griglia mensile —
+  per una partita mostra **il numero di giornata PRIMA dell'avversario** (es. "5ª · Real Foligno"),
+  visibile prima del troncamento a una riga invece di sparire in coda come accadeva con il vecchio
+  formato; la competizione non è ripetuta per esteso qui perché già distinguibile dal colore.
+  `eventFullLabel(ev)`: formato esteso invariato (usato dove lo spazio non manca — blocco "Oggi/
+  Domani", modale "Eventi del giorno").
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti; verificato che la schermata di
+  login si carichi senza errori console con un server locale. **Non verificabile oltre il login in
+  questo ambiente** (richiede credenziali reali) — **verifica dal vero necessaria**: aprire una
+  partita pre-Start e controllare che i 4 riquadri riempiano bene lo schermo; controllare che nella
+  griglia mensile (Home e Calendario) compaiano le icone ⚽/🏃, che partite di competizioni diverse
+  abbiano colori diversi e che il numero di giornata sia leggibile nella pillola.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

@@ -136,6 +136,15 @@ con priorità molto alta, soprattutto il punto 4** (il più esteso): ripetere og
 Allenamenti e Partite dal nuovo Calendario, il tap sulla griglia mensile, e il rientro da Live sul
 tab Partite del Calendario.
 
+**Fix — secondo giro (2026-08-24)**: feedback di Francesco dopo il primo giro — i 4 riquadri della
+pagina partita non riempivano bene lo schermo (bug di layout, contenitore senza `flex:1`) e il
+calendario mensile (Home + Calendario) non mostrava icone né evidenziava competizione/giornata.
+Corretto: griglia 4 riquadri ora a due righe `flex:1` (riempie davvero lo spazio disponibile, con
+un cerchietto colorato dietro ogni icona); nuovo `app/utils/eventDisplay.ts` condiviso aggiunge
+icona ⚽/🏃 a ogni pillola/riga evento, un colore stabile per competizione (hash del nome — stessa
+competizione sempre stesso colore), e il numero di giornata mostrato per primo nella pillola (prima
+del troncamento a una riga). Vedi CLAUDE.md per i dettagli tecnici completi.
+
 ### Statistiche: gol subiti dal portiere come numero negativo (2026-08-24)
 La colonna "Gol" per il ruolo Portiere mostra già i gol subiti invece di quelli fatti — richiesta di
 Francesco: mostrarli come numero negativo (-1, -2, ...) invece di un numero semplice che poteva

@@ -7,6 +7,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Modal, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { CalendarEvent } from '../data/events';
+import { eventColor, eventCompactLabel, eventFullLabel, eventIcon } from '../utils/eventDisplay';
 
 function pad2(n: number) {
   return String(n).padStart(2, '0');
@@ -40,21 +41,6 @@ export default function MonthCalendarGrid({ events, onSelectEvent }: Props) {
     }
     return map;
   }, [events]);
-
-  const pillColor = (ev: CalendarEvent) => (ev.type === 'PARTITA' ? '#e74c3c' : '#1b7f3b');
-
-  const formatEventPill = (ev: CalendarEvent) => {
-    if (ev.type === 'ALLENAMENTO') {
-      const tema = ev.temaAllenamento ? ` · ${ev.temaAllenamento}` : '';
-      const comp = (ev as any).competition ? ` · ${(ev as any).competition}` : '';
-      return `Allenamento${tema}${comp}`;
-    }
-    const opp = ev.opponent || 'Avversario';
-    const ha = (ev as any).homeAway as 'CASA' | 'TRASFERTA' | undefined;
-    const titolo = ha === 'TRASFERTA' ? `${opp} - Ellera` : `Ellera - ${opp}`;
-    const comp = (ev as any).competition ? ` · ${(ev as any).competition}` : '';
-    return `${titolo}${comp}`;
-  };
 
   const shiftMonth = (delta: number) => {
     setViewMonth((prev) => {
@@ -122,9 +108,9 @@ export default function MonthCalendarGrid({ events, onSelectEvent }: Props) {
 
           <View style={styles.pillsWrap}>
             {topTwo.map((ev) => (
-              <View key={ev.id} style={[styles.pill, { backgroundColor: pillColor(ev) }]}>
+              <View key={ev.id} style={[styles.pill, { backgroundColor: eventColor(ev) }]}>
                 <Text style={[styles.pillText, isWide && styles.pillTextWide]} numberOfLines={1}>
-                  {formatEventPill(ev)}
+                  {eventIcon(ev)} {eventCompactLabel(ev)}
                 </Text>
               </View>
             ))}
@@ -215,9 +201,9 @@ export default function MonthCalendarGrid({ events, onSelectEvent }: Props) {
                   onSelectEvent(ev);
                 }}
               >
-                <View style={[styles.dayPickerDot, { backgroundColor: pillColor(ev) }]} />
+                <View style={[styles.dayPickerDot, { backgroundColor: eventColor(ev) }]} />
                 <Text style={styles.dayPickerItemText} numberOfLines={1}>
-                  {formatEventPill(ev)}
+                  {eventIcon(ev)} {eventFullLabel(ev)}
                 </Text>
               </Pressable>
             ))}

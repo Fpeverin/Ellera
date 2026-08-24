@@ -8,6 +8,7 @@ import { CalendarEvent, loadEvents } from './data/events';
 import { registerPushTokenForCurrentUser } from './data/pushNotify';
 import MonthCalendarGrid from './components/MonthCalendarGrid';
 import TeamLogo from './components/TeamLogo';
+import { eventColor, eventFullLabel, eventIcon } from './utils/eventDisplay';
 import { scheduleEventReminders } from './utils/eventReminders';
 
 /* ------------------ Helpers date in fuso locale (no UTC) ------------------ */
@@ -87,22 +88,6 @@ export default function Dashboard() {
   const todayEvents = useMemo(() => eventsByDate.get(todayStr) ?? [], [eventsByDate, todayStr]);
   const tomorrowEvents = useMemo(() => eventsByDate.get(tomorrowStr) ?? [], [eventsByDate, tomorrowStr]);
 
-  /* ---------------------- Format e colori delle pill ---------------------- */
-  const pillColor = (ev: CalendarEvent) => (ev.type === 'PARTITA' ? '#e74c3c' : '#1b7f3b');
-
-  const formatEventPill = (ev: CalendarEvent) => {
-    if (ev.type === 'ALLENAMENTO') {
-      const tema = ev.temaAllenamento ? ` · ${ev.temaAllenamento}` : '';
-      const comp = (ev as any).competition ? ` · ${(ev as any).competition}` : '';
-      return `Allenamento${tema}${comp}`;
-    }
-    const opp = ev.opponent || 'Avversario';
-    const ha = (ev as any).homeAway as 'CASA' | 'TRASFERTA' | undefined;
-    const titolo = ha === 'TRASFERTA' ? `${opp} - Ellera` : `Ellera - ${opp}`;
-    const comp = (ev as any).competition ? ` · ${(ev as any).competition}` : '';
-    return `${titolo}${comp}`;
-  };
-
   const goToEvent = (ev: CalendarEvent) => {
     router.push(ev.type === 'PARTITA' ? `/eventi/partita/${ev.id}` : `/eventi/allenamento/${ev.id}`);
   };
@@ -115,10 +100,10 @@ export default function Dashboard() {
       ) : (
         list.map((ev) => (
           <Pressable key={ev.id} style={styles.dayBlockRow} onPress={() => goToEvent(ev)}>
-            <View style={[styles.dayBlockDot, { backgroundColor: pillColor(ev) }]} />
+            <View style={[styles.dayBlockDot, { backgroundColor: eventColor(ev) }]} />
             <View style={{ flex: 1 }}>
               <Text style={styles.dayBlockTitle} numberOfLines={1}>
-                {formatEventPill(ev)}
+                {eventIcon(ev)} {eventFullLabel(ev)}
               </Text>
               <Text style={styles.dayBlockDetails}>
                 {ev.time || '--:--'}

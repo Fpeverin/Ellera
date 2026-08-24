@@ -82,9 +82,15 @@ export default function PartitaIndexChooser() {
     );
   }
 
+  const compLabel = (event as any)?.competition
+    ? `${(event as any).competition}${(event as any)?.giornata ? ` · ${(event as any).giornata}ª giornata` : ''}`
+    : (event as any)?.giornata
+    ? `${(event as any).giornata}ª giornata`
+    : null;
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <View style={{ padding: 20 }}>
+      <View style={styles.content}>
         <View style={styles.titleRow}>
           <Pressable style={styles.backBtn} onPress={() => router.back()} accessibilityLabel="Indietro">
             <Text style={styles.backBtnTxt}>←</Text>
@@ -92,48 +98,60 @@ export default function PartitaIndexChooser() {
           <Text style={styles.title}>Ellera{event?.opponent ? ` - ${event.opponent}` : ''}</Text>
           <TeamLogo size={28} />
         </View>
-        {(event?.date || event?.time) && (
+        {(event?.date || event?.time || compLabel) && (
           <Text style={styles.subtitle}>
-            {event?.date} {event?.time ? `· ${event.time}` : ''}
+            {event?.date} {event?.time ? `· ${event.time} ` : ''}{compLabel ? `· ${compLabel}` : ''}
           </Text>
         )}
 
         <View style={styles.cardsGrid}>
-          <Pressable
-            style={[styles.gridCard, styles.convocazioneCard]}
-            onPress={() => router.push(`/eventi/partita/${matchId}/convocazione`)}
-          >
-            <Text style={styles.actionIcon}>📋</Text>
-            <Text style={styles.actionTitle}>CONVOCAZIONE</Text>
-            <Text style={styles.actionSubtitle}>Chi convocare, ritrovo, PDF</Text>
-          </Pressable>
+          <View style={styles.gridRow}>
+            <Pressable
+              style={[styles.gridCard, styles.convocazioneCard]}
+              onPress={() => router.push(`/eventi/partita/${matchId}/convocazione`)}
+            >
+              <View style={[styles.iconBadge, { backgroundColor: '#16a34a' }]}>
+                <Text style={styles.actionIcon}>📋</Text>
+              </View>
+              <Text style={styles.actionTitle}>CONVOCAZIONE</Text>
+              <Text style={styles.actionSubtitle}>Chi convocare, ritrovo, PDF</Text>
+            </Pressable>
 
-          <Pressable
-            style={[styles.gridCard, styles.listaGaraCard]}
-            onPress={() => router.push(`/eventi/partita/${matchId}/listaGara`)}
-          >
-            <Text style={styles.actionIcon}>🧾</Text>
-            <Text style={styles.actionTitle}>LISTA GARA</Text>
-            <Text style={styles.actionSubtitle}>Numeri e staff</Text>
-          </Pressable>
+            <Pressable
+              style={[styles.gridCard, styles.listaGaraCard]}
+              onPress={() => router.push(`/eventi/partita/${matchId}/listaGara`)}
+            >
+              <View style={[styles.iconBadge, { backgroundColor: '#4f46e5' }]}>
+                <Text style={styles.actionIcon}>🧾</Text>
+              </View>
+              <Text style={styles.actionTitle}>LISTA GARA</Text>
+              <Text style={styles.actionSubtitle}>Numeri e staff</Text>
+            </Pressable>
+          </View>
 
-          <Pressable
-            style={[styles.gridCard, styles.liveCard]}
-            onPress={() => router.push(`/eventi/partita/${matchId}/live`)}
-          >
-            <Text style={styles.actionIcon}>🔴</Text>
-            <Text style={styles.actionTitle}>LIVE</Text>
-            <Text style={styles.actionSubtitle}>Formazione, tattiche, cronaca</Text>
-          </Pressable>
+          <View style={styles.gridRow}>
+            <Pressable
+              style={[styles.gridCard, styles.liveCard]}
+              onPress={() => router.push(`/eventi/partita/${matchId}/live`)}
+            >
+              <View style={[styles.iconBadge, { backgroundColor: '#dc2626' }]}>
+                <Text style={styles.actionIcon}>🔴</Text>
+              </View>
+              <Text style={styles.actionTitle}>LIVE</Text>
+              <Text style={styles.actionSubtitle}>Formazione, tattiche, cronaca</Text>
+            </Pressable>
 
-          <Pressable
-            style={[styles.gridCard, styles.altrePartiteCard]}
-            onPress={() => router.push(`/eventi/partita/${matchId}/altrePartite`)}
-          >
-            <Text style={styles.actionIcon}>🗓️</Text>
-            <Text style={styles.actionTitle}>ALTRE PARTITE</Text>
-            <Text style={styles.actionSubtitle}>Risultati della giornata</Text>
-          </Pressable>
+            <Pressable
+              style={[styles.gridCard, styles.altrePartiteCard]}
+              onPress={() => router.push(`/eventi/partita/${matchId}/altrePartite`)}
+            >
+              <View style={[styles.iconBadge, { backgroundColor: '#d97706' }]}>
+                <Text style={styles.actionIcon}>🗓️</Text>
+              </View>
+              <Text style={styles.actionTitle}>ALTRE PARTITE</Text>
+              <Text style={styles.actionSubtitle}>Risultati della giornata</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -158,32 +176,47 @@ const styles = StyleSheet.create({
   preMatchVs: { fontSize: 14, fontWeight: '700', color: '#94a3b8' },
   preMatchHint: { fontSize: 13, color: '#94a3b8', marginTop: 20 },
 
+  content: { flex: 1, padding: 20 },
   cardsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 28,
     flex: 1,
+    gap: 14,
+    marginTop: 24,
+  },
+  gridRow: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 14,
   },
   gridCard: {
-    width: '48%',
-    aspectRatio: 1.15,
+    flex: 1,
+    minHeight: 130,
     backgroundColor: 'white',
-    borderRadius: 16,
-    paddingVertical: 20,
-    paddingHorizontal: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(15,23,42,0.06)',
+    paddingVertical: 16,
+    paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
-  convocazioneCard: { backgroundColor: '#dcfce7' },
-  listaGaraCard: { backgroundColor: '#e0e7ff' },
-  liveCard: { backgroundColor: '#fee2e2' },
-  altrePartiteCard: { backgroundColor: '#fef3c7' },
-  actionIcon: { fontSize: 32 },
-  actionTitle: { fontSize: 14, fontWeight: '900', marginTop: 10, color: '#0f172a' },
-  actionSubtitle: { fontSize: 12, color: '#6b7280', marginTop: 4, textAlign: 'center', paddingHorizontal: 8 },
+  convocazioneCard: { backgroundColor: '#f0fdf4' },
+  listaGaraCard: { backgroundColor: '#eef2ff' },
+  liveCard: { backgroundColor: '#fef2f2' },
+  altrePartiteCard: { backgroundColor: '#fffbeb' },
+  iconBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  actionIcon: { fontSize: 26 },
+  actionTitle: { fontSize: 14, fontWeight: '900', letterSpacing: 0.3, color: '#0f172a', textAlign: 'center' },
+  actionSubtitle: { fontSize: 12, color: '#6b7280', marginTop: 4, textAlign: 'center', paddingHorizontal: 4 },
 });
