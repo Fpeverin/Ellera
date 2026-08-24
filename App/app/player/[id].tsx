@@ -392,6 +392,7 @@ export default function PlayerDetail() {
           homeAway?: 'HOME'|'AWAY';
           resultText?: string;
           cards?: SavedCard[];
+          matchDurationMinutes?: number;
           competition?: string; competizione?: string; torneo?: string; league?: string; categoria?: string;
         })[] = await loadEvents();
 
@@ -426,8 +427,9 @@ export default function PlayerDetail() {
             started = hasOut && !hasIn;
           }
 
-          // minuti
-          const FULL = 90;
+          // minuti — durata impostata a mano in Live ha la priorità (copre le partite più corte di
+          // 90', es. mai seguite dal vivo), altrimenti 90' come prima.
+          const FULL = ev.matchDurationMinutes || 90;
           const subOnMin  = (() => {
             const xs = subs.filter(s => s.inId === id).map(s => s.minute);
             return xs.length ? Math.min(...xs) : null;

@@ -120,7 +120,7 @@ function computeStats(
     const lu = m.lineup;
     const field = (lu?.fieldPlayerIds ?? []).filter(Boolean) as string[];
     const bench = lu?.benchPlayerIds ?? [];
-    const FULL = 90;
+    const FULL = m.matchDurationMinutes || 90;
     const isHome = m.isHome;
     const opponentSide: 'HOME' | 'AWAY' = isHome ? 'AWAY' : 'HOME';
 
@@ -258,6 +258,7 @@ export async function buildSeasonArchive(label: string, allPlayers: Player[]): P
       subs,
       cards,
       tacticsIds: ev.tacticsIds ?? [],
+      matchDurationMinutes: (ev as any).matchDurationMinutes,
     };
   });
 

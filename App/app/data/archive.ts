@@ -78,6 +78,7 @@ export interface ArchivedMatch {
   subs: ArchivedSub[];
   cards: ArchivedCard[];
   tacticsIds: string[];
+  matchDurationMinutes?: number; // impostata a mano in Live per le partite mai seguite dal vivo
 }
 
 export interface ArchivedTraining {

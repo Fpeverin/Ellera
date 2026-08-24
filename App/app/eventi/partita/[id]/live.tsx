@@ -177,18 +177,21 @@ export default function LivePartita() {
     const next: PersistTimer = { running: false, startAt: null, pausedAccum: 0, lastPausedAt: null };
     await savePersistTimer(next);
   };
-const setSecondHalfBaseline = async () => {
-  const now = nowMs();
-  const fortyFive = 45 * 60 * 1000;
-  // Mostra 45:00 già a cronometro in pausa (all'intervallo)
-  const next: PersistTimer = {
-    running: false,
-    startAt: now - fortyFive,
-    pausedAccum: 0,
-    lastPausedAt: now, // così in pausa resta fermo a 45:00 finché non premi Start
+  // Fissa la baseline a 45:00 e riparte SUBITO, in un solo passaggio: calcola lo stato finale
+  // direttamente (mai leggendo `persistTimer` dalla closure), perché prima veniva chiamata insieme
+  // a `persistStart()` nella stessa pressione di bottone — due letture separate della stessa
+  // closure "vecchia" di `persistTimer`, la seconda ignorava l'aggiornamento appena fatto dalla
+  // prima (lo stato React di un `setState` non è visibile nella stessa closure già in esecuzione).
+  const startSecondHalf = async () => {
+    const now = nowMs();
+    const next: PersistTimer = {
+      running: true,
+      startAt: now - 45 * 60 * 1000,
+      pausedAccum: 0,
+      lastPausedAt: null,
+    };
+    await savePersistTimer(next);
   };
-  await savePersistTimer(next);
-};
   const [isFinished, setIsFinished] = useState(false);
   const [startedOnce, setStartedOnce] = useState(false);
 
@@ -196,8 +199,19 @@ const setSecondHalfBaseline = async () => {
   const [awayName, setAwayName] = useState<string>('Trasferta');
   const [ourSide, setOurSide]   = useState<TeamSide | null>(null);
 
+  // Un solo modale di inserimento evento (gol/cartellino/sostituzione/manuale) è aperto per volta:
+  // uno stato "in salvataggio" condiviso basta a disabilitare il bottone e impedire un doppio tocco
+  // durante il round-trip di rete (causa concreta di eventi doppi/mancanti su connessione instabile
+  // a bordo campo, segnalato dopo la prima partita — 2026-08-23).
+  const [savingEvent, setSavingEvent] = useState(false);
+
   const [finishOpen, setFinishOpen] = useState(false);
   const [finishBusy, setFinishBusy] = useState(false);
+  // Durata totale della partita in minuti — usata per calcolare i minuti giocati di chi non è mai
+  // stato sostituito. Di norma coincide con la partita seguita dal vivo, ma serve poterla impostare
+  // a mano quando nessuno ha usato il cronometro (richiesta di Francesco dopo la prima partita,
+  // 2026-08-23): senza, le statistiche userebbero sempre 90' fissi anche per una gara più corta.
+  const [matchDurationInput, setMatchDurationInput] = useState('90');
   const [finishError, setFinishError] = useState<string>('');
 
   // Regole di partecipazione (Under/Over) della competizione di questa partita
@@ -256,6 +270,11 @@ const setSecondHalfBaseline = async () => {
 
         if (ev?.status === 'FINISHED') setIsFinished(true);
 
+        const savedDuration = (ev as any)?.matchDurationMinutes;
+        if (typeof savedDuration === 'number' && savedDuration > 0) {
+          setMatchDurationInput(String(savedDuration));
+        }
+
         const competition = (ev as any)?.competition as string | undefined;
         if (competition) {
           try { setCompetitionRules(await loadCompetitionRules(competition)); } catch { setCompetitionRules(null); }
@@ -272,6 +291,19 @@ const setSecondHalfBaseline = async () => {
       setStartedOnce(started);
     })();
   }, [matchId]);
+
+  // Il nome "vero" di un convocato viene sempre da qui, mai dal campo `name` salvato in
+  // `live_formation` — quel campo può restare "congelato" a un valore sbagliato (vedi sotto) e
+  // altrimenti non si autocorreggerebbe mai da solo.
+  const basePlayersById = useMemo(
+    () => new Map(baseAllPlayers.map((p) => [p.id, p.name])),
+    [baseAllPlayers]
+  );
+  const withFreshNames = (list: InCampoPlayer[]) =>
+    list.map((p) => {
+      const real = basePlayersById.get(p.id);
+      return real && real !== p.name ? { ...p, name: real } : p;
+    });
 
   const [allPlayers, setAllPlayers] = useState<InCampoPlayer[]>([]);
   const [inCampo, setInCampo]       = useState<InCampoPlayer[]>([]);
@@ -290,8 +322,8 @@ const setSecondHalfBaseline = async () => {
       }
     }
 
-    // 3) normalizza e aggiorna stato
-    const norm = (arr as InCampoPlayer[]).map(p => ({ ...p, expelled: !!p.expelled }));
+    // 3) normalizza, ricalcola i nomi dalla Rosa e aggiorna stato
+    const norm = withFreshNames((arr as InCampoPlayer[]).map(p => ({ ...p, expelled: !!p.expelled })));
     setAllPlayers(norm);
     setInCampo(norm.filter(p => p.inField));
   };
@@ -304,10 +336,22 @@ const setSecondHalfBaseline = async () => {
     }, [matchId])
   );
 
+  // Se la Rosa (usePlayers) finisce di caricare DOPO la formazione — connessione lenta al campo,
+  // lo scenario reale in cui si è visto un id al posto del nome nelle select — questo effect
+  // corregge da solo i nomi appena i dati della Rosa sono disponibili, senza dover uscire e
+  // rientrare dalla schermata.
+  useEffect(() => {
+    if (basePlayersById.size === 0) return;
+    setAllPlayers((prev) => withFreshNames(prev));
+    setInCampo((prev) => withFreshNames(prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [basePlayersById]);
+
   const saveLiveFormation = async (list: InCampoPlayer[]) => {
-    setAllPlayers(list);
-    setInCampo(list.filter(p => p.inField));
-    await saveLiveFormationRemote(matchId!, list);
+    const fresh = withFreshNames(list);
+    await saveLiveFormationRemote(matchId!, fresh);
+    setAllPlayers(fresh);
+    setInCampo(fresh.filter(p => p.inField));
   };
 
   type InitLiveFormationResult = 'done' | 'already_started' | 'no_lineup' | 'blocked';
@@ -366,27 +410,37 @@ const setSecondHalfBaseline = async () => {
     await setStartedRemote(matchId!, false);
     setStartedOnce(false);
   };
+  // Ogni transizione di fase aggiorna il cronometro persistente in modo esplicito (mai tramite un
+  // effect legato a `isRunning`: quello stato vive nel TimerContext globale — montato una volta
+  // sola in app/_layout.tsx, non per-partita — quindi resta true tra una partita e l'altra. Un
+  // effect `[isRunning]` rifatto scattava a ogni mount/remount di questa schermata (es. tornando su
+  // Live dopo essere stati su Formazione) leggendo il valore di default {running:false,...} di
+  // `persistTimer` prima che il caricamento dal server finisse, e sovrascriveva il cronometro reale
+  // con uno "ripartito da ora" — bug reale osservato dopo la prima partita (2026-08-23).
   const onPressPhaseBtn = async () => {
     if (phase === 'FULL_TIME') { setFinishOpen(true); return; }
-    else if (phase === 'HALF_TIME') {
-      // stai per iniziare il 2° tempo: fissa la baseline a 45:00
-      await setSecondHalfBaseline();
+    if (phase === 'FIRST_HALF' || phase === 'SECOND_HALF') {
+      // fine tempo: ferma il cronometro persistente insieme al cambio fase
+      await persistPause();
+      nextPhase();
+      return;
+    }
+    if (phase === 'HALF_TIME') {
+      // inizio 2° tempo: fissa la baseline a 45:00 e la riavvia subito, in un solo passaggio
+      await startSecondHalf();
+      nextPhase();
+      return;
     }
     nextPhase();
   };
-
-  useEffect(() => {
-    (async () => {
-      if (isRunning) await persistStart();
-      else await persistPause();
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRunning]);
 
   const finalizeMatchAndSave = async () => {
     try {
       setFinishBusy(true);
       setFinishError('');
+      const parsedDuration = Math.round(Number(matchDurationInput));
+      const matchDurationMinutes = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 90;
+
       const events = await loadEvents();
       const idx = events.findIndex((e) => `${e.id}` === `${matchId}`);
       if (idx >= 0) {
@@ -399,6 +453,7 @@ const setSecondHalfBaseline = async () => {
           goals,
           subs,
           cards,
+          matchDurationMinutes,
         };
         await saveEvents(events);
       }
@@ -422,8 +477,8 @@ const setSecondHalfBaseline = async () => {
     })();
   }, [matchId]);
   const saveGoals = async (list: GoalItem[]) => {
-    setGoals(list);
     await saveGoalsRemote(matchId!, list);
+    setGoals(list);
     await touchApp();
   };
 
@@ -438,18 +493,20 @@ const setSecondHalfBaseline = async () => {
     })();
   }, [matchId]);
   const saveSubs = async (list: SubItem[]) => {
-    setSubs(list);
     await saveSubsRemote(matchId!, list);
+    setSubs(list);
     await touchApp();
   };
 
   /* ---------------- CARTELLINI ---------------- */
   const [cards, setCards] = useState<CardItem[]>([]);
 
-  // Ricalcolo espulsioni quando cambiano cartellini o convocati
+  // Ricalcolo espulsioni quando cambiano cartellini o convocati (best-effort: un eventuale errore
+  // di rete qui è già stato/sarà mostrato dall'azione esplicita che ha causato il cambio, es.
+  // persistCard — evita un doppio Alert per lo stesso problema).
   useEffect(() => {
     if (allPlayers.length === 0) return;
-    recomputeExpulsionsFromCards(cards);
+    recomputeExpulsionsFromCards(cards).catch(() => {});
   }, [cards, allPlayers]);
 
   useEffect(() => {
@@ -459,17 +516,24 @@ const setSecondHalfBaseline = async () => {
   }, [matchId]);
 
   const saveCards = async (list: CardItem[]) => {
-    setCards(list);
     await saveCardsRemote(matchId!, list);
+    setCards(list);
     await touchApp();
     await recomputeExpulsionsFromCards(list);
   };
 
+  /** Aggiorna `expelled`/`inField` in base ai cartellini — scrive `live_formation` SOLO se lo
+   * stato di espulsione di qualcuno è davvero cambiato. Prima confrontava sempre un array
+   * ricreato da zero (`.map` produce oggetti nuovi anche quando nulla cambia): siccome
+   * `saveLiveFormation` aggiorna `allPlayers`, e questa funzione gira anche in un effect che
+   * dipende da `allPlayers`, una scrittura incondizionata rientrava nel proprio stesso effect
+   * all'infinito — scritture continue su `live_formation` in corsa con gol/cartellini/sostituzioni
+   * reali, causa concreta del salvataggio "a volte sì a volte no" segnalato dopo la prima partita. */
   const recomputeExpulsionsFromCards = async (list: CardItem[]) => {
-      if (allPlayers.length === 0) return;
-const yellowCount = new Map<string, number>();
+    if (allPlayers.length === 0) return;
+    const yellowCount = new Map<string, number>();
     const redSet = new Set<string>();
-    for (const c of list.sort((a,b)=>a.minute-b.minute)) {
+    for (const c of [...list].sort((a, b) => a.minute - b.minute)) {
       const key = c.team + '|' + (c.playerId || c.playerName);
       if (c.color === 'RED') redSet.add(key);
       if (c.color === 'YELLOW') {
@@ -479,12 +543,15 @@ const yellowCount = new Map<string, number>();
       }
     }
 
+    let changed = false;
     const next = allPlayers.map(p => {
       const key = (ourSide ?? 'HOME') + '|' + p.id;
       const isExpelled = redSet.has(key);
-      if (isExpelled) return { ...p, inField: false, expelled: true };
-      return { ...p, expelled: false };
+      if (isExpelled && !p.expelled) { changed = true; return { ...p, inField: false, expelled: true }; }
+      if (!isExpelled && p.expelled) { changed = true; return { ...p, expelled: false }; }
+      return p;
     });
+    if (!changed) return;
     await saveLiveFormation(next);
   };
 
@@ -528,16 +595,23 @@ const yellowCount = new Map<string, number>();
   }, [goalScorerFree, selectedPlayerId, goalTeam]);
 
   const persistGoal = async () => {
-    if (!canSaveGoal) return;
-    const minute = currentMinutePlusOne();
-    const playerId = isOurTeam(goalTeam) ? selectedPlayerId : undefined;
-    const scorer = isOurTeam(goalTeam)
-      ? (basePlayers.find((p) => p.id === selectedPlayerId)?.name ?? '')
-      : goalScorerFree.trim();
-    const item: GoalItem = { id: uid(), team: goalTeam, minute, scorer, playerId };
-    const next = [...goals, item].sort((a, b) => a.minute - b.minute);
-    await saveGoals(next);
-    setGoalOpen(false);
+    if (!canSaveGoal || savingEvent) return;
+    setSavingEvent(true);
+    try {
+      const minute = currentMinutePlusOne();
+      const playerId = isOurTeam(goalTeam) ? selectedPlayerId : undefined;
+      const scorer = isOurTeam(goalTeam)
+        ? (basePlayers.find((p) => p.id === selectedPlayerId)?.name ?? '')
+        : goalScorerFree.trim();
+      const item: GoalItem = { id: uid(), team: goalTeam, minute, scorer, playerId };
+      const next = [...goals, item].sort((a, b) => a.minute - b.minute);
+      await saveGoals(next);
+      setGoalOpen(false);
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare il gol. Controlla la connessione e riprova.');
+    } finally {
+      setSavingEvent(false);
+    }
   };
 
   /* ---------------- MODALI: CREAZIONE SOSTITUZIONI ---------------- */
@@ -571,55 +645,61 @@ const yellowCount = new Map<string, number>();
   }, [subsOutId, subsInId, subsOutOpponent, subsInOpponent, subsMinute, subsTeam, allPlayers]);
 
   const executeSubstitution = async () => {
-    if (!canExecSub) return;
+    if (!canExecSub || savingEvent) return;
+    setSavingEvent(true);
+    try {
+      const isOur = isOurTeam(subsTeam);
+      let minute = isOur ? currentMinutePlusOne() : Math.max(1, Number(subsMinute) || 1);
 
-    const isOur = isOurTeam(subsTeam);
-    let minute = isOur ? currentMinutePlusOne() : Math.max(1, Number(subsMinute) || 1);
+      if (isOur) {
+        const outP = allPlayers.find((p) => p.id === subsOutId)!;
+        const inP  = allPlayers.find((p) => p.id === subsInId)!;
 
-    if (isOur) {
-      const outP = allPlayers.find((p) => p.id === subsOutId)!;
-      const inP  = allPlayers.find((p) => p.id === subsInId)!;
-
-      // Regole di partecipazione: chi conta ai fini della regola in questo
-      // momento e' chi e' in campo O espulso (un'espulsione continua a
-      // contare); una sostituzione vera e propria invece toglie dal conteggio.
-      if (competitionRules && (competitionRules.underEnabled || competitionRules.overEnabled)) {
-        const afterSubIds = allPlayers
-          .filter((p) => (p.inField || p.expelled) && p.id !== outP.id)
-          .map((p) => p.id)
-          .concat([inP.id]);
-        const onField = afterSubIds
-          .map((id) => basePlayers.find((p) => p.id === id))
-          .filter((p): p is NonNullable<typeof p> => !!p)
-          .map((p) => ({ year: p.year }));
-        const check = checkLineupAgainstRules(onField, competitionRules);
-        if (!check.compliant) {
-          Alert.alert('Sostituzione non consentita', describeViolations(check));
-          return;
+        // Regole di partecipazione: chi conta ai fini della regola in questo
+        // momento e' chi e' in campo O espulso (un'espulsione continua a
+        // contare); una sostituzione vera e propria invece toglie dal conteggio.
+        if (competitionRules && (competitionRules.underEnabled || competitionRules.overEnabled)) {
+          const afterSubIds = allPlayers
+            .filter((p) => (p.inField || p.expelled) && p.id !== outP.id)
+            .map((p) => p.id)
+            .concat([inP.id]);
+          const onField = afterSubIds
+            .map((id) => basePlayers.find((p) => p.id === id))
+            .filter((p): p is NonNullable<typeof p> => !!p)
+            .map((p) => ({ year: p.year }));
+          const check = checkLineupAgainstRules(onField, competitionRules);
+          if (!check.compliant) {
+            Alert.alert('Sostituzione non consentita', describeViolations(check));
+            return;
+          }
         }
+
+        const nextFormation = allPlayers.map((p) =>
+          p.id === subsOutId ? { ...p, inField: false } :
+          p.id === subsInId  ? { ...p, inField: true  } :
+          p
+        );
+        await saveLiveFormation(nextFormation);
+
+        const subItem: SubItem = { id: uid(), minute, outId: outP.id, outName: outP.name, inId: inP.id, inName: inP.name, team: subsTeam };
+        const nextSubs = [...subs, subItem].sort((a, b) => a.minute - b.minute);
+        await saveSubs(nextSubs);
+      } else {
+        const subItem: SubItem = { id: uid(), minute, outName: subsOutOpponent.trim(), inName: subsInOpponent.trim(), team: subsTeam };
+        const nextSubs = [...subs, subItem].sort((a, b) => a.minute - b.minute);
+        await saveSubs(nextSubs);
       }
 
-      const nextFormation = allPlayers.map((p) =>
-        p.id === subsOutId ? { ...p, inField: false } :
-        p.id === subsInId  ? { ...p, inField: true  } :
-        p
-      );
-      await saveLiveFormation(nextFormation);
-
-      const subItem: SubItem = { id: uid(), minute, outId: outP.id, outName: outP.name, inId: inP.id, inName: inP.name, team: subsTeam };
-      const nextSubs = [...subs, subItem].sort((a, b) => a.minute - b.minute);
-      await saveSubs(nextSubs);
-    } else {
-      const subItem: SubItem = { id: uid(), minute, outName: subsOutOpponent.trim(), inName: subsInOpponent.trim(), team: subsTeam };
-      const nextSubs = [...subs, subItem].sort((a, b) => a.minute - b.minute);
-      await saveSubs(nextSubs);
+      setSubsOutId('');
+      setSubsInId('');
+      setSubsOutOpponent('');
+      setSubsInOpponent('');
+      setSubsOpen(false);
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare la sostituzione. Controlla la connessione e riprova.');
+    } finally {
+      setSavingEvent(false);
     }
-
-    setSubsOutId('');
-    setSubsInId('');
-    setSubsOutOpponent('');
-    setSubsInOpponent('');
-    setSubsOpen(false);
   };
 
   /* ---------------- MODALI: CREAZIONE CARTELLINI ---------------- */
@@ -650,51 +730,58 @@ const yellowCount = new Map<string, number>();
   };
 
   const persistCard = async () => {
-    if (!canSaveCard) return;
-    const minute = currentMinutePlusOne();
-    const playerName = isOurTeam(cardTeam)
-      ? (basePlayers.find(p => p.id === cardPlayerId)?.name ?? '')
-      : cardOpponentName.trim();
+    if (!canSaveCard || savingEvent) return;
+    setSavingEvent(true);
+    try {
+      const minute = currentMinutePlusOne();
+      const playerName = isOurTeam(cardTeam)
+        ? (basePlayers.find(p => p.id === cardPlayerId)?.name ?? '')
+        : cardOpponentName.trim();
 
-    const baseCard: CardItem = {
-      id: uid(),
-      minute,
-      team: cardTeam,
-      color: cardColor,
-      playerId: isOurTeam(cardTeam) ? cardPlayerId : undefined,
-      playerName,
-    };
+      const baseCard: CardItem = {
+        id: uid(),
+        minute,
+        team: cardTeam,
+        color: cardColor,
+        playerId: isOurTeam(cardTeam) ? cardPlayerId : undefined,
+        playerName,
+      };
 
-    let next = [...cards, baseCard];
+      let next = [...cards, baseCard];
 
-    if (cardColor === 'RED' && isOurTeam(cardTeam) && cardPlayerId) {
-      await markPlayerExpelled(cardPlayerId);
-    }
+      if (cardColor === 'RED' && isOurTeam(cardTeam) && cardPlayerId) {
+        await markPlayerExpelled(cardPlayerId);
+      }
 
-    if (cardColor === 'YELLOW') {
-      const key = cardTeam + '|' + (isOurTeam(cardTeam) ? cardPlayerId : playerName);
-      const prevYellows = cards.filter(c => c.color === 'YELLOW' && (c.team + '|' + (c.playerId || c.playerName)) === key).length;
-      const totalYellows = prevYellows + 1;
-      if (totalYellows >= 2) {
-        const redAuto: CardItem = {
-          id: uid(),
-          minute,
-          team: cardTeam,
-          color: 'RED',
-          playerId: isOurTeam(cardTeam) ? cardPlayerId : undefined,
-          playerName,
-          autoFromSecondYellow: true,
-        };
-        next.push(redAuto);
-        if (isOurTeam(cardTeam) && cardPlayerId) {
-          await markPlayerExpelled(cardPlayerId);
+      if (cardColor === 'YELLOW') {
+        const key = cardTeam + '|' + (isOurTeam(cardTeam) ? cardPlayerId : playerName);
+        const prevYellows = cards.filter(c => c.color === 'YELLOW' && (c.team + '|' + (c.playerId || c.playerName)) === key).length;
+        const totalYellows = prevYellows + 1;
+        if (totalYellows >= 2) {
+          const redAuto: CardItem = {
+            id: uid(),
+            minute,
+            team: cardTeam,
+            color: 'RED',
+            playerId: isOurTeam(cardTeam) ? cardPlayerId : undefined,
+            playerName,
+            autoFromSecondYellow: true,
+          };
+          next.push(redAuto);
+          if (isOurTeam(cardTeam) && cardPlayerId) {
+            await markPlayerExpelled(cardPlayerId);
+          }
         }
       }
-    }
 
-    next = next.sort((a, b) => a.minute - b.minute || a.id.localeCompare(b.id));
-    await saveCards(next);
-    setCardOpen(false);
+      next = next.sort((a, b) => a.minute - b.minute || a.id.localeCompare(b.id));
+      await saveCards(next);
+      setCardOpen(false);
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare il cartellino. Controlla la connessione e riprova.');
+    } finally {
+      setSavingEvent(false);
+    }
   };
 
   /* ---------------- PROPOSTE (ruolo Giocatore) ---------------- */
@@ -758,14 +845,20 @@ const yellowCount = new Map<string, number>();
 
   const approveProposal = async (p: EventProposal) => {
     try {
+      // Rilegge l'elenco più recente invece di fidarsi dello stato locale `goals`/`cards`: se due
+      // proposte vengono confermate a tocchi ravvicinati, entrambe partirebbero dalla stessa
+      // copia in memoria e l'ultimo salvataggio sovrascriverebbe l'altro evento (l'intera colonna
+      // viene riscritta per intero, non c'è un merge lato server).
       if (p.type === 'GOAL') {
         const payload = p.payload as GoalProposalPayload;
         const item: GoalItem = { id: uid(), ...payload };
-        await saveGoals([...goals, item].sort((a, b) => a.minute - b.minute));
+        const latest = await loadGoalsRemote(matchId!);
+        await saveGoals([...latest, item].sort((a, b) => a.minute - b.minute));
       } else {
         const payload = p.payload as CardProposalPayload;
         const item: CardItem = { id: uid(), ...payload };
-        await saveCards([...cards, item].sort((a, b) => a.minute - b.minute));
+        const latest = await loadCardsRemote(matchId!);
+        await saveCards([...latest, item].sort((a, b) => a.minute - b.minute));
       }
       await decideProposal(p.id, 'approved');
       await refreshProposals();
@@ -817,18 +910,21 @@ const yellowCount = new Map<string, number>();
 
   const confirmDelete = async () => {
     if (!del.open || !del.kind || !del.id) return;
-
-    if (del.kind === 'GOAL') {
-      const next = goals.filter(g => g.id !== del.id);
-      await saveGoals(next);
-    } else if (del.kind === 'SUB') {
-      const next = subs.filter(s => s.id !== del.id);
-      await saveSubs(next);
-    } else {
-      const next = cards.filter(c => c.id !== del.id);
-      await saveCards(next);
+    try {
+      if (del.kind === 'GOAL') {
+        const next = goals.filter(g => g.id !== del.id);
+        await saveGoals(next);
+      } else if (del.kind === 'SUB') {
+        const next = subs.filter(s => s.id !== del.id);
+        await saveSubs(next);
+      } else {
+        const next = cards.filter(c => c.id !== del.id);
+        await saveCards(next);
+      }
+      setDel({ open: false, kind: null });
+    } catch {
+      Alert.alert('Errore', 'Impossibile eliminare. Controlla la connessione e riprova.');
     }
-    setDel({ open: false, kind: null });
   };
 
   const cancelDelete = () => setDel({ open: false, kind: null });
@@ -861,16 +957,20 @@ const yellowCount = new Map<string, number>();
 
   const persistEditGoal = async () => {
     if (!canSaveEditGoal) return;
-    const next = goals.map(g => {
-      if (g.id !== editGoalId) return g;
-      const playerId = isOurTeam(g.team) ? editGoalPlayerId : undefined;
-      const scorer = isOurTeam(g.team)
-        ? (basePlayers.find(p => p.id === editGoalPlayerId)?.name ?? g.scorer)
-        : editGoalOpponentName.trim();
-      return { ...g, minute: Math.max(1, Number(editGoalMinute) || 1), scorer, playerId };
-    }).sort((a, b) => a.minute - b.minute);
-    await saveGoals(next);
-    setEditGoalOpen(false);
+    try {
+      const next = goals.map(g => {
+        if (g.id !== editGoalId) return g;
+        const playerId = isOurTeam(g.team) ? editGoalPlayerId : undefined;
+        const scorer = isOurTeam(g.team)
+          ? (basePlayers.find(p => p.id === editGoalPlayerId)?.name ?? g.scorer)
+          : editGoalOpponentName.trim();
+        return { ...g, minute: Math.max(1, Number(editGoalMinute) || 1), scorer, playerId };
+      }).sort((a, b) => a.minute - b.minute);
+      await saveGoals(next);
+      setEditGoalOpen(false);
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare le modifiche. Controlla la connessione e riprova.');
+    }
   };
 
   // SUB
@@ -884,10 +984,14 @@ const yellowCount = new Map<string, number>();
     setEditSubOpen(true);
   };
   const persistEditSub = async () => {
-    const next = subs.map(s => s.id === editSubId ? { ...s, minute: Math.max(1, Number(editSubMinute) || 1) } : s)
-      .sort((a, b) => a.minute - b.minute);
-    await saveSubs(next);
-    setEditSubOpen(false);
+    try {
+      const next = subs.map(s => s.id === editSubId ? { ...s, minute: Math.max(1, Number(editSubMinute) || 1) } : s)
+        .sort((a, b) => a.minute - b.minute);
+      await saveSubs(next);
+      setEditSubOpen(false);
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare le modifiche. Controlla la connessione e riprova.');
+    }
   };
 
   // CARD
@@ -919,25 +1023,28 @@ const yellowCount = new Map<string, number>();
 
   const persistEditCard = async () => {
     if (!canSaveEditCard) return;
+    try {
+      let next = cards.map(c => {
+        if (c.id !== editCardId) return c;
+        const playerName = isOurTeam(c.team)
+          ? (basePlayers.find(p => p.id === editCardPlayerId)?.name ?? c.playerName)
+          : editCardOpponentName.trim();
+        return {
+          ...c,
+          minute: Math.max(1, Number(editCardMinute) || 1),
+          playerId: isOurTeam(c.team) ? editCardPlayerId : undefined,
+          playerName,
+        };
+      });
 
-    let next = cards.map(c => {
-      if (c.id !== editCardId) return c;
-      const playerName = isOurTeam(c.team)
-        ? (basePlayers.find(p => p.id === editCardPlayerId)?.name ?? c.playerName)
-        : editCardOpponentName.trim();
-      return {
-        ...c,
-        minute: Math.max(1, Number(editCardMinute) || 1),
-        playerId: isOurTeam(c.team) ? editCardPlayerId : undefined,
-        playerName,
-      };
-    });
+      // Ordino
+      next = next.sort((a, b) => a.minute - b.minute || a.id.localeCompare(b.id));
 
-    // Ordino
-    next = next.sort((a, b) => a.minute - b.minute || a.id.localeCompare(b.id));
-
-    await saveCards(next); // ricalcola anche espulsioni
-    setEditCardOpen(false);
+      await saveCards(next); // ricalcola anche espulsioni
+      setEditCardOpen(false);
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare le modifiche. Controlla la connessione e riprova.');
+    }
   };
 
   /* ---------------- LISTA EVENTI ---------------- */
@@ -1019,8 +1126,9 @@ const yellowCount = new Map<string, number>();
   ]);
 
   const persistManual = async () => {
-  if (!canSaveManual) return;
-
+  if (!canSaveManual || savingEvent) return;
+  setSavingEvent(true);
+  try {
   // assicuriamoci di avere un minuto >= 1
   const minute = Math.max(1, Number(manualMinute) || 1);
 
@@ -1104,6 +1212,11 @@ const yellowCount = new Map<string, number>();
 
     setManualOpen(false);
     return;
+  }
+  } catch {
+    Alert.alert('Errore', 'Impossibile salvare l\'evento. Controlla la connessione e riprova.');
+  } finally {
+    setSavingEvent(false);
   }
 };
 
@@ -1204,6 +1317,15 @@ const yellowCount = new Map<string, number>();
             <Text style={styles.controlButtonText}>{phaseBtnText}</Text>
           </Pressable>
         </View>
+        )}
+
+        {/* Per una partita mai seguita dal vivo (nessuno ha premuto Start): il bottone "Fine
+            partita" sopra non si raggiunge mai, perché richiede di passare per tutte le fasi.
+            Questo link apre lo stesso modale (risultato + durata) indipendentemente dalla fase. */}
+        {!readOnly && phase !== 'FULL_TIME' && (
+          <Pressable style={styles.durationLink} onPress={() => setFinishOpen(true)}>
+            <Text style={styles.durationLinkText}>🏁 Termina/aggiorna partita senza cronometro</Text>
+          </Pressable>
         )}
 
         {/* AZIONI PRINCIPALI */}
@@ -1503,7 +1625,7 @@ const yellowCount = new Map<string, number>();
         {/* MODALE: CREAZIONE GOL */}
         <Modal visible={goalOpen} transparent animationType="slide" onRequestClose={() => setGoalOpen(false)}>
           <View style={styles.overlay}>
-            <View style={styles.sheet}>
+            <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
               <Text style={styles.modalTitle}>Registra gol — {goalTeam === 'HOME' ? homeName : awayName}</Text>
 
               <Text style={styles.label}>Squadra</Text>
@@ -1537,11 +1659,11 @@ const yellowCount = new Map<string, number>();
 
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
                 <Pressable
-                  style={[styles.modalBtn, { backgroundColor: '#1b7f3b', flex: 1, opacity: canSaveGoal ? 1 : 0.5 }]}
+                  style={[styles.modalBtn, { backgroundColor: '#1b7f3b', flex: 1, opacity: (canSaveGoal && !savingEvent) ? 1 : 0.5 }]}
                   onPress={readOnly ? proposeGoalNow : persistGoal}
-                  disabled={!canSaveGoal}
+                  disabled={!canSaveGoal || savingEvent}
                 >
-                  <Text style={styles.modalBtnText}>{readOnly ? 'Proponi gol' : 'Salva gol'}</Text>
+                  <Text style={styles.modalBtnText}>{savingEvent ? 'Salvataggio…' : (readOnly ? 'Proponi gol' : 'Salva gol')}</Text>
                 </Pressable>
                 <Pressable style={[styles.modalBtn, { backgroundColor: '#9ca3af', flex: 1 }]} onPress={() => setGoalOpen(false)}>
                   <Text style={styles.modalBtnText}>Annulla</Text>
@@ -1555,7 +1677,7 @@ const yellowCount = new Map<string, number>();
 {/* MODALE: CREAZIONE SOSTITUZIONI */}
         <Modal visible={subsOpen} transparent animationType="slide" onRequestClose={() => setSubsOpen(false)}>
           <View style={styles.overlay}>
-            <View style={styles.sheet}>
+            <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
               <Text style={styles.modalTitle}>Sostituzioni</Text>
 
               <Text style={styles.label}>Squadra</Text>
@@ -1602,11 +1724,11 @@ const yellowCount = new Map<string, number>();
 
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
                 <Pressable
-                  style={[styles.modalBtn, { backgroundColor: '#f59e0b', flex: 1, opacity: canExecSub ? 1 : 0.5 }]}
+                  style={[styles.modalBtn, { backgroundColor: '#f59e0b', flex: 1, opacity: (canExecSub && !savingEvent) ? 1 : 0.5 }]}
                   onPress={executeSubstitution}
-                  disabled={!canExecSub}
+                  disabled={!canExecSub || savingEvent}
                 >
-                  <Text style={styles.modalBtnText}>Esegui sostituzione</Text>
+                  <Text style={styles.modalBtnText}>{savingEvent ? 'Salvataggio…' : 'Esegui sostituzione'}</Text>
                 </Pressable>
                 <Pressable style={[styles.modalBtn, { backgroundColor: '#9ca3af', flex: 1 }]} onPress={() => setSubsOpen(false)}>
                   <Text style={styles.modalBtnText}>Chiudi</Text>
@@ -1620,7 +1742,7 @@ const yellowCount = new Map<string, number>();
         {/* MODALE: CREAZIONE CARTELLINI */}
         <Modal visible={cardOpen} transparent animationType="slide" onRequestClose={() => setCardOpen(false)}>
           <View style={styles.overlay}>
-            <View style={styles.sheet}>
+            <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
               <Text style={styles.modalTitle}>
                 {cardColor === 'RED' ? 'Cartellino rosso' : 'Cartellino giallo'}
               </Text>
@@ -1661,11 +1783,11 @@ const yellowCount = new Map<string, number>();
 
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
                 <Pressable
-                  style={[styles.modalBtn, { backgroundColor: cardColor === 'RED' ? '#b91c1c' : '#f59e0b', flex: 1, opacity: canSaveCard ? 1 : 0.5 }]}
+                  style={[styles.modalBtn, { backgroundColor: cardColor === 'RED' ? '#b91c1c' : '#f59e0b', flex: 1, opacity: (canSaveCard && !savingEvent) ? 1 : 0.5 }]}
                   onPress={readOnly ? proposeCardNow : persistCard}
-                  disabled={!canSaveCard}
+                  disabled={!canSaveCard || savingEvent}
                 >
-                  <Text style={styles.modalBtnText}>{readOnly ? 'Proponi' : 'Salva'}</Text>
+                  <Text style={styles.modalBtnText}>{savingEvent ? 'Salvataggio…' : (readOnly ? 'Proponi' : 'Salva')}</Text>
                 </Pressable>
                 <Pressable style={[styles.modalBtn, { backgroundColor: '#9ca3af', flex: 1 }]} onPress={() => setCardOpen(false)}>
                   <Text style={styles.modalBtnText}>Annulla</Text>
@@ -1678,7 +1800,7 @@ const yellowCount = new Map<string, number>();
         {/* MODALE: conferma cancellazione evento */}
         <Modal visible={del.open} transparent animationType="fade" onRequestClose={cancelDelete}>
           <View style={styles.overlay}>
-            <View style={styles.sheet}>
+            <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
               <Text style={styles.modalTitle}>{del.title || 'Conferma eliminazione'}</Text>
               {!!del.detail && <Text style={{ marginTop: 6 }}>{del.detail}</Text>}
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
@@ -1701,7 +1823,7 @@ const yellowCount = new Map<string, number>();
         {/* EDIT GOL */}
         <Modal visible={editGoalOpen} transparent animationType="slide" onRequestClose={() => setEditGoalOpen(false)}>
           <View style={styles.overlay}>
-            <View style={styles.sheet}>
+            <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
               <Text style={styles.modalTitle}>Modifica gol — {editGoalTeam === 'HOME' ? homeName : awayName}</Text>
 
               <Text style={styles.label}>Minuto</Text>
@@ -1748,7 +1870,7 @@ const yellowCount = new Map<string, number>();
         {/* EDIT SOSTITUZIONE (solo minuto) */}
         <Modal visible={editSubOpen} transparent animationType="slide" onRequestClose={() => setEditSubOpen(false)}>
           <View style={styles.overlay}>
-            <View style={styles.sheet}>
+            <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
               <Text style={styles.modalTitle}>Modifica sostituzione</Text>
 
               <Text style={styles.label}>Minuto</Text>
@@ -1777,7 +1899,7 @@ const yellowCount = new Map<string, number>();
         {/* EDIT CARTELLINO (minuto + giocatore) */}
         <Modal visible={editCardOpen} transparent animationType="slide" onRequestClose={() => setEditCardOpen(false)}>
           <View style={styles.overlay}>
-            <View style={styles.sheet}>
+            <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
               <Text style={styles.modalTitle}>
                 Modifica cartellino {editCardColor === 'RED' ? 'rosso' : 'giallo'}
               </Text>
@@ -1836,11 +1958,25 @@ const yellowCount = new Map<string, number>();
         {/* MODALE: termina partita */}
         <Modal visible={finishOpen} transparent animationType="fade" onRequestClose={() => !finishBusy && setFinishOpen(false)}>
           <View style={styles.overlay}>
-            <View style={styles.sheet}>
+            <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
               <Text style={styles.modalTitle}>Terminare la partita?</Text>
               <Text style={{ marginTop: 6 }}>
                 Salverò il risultato:<Text style={{ fontWeight: '900' }}> {homeName} {scoreHome} - {scoreAway} {awayName}</Text>
               </Text>
+
+              <Text style={[styles.label, { marginTop: 14 }]}>Durata partita (minuti)</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="number-pad"
+                value={matchDurationInput}
+                onChangeText={setMatchDurationInput}
+                placeholder="90"
+              />
+              <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
+                Usata per calcolare i minuti giocati di chi non è stato sostituito — cambiala se la
+                partita è durata meno di 90' (es. nessuno ha seguito il cronometro dal vivo).
+              </Text>
+
               {!!finishError && <Text style={{ color: '#b91c1c', marginTop: 8 }}>{finishError}</Text>}
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
                 <Pressable
@@ -1865,7 +2001,7 @@ const yellowCount = new Map<string, number>();
         {/* ===== MODALE: INSERIMENTO MANUALE EVENTO ===== */}
         <Modal visible={manualOpen} transparent animationType="slide" onRequestClose={() => setManualOpen(false)}>
           <View style={styles.overlay}>
-            <View style={styles.sheet}>
+            <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
               <Text style={styles.modalTitle}>Nuovo evento (manuale)</Text>
 
               <Text style={styles.label}>Tipo</Text>
@@ -1966,11 +2102,11 @@ const yellowCount = new Map<string, number>();
 
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
                 <Pressable
-                  style={[styles.modalBtn, { backgroundColor: '#111827', flex: 1, opacity: canSaveManual ? 1 : 0.5 }]}
+                  style={[styles.modalBtn, { backgroundColor: '#111827', flex: 1, opacity: (canSaveManual && !savingEvent) ? 1 : 0.5 }]}
                   onPress={persistManual}
-                  disabled={!canSaveManual}
+                  disabled={!canSaveManual || savingEvent}
                 >
-                  <Text style={styles.modalBtnText}>Aggiungi evento</Text>
+                  <Text style={styles.modalBtnText}>{savingEvent ? 'Salvataggio…' : 'Aggiungi evento'}</Text>
                 </Pressable>
                 <Pressable style={[styles.modalBtn, { backgroundColor: '#9ca3af', flex: 1 }]} onPress={() => setManualOpen(false)}>
                   <Text style={styles.modalBtnText}>Annulla</Text>
@@ -2061,6 +2197,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     marginHorizontal: 16,
+  },
+  durationLink: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  durationLinkText: {
+    fontSize: 12,
+    color: '#6b7280',
+    textDecorationLine: 'underline',
   },
   controlButton: {
     flex: 1,

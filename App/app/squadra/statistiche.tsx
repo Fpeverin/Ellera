@@ -62,8 +62,7 @@ type MatchLike = CalendarEvent & {
   homeAway?: 'HOME' | 'AWAY';
   resultText?: string;
   cards?: SavedCard[];
-  duration?: number;
-  matchLength?: number;
+  matchDurationMinutes?: number; // impostata a mano in Live per le partite mai seguite dal vivo
   competition?: string; competizione?: string; torneo?: string; league?: string; categoria?: string;
 };
 
@@ -186,14 +185,16 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
         const field = (lu?.field || []).filter(Boolean) as string[];
         const bench = (lu?.bench || []) as string[];
 
-        // Durata reale match
+        // Durata reale match: quella impostata a mano in Live ha sempre la priorità (copre anche
+        // le partite più corte di 90', es. mai seguite dal vivo) — altrimenti si stima dall'ultimo
+        // minuto registrato tra gol/cambi/cartellini, con 90' come ultima spiaggia.
         const inferredMaxMinute = Math.max(
           0,
           ...goals.map(g => g.minute || 0),
           ...subs.map(s => s.minute || 0),
           ...(Array.isArray(cards) ? cards.map(c => c.minute || 0) : []),
         );
-        const FULL = Math.max(90, ev.duration || ev.matchLength || inferredMaxMinute || 90);
+        const FULL = ev.matchDurationMinutes || inferredMaxMinute || 90;
 
         const isHome = typeof ev.isHome === 'boolean' ? ev.isHome : (ev.homeAway === 'HOME');
         const opponentTeam: TeamSide = isHome ? 'AWAY' : 'HOME';

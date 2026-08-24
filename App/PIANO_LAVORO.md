@@ -112,6 +112,32 @@ dato il precedente miss sullo stesso set di funzionalità (campo invisibile su w
 
 ## Completato
 
+### Live: 5 bug/richieste dopo la prima partita vera (2026-08-23)
+Francesco ha segnalato insieme, dopo la prima partita reale della stagione: cronometro che non
+scorreva, salvataggi di gol/cartellini/sostituzioni "a volte sì a volte no", form di inserimento
+nascoste dalla barra di gesture Android (e che sembravano non chiudersi/non inserire l'evento),
+select con un id al posto del nome del giocatore, e il bisogno di impostare a mano la durata di una
+partita mai seguita dal vivo per le statistiche minutaggio. Investigati con 4 agenti paralleli prima
+di intervenire — dettagli tecnici completi (cause reali, non sintomi) in CLAUDE.md. In breve:
+- **Cronometro**: un effect ridondante scattava anche solo rientrando sulla schermata a partita già
+  avviata, sovrascrivendo il cronometro reale con uno "ripartito da ora" — rimosso, ogni transizione
+  ora aggiorna il cronometro in modo esplicito come già facevano i bottoni manuali.
+- **Salvataggi**: nessun errore veniva mai mostrato (fallivano in silenzio su connessione debole a
+  bordo campo) + un loop che scriveva in continuazione su `live_formation` in corsa con i salvataggi
+  veri — entrambi corretti, aggiunto anche un blocco anti-doppio-tocco con "Salvataggio…" a schermo.
+- **Form nascoste**: aggiunto lo spazio per la barra di gesture Android a tutti i modali di Live.
+- **Select con id**: la formazione live poteva salvare l'id al posto del nome se la Rosa non aveva
+  ancora finito di caricare (bordo campo, connessione lenta) — ora si autocorregge da sola, anche
+  sulle formazioni già salvate con il bug, senza bisogno di alcuna migrazione.
+- **Durata partita**: nuovo campo nel modale "Termina partita" di Live + un link sempre visibile per
+  raggiungerlo anche su una partita mai avviata dal vivo — usato dalle statistiche minutaggio al
+  posto del fisso 90'.
+**Da verificare dal vero con priorità molto alta prima della prossima partita** (bug reali osservati
+in game, non ipotetici): uscire e rientrare su Live a partita avviata senza che il cronometro si
+blocchi/azzeri; inserire più eventi ravvicinati anche con connessione debole; aprire una formazione
+già "sporca" (id al posto del nome) e verificare che si corregga da sola; impostare la durata di una
+partita mai avviata dal vivo e controllare che le statistiche minutaggio la usino.
+
 ### Lista Gara: Staff configurabile + Capitano/Vice Capitano (2026-08-22)
 Due richieste di Francesco: la sezione Staff nella Lista Gara deve poter essere disattivata
 dall'Admin (di base è attiva) — nuovo switch in Admin → Configurazioni, applicato sia a schermo sia

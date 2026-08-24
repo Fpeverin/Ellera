@@ -720,6 +720,109 @@ mostra ora "Nome Cognome · AAAA" invece del solo nome, quando il giocatore ha u
 1-20 (giocatori) — la Rosa Staff non ha un anno di nascita tracciato, `nameForStaffRole()` non è
 toccata.
 
+## Live: 5 bug/richieste dopo la prima partita vera — 2026-08-23
+
+Francesco ha segnalato insieme, dopo aver usato Live per la prima partita reale della stagione:
+il cronometro non scorreva, gli eventi (gol/cartellini/sostituzioni) a volte non venivano salvati,
+le form di inserimento finivano sotto la barra di gesture di Android e non si chiudevano da sole,
+le select mostravano un id al posto del nome del giocatore, e serviva un modo per impostare a mano
+la durata di una partita mai seguita dal vivo. Tutto in `App/app/eventi/partita/[id]/live.tsx`
+(~2350 righe, il file più grande dell'app) salvo dove indicato. Investigazione approfondita prima di
+intervenire (4 agenti paralleli su timer/salvataggi/form-select/statistiche minutaggio), poi fix
+mirati — nessuna riscrittura, il file resta nella sua struttura originale.
+
+### 1. Cronometro che non scorre — causa reale: non un problema di rendering
+`TimerProvider` (`app/context/TimerContext.tsx`) è montato **una volta sola per tutta l'app** in
+`app/_layout.tsx` — il suo stato (`phase`/`isRunning`/`time`) **non è per-partita**, resta quello che
+era anche cambiando schermata o partita. `live.tsx` aveva un `useEffect(() => {...}, [isRunning])`
+che ad ogni cambio di `isRunning` chiamava `persistStart()`/`persistPause()` per tenere sincronizzato
+il cronometro persistente (`persistTimer`, per-partita, su `match_live.timer_state`) — **ma un
+`useEffect` gira sempre anche al primo mount**, non solo ai cambi veri. Tornando su Live di una
+partita già avviata (es. dopo aver controllato Formazione, o un semplice sfondo/primo piano
+dell'app), il componente si rimonta: `persistTimer` locale riparte dal suo valore di default
+(`{running:false, startAt:null,...}`) mentre `isRunning` (globale) è **già `true`** da prima — questo
+effect scatta comunque al mount con `isRunning === true`, legge il `persistTimer` di default (non
+ancora ricaricato dal server) e chiama `persistStart()`, che scrive su Supabase un cronometro
+"ripartito da ora" **sovrascrivendo quello reale**, in corsa con il caricamento asincrono del vero
+stato dal server (`loadTimerState`) — a seconda di chi arriva per ultimo, il cronometro può restare
+bloccato/azzerato in modo imprevedibile. **Fix**: rimosso quell'effect; ogni transizione (fine tempo,
+inizio 2° tempo, pausa/ripresa manuale, reset) chiama ora `persistPause()`/`persistStart()` **in modo
+esplicito**, esattamente come già facevano i bottoni Pausa/Start/Reset manuali (mai stati nel giro
+dell'effect). La transizione intervallo→2° tempo (`onPressPhaseBtn`, fase `HALF_TIME`) usava due
+chiamate separate (`setSecondHalfBaseline()` + `persistStart()`) che leggevano `persistTimer` dalla
+stessa closure "vecchia" nello stesso tocco di bottone — la seconda ignorava l'aggiornamento appena
+fatto dalla prima; unificate in una sola funzione atomica `startSecondHalf()` che calcola lo stato
+finale direttamente, senza mai rileggere `persistTimer`.
+
+### 2. Salvataggio "a volte sì a volte no"
+Tre cause distinte, tutte in `live.tsx`:
+- **Nessun errore mai mostrato**: `saveGoals`/`saveSubs`/`saveCards`/`saveLiveFormation`
+  aggiornavano lo stato locale **prima** di scrivere su Supabase, senza `try/catch` in nessuno dei
+  chiamanti (`persistGoal`, `persistCard`, `executeSubstitution`, `persistManual`, `confirmDelete`,
+  i tre `persistEdit*`). Su una connessione instabile a bordo campo, un salvataggio poteva fallire
+  in silenzio: l'evento sembrava inserito (stato locale già aggiornato) ma non lo era davvero.
+  **Fix**: i quattro `save*` ora scrivono su Supabase **prima** di aggiornare lo stato locale (se
+  fallisce, l'interfaccia non "mente"), e ogni chiamante ha un `try/catch` con `Alert.alert` +
+  vincolo "un salvataggio alla volta" (nuovo stato `savingEvent`, disabilita il bottone e mostra
+  "Salvataggio…" finché non finisce) — impedisce anche i doppi tocchi.
+- **Loop infinito latente su `live_formation`**: `recomputeExpulsionsFromCards` (ricalcola chi è
+  espulso ad ogni cambio cartellini) costruiva **sempre** un nuovo array (`.map` crea oggetti nuovi
+  anche quando il valore non cambia) e lo salvava incondizionatamente; siccome questo salvataggio
+  aggiorna `allPlayers`, che è la dipendenza dell'effect che richiama la stessa funzione, il giro
+  ripartiva da capo **all'infinito** — scritture continue su `live_formation` in corsa con i
+  salvataggi reali di gol/cartellini/sostituzioni, causa concreta e piuttosto grave del
+  "a volte prende, a volte no". **Fix**: la funzione ora scrive solo se lo stato di espulsione di
+  qualcuno è **davvero** cambiato.
+- **Race su proposte multiple**: confermare due proposte di un Giocatore a tocchi ravvicinati poteva
+  far leggere a entrambe la stessa copia (vecchia) di `goals`/`cards` — l'ultimo salvataggio vince e
+  cancella l'altro (l'intera colonna viene riscritta, nessun merge lato server). **Fix**:
+  `approveProposal` rilegge l'elenco più recente da Supabase subito prima di unire il nuovo evento.
+
+### 3. Form sotto la barra di gesture Android + non si chiudevano da sole
+Tutti gli 8 modali di inserimento/modifica evento usano lo stesso stile condiviso `sheet`, con un
+padding fisso che non teneva conto della barra di navigazione Android. **Fix**: aggiunto
+`paddingBottom: Math.max(insets.bottom, 16) + 16` (da `useSafeAreaInsets()`, già importato in questo
+file) a tutti e 9 gli usi di `styles.sheet`. Sul "non si chiudono/non inseriscono l'evento": in realtà
+il codice già chiudeva il modale **dopo** un salvataggio riuscito — il problema reale era il punto 2
+sopra (salvataggi falliti in silenzio, quindi "sembra" che il modale non abbia fatto nulla): risolto
+insieme al fix del salvataggio.
+
+### 4. Select con l'id al posto del nome
+Tutti i `Picker` di questo file (marcatore, cartellino, sostituzione entra/esce, inserimento manuale)
+mostravano già correttamente `label={p.name}` — il bug non era lì. La causa vera:
+`initializeLiveFormationFromLineup` (chiamata alla pressione di "Start") costruisce
+`live_formation.name` con `idToName.get(id) || id` — se la Rosa (`usePlayers()`) non aveva ancora
+finito di caricare (connessione lenta a bordo campo, esattamente lo scenario reale) quel fallback usa
+l'**id** come nome, e viene salvato così **per sempre**: ogni volta che la formazione viene
+ricaricata (anche ad ogni rientro sulla schermata, `useFocusEffect`), quel nome corrotto torna
+identico, perché nessun punto del codice lo ricalcolava dalla Rosa. **Fix**: aggiunta una
+risoluzione "sempre fresca" — `allPlayers`/`inCampo` ora hanno il nome ricalcolato dalla Rosa
+(`usePlayers().allPlayers`) ogni volta che vengono caricati o salvati, più un effect dedicato che
+si autocorregge da solo appena la Rosa finisce di caricare (senza dover uscire e rientrare dalla
+schermata) — **si autoripara anche sulle formazioni già salvate con il bug**, non serve nessuna
+migrazione dati.
+
+### 5. Durata partita impostabile a mano
+Per le statistiche minutaggio (`app/squadra/statistiche.tsx`, `app/player/[id].tsx`,
+`app/utils/archiveBuilder.ts`) i minuti di chi non viene mai sostituito si calcolano come "durata
+totale meno minuto di uscita/entrata" — prima **sempre fissa a 90'**, sbagliata per una partita mai
+seguita dal vivo (nessuno ha usato il cronometro) o più corta del normale. Aggiunto un campo "Durata
+partita (minuti)" nel modale "Termina partita" di Live (default 90, precompilato se già impostato),
+salvato come `matchDurationMinutes` sull'evento — usato con priorità dalle tre viste statistiche
+sopra (fallback: ultimo minuto registrato tra gol/cambi/cartellini, poi 90'). **Nuovo link** "🏁
+Termina/aggiorna partita senza cronometro", visibile sempre (Staff/Admin) finché la fase non è già
+"Fine partita": apre lo stesso modale indipendentemente da quanto il cronometro sia stato usato,
+perché altrimenti quel modale si raggiunge solo passando per tutte le fasi — irraggiungibile per una
+partita mai avviata dal vivo. Rimossi i due campi morti mai popolati `duration`/`matchLength` in
+`statistiche.tsx` (e la clausola `Math.max(90, ...)` che avrebbe comunque impedito una durata
+impostata più corta di 90').
+
+**Verifica dal vero necessaria con priorità molto alta, prima della prossima partita**: sono bug reali
+osservati in game, non ipotetici — in particolare il cronometro (uscire e rientrare da Live a partita
+avviata, verificare che non si azzeri/blocchi), il salvataggio di più eventi ravvicinati (anche con
+connessione debole simulata), e che una formazione già "sporca" con id al posto del nome si corregga
+da sola aprendo la schermata.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)
