@@ -112,6 +112,13 @@ dato il precedente miss sullo stesso set di funzionalità (campo invisibile su w
 
 ## Completato
 
+### Live: select del giocatore non scorrevano nei modali (2026-08-24)
+Effetto collaterale del fix precedente "form sotto la barra Android": quel fix aveva aggiunto
+padding in basso a tutti i modali di Live, ma nessuno aveva mai avuto uno scroll interno — con il
+padding extra, su schermi piccoli o nei modali con più select (Sostituzioni, Inserimento manuale) il
+contenuto poteva superare l'altezza visibile senza modo di raggiungerlo. Aggiunto lo scroll interno
+ai 7 modali con più campi.
+
 ### Live/Formazione: causa residua + formazione di default dalla Lista Gara (2026-08-24)
 Il fix di ieri (sotto) risolveva un bug reale ma il problema persisteva: **una seconda causa**. La
 schermata non aveva nessuno stato di caricamento — si poteva assegnare un giocatore mentre Rosa/

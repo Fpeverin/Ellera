@@ -1626,6 +1626,7 @@ export default function LivePartita() {
         <Modal visible={goalOpen} transparent animationType="slide" onRequestClose={() => setGoalOpen(false)}>
           <View style={styles.overlay}>
             <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
+              <ScrollView keyboardShouldPersistTaps="handled">
               <Text style={styles.modalTitle}>Registra gol — {goalTeam === 'HOME' ? homeName : awayName}</Text>
 
               <Text style={styles.label}>Squadra</Text>
@@ -1669,6 +1670,7 @@ export default function LivePartita() {
                   <Text style={styles.modalBtnText}>Annulla</Text>
                 </Pressable>
               </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -1678,6 +1680,7 @@ export default function LivePartita() {
         <Modal visible={subsOpen} transparent animationType="slide" onRequestClose={() => setSubsOpen(false)}>
           <View style={styles.overlay}>
             <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
+              <ScrollView keyboardShouldPersistTaps="handled">
               <Text style={styles.modalTitle}>Sostituzioni</Text>
 
               <Text style={styles.label}>Squadra</Text>
@@ -1734,6 +1737,7 @@ export default function LivePartita() {
                   <Text style={styles.modalBtnText}>Chiudi</Text>
                 </Pressable>
               </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -1743,6 +1747,7 @@ export default function LivePartita() {
         <Modal visible={cardOpen} transparent animationType="slide" onRequestClose={() => setCardOpen(false)}>
           <View style={styles.overlay}>
             <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
+              <ScrollView keyboardShouldPersistTaps="handled">
               <Text style={styles.modalTitle}>
                 {cardColor === 'RED' ? 'Cartellino rosso' : 'Cartellino giallo'}
               </Text>
@@ -1793,6 +1798,7 @@ export default function LivePartita() {
                   <Text style={styles.modalBtnText}>Annulla</Text>
                 </Pressable>
               </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -1824,6 +1830,7 @@ export default function LivePartita() {
         <Modal visible={editGoalOpen} transparent animationType="slide" onRequestClose={() => setEditGoalOpen(false)}>
           <View style={styles.overlay}>
             <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
+              <ScrollView keyboardShouldPersistTaps="handled">
               <Text style={styles.modalTitle}>Modifica gol — {editGoalTeam === 'HOME' ? homeName : awayName}</Text>
 
               <Text style={styles.label}>Minuto</Text>
@@ -1863,6 +1870,7 @@ export default function LivePartita() {
                   <Text style={styles.modalBtnText}>Annulla</Text>
                 </Pressable>
               </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -1900,6 +1908,7 @@ export default function LivePartita() {
         <Modal visible={editCardOpen} transparent animationType="slide" onRequestClose={() => setEditCardOpen(false)}>
           <View style={styles.overlay}>
             <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
+              <ScrollView keyboardShouldPersistTaps="handled">
               <Text style={styles.modalTitle}>
                 Modifica cartellino {editCardColor === 'RED' ? 'rosso' : 'giallo'}
               </Text>
@@ -1951,6 +1960,7 @@ export default function LivePartita() {
                   <Text style={styles.modalBtnText}>Annulla</Text>
                 </Pressable>
               </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -1959,6 +1969,7 @@ export default function LivePartita() {
         <Modal visible={finishOpen} transparent animationType="fade" onRequestClose={() => !finishBusy && setFinishOpen(false)}>
           <View style={styles.overlay}>
             <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
+              <ScrollView keyboardShouldPersistTaps="handled">
               <Text style={styles.modalTitle}>Terminare la partita?</Text>
               <Text style={{ marginTop: 6 }}>
                 Salverò il risultato:<Text style={{ fontWeight: '900' }}> {homeName} {scoreHome} - {scoreAway} {awayName}</Text>
@@ -1994,6 +2005,7 @@ export default function LivePartita() {
                   <Text style={styles.modalBtnText}>Conferma</Text>
                 </Pressable>
               </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -2002,6 +2014,7 @@ export default function LivePartita() {
         <Modal visible={manualOpen} transparent animationType="slide" onRequestClose={() => setManualOpen(false)}>
           <View style={styles.overlay}>
             <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
+              <ScrollView keyboardShouldPersistTaps="handled">
               <Text style={styles.modalTitle}>Nuovo evento (manuale)</Text>
 
               <Text style={styles.label}>Tipo</Text>
@@ -2112,6 +2125,7 @@ export default function LivePartita() {
                   <Text style={styles.modalBtnText}>Annulla</Text>
                 </Pressable>
               </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -2429,6 +2443,7 @@ const styles = StyleSheet.create({
   },
   sheet: {
     width: '100%',
+    maxHeight: '85%',
     backgroundColor: 'white',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,

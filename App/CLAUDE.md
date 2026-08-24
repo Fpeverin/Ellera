@@ -903,6 +903,28 @@ numeri corretti; assegnare più giocatori molto rapidamente all'apertura della s
 connessione lenta) e controllare che nulla vada perso; controllare che una formazione già impostata
 in precedenza non venga MAI sovrascritta dalla Lista Gara.
 
+## Live: select del giocatore non scorrevano nei modali di inserimento evento — 2026-08-24
+
+Effetto collaterale del fix "form sotto la barra di gesture Android" del round precedente: quel fix
+aveva aggiunto un `paddingBottom` extra al contenitore (`sheet`) di tutti i modali di Live (gol,
+cartellino, sostituzione, inserimento manuale, modifica, fine partita) — ma nessuno di quei modali
+aveva mai avuto una `ScrollView` al proprio interno, contavano sul fatto che il contenuto ci stesse
+per intero nello schermo. Con il padding in più, su schermi piccoli o con più select in uno stesso
+modale (in particolare **Sostituzioni**, 3 Picker, e **Inserimento manuale**, fino a 4 Picker), il
+contenuto poteva superare l'altezza visibile — senza modo di scorrere per raggiungere il resto,
+compreso il Picker stesso o i bottoni Salva/Annulla.
+
+**Fix**: `styles.sheet` ha ora un `maxHeight: '85%'`, e il contenuto dei 7 modali con più campi (gol,
+sostituzione, cartellino, modifica gol, modifica cartellino, fine partita, inserimento manuale) è
+avvolto in una `ScrollView` (`keyboardShouldPersistTaps="handled"`, per non perdere il tocco su un
+bottone mentre la tastiera del campo "Minuto" è ancora aperta). I due modali senza Picker e con un solo
+campo (conferma eliminazione, modifica sostituzione — solo minuto) non ne avevano bisogno, lasciati
+com'erano.
+
+**Da verificare dal vero**: aprire ciascuno dei modali con un Picker (in particolare Sostituzioni e
+Inserimento manuale) su un telefono con schermo piccolo e controllare che tutto il contenuto sia
+raggiungibile scorrendo, Picker compreso.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)
