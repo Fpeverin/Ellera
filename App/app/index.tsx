@@ -8,7 +8,7 @@ import { CalendarEvent, loadEvents } from './data/events';
 import { registerPushTokenForCurrentUser } from './data/pushNotify';
 import MonthCalendarGrid from './components/MonthCalendarGrid';
 import TeamLogo from './components/TeamLogo';
-import { eventColor, eventFullLabel, eventIcon } from './utils/eventDisplay';
+import { buildCompetitionColorMap, eventColor, eventFullLabel, eventIcon } from './utils/eventDisplay';
 import { scheduleEventReminders } from './utils/eventReminders';
 
 /* ------------------ Helpers date in fuso locale (no UTC) ------------------ */
@@ -87,6 +87,9 @@ export default function Dashboard() {
   const tomorrowStr = fmtYMDLocal(new Date(Date.now() + 24 * 60 * 60 * 1000));
   const todayEvents = useMemo(() => eventsByDate.get(todayStr) ?? [], [eventsByDate, todayStr]);
   const tomorrowEvents = useMemo(() => eventsByDate.get(tomorrowStr) ?? [], [eventsByDate, tomorrowStr]);
+  // Stessa mappa colore-per-competizione usata da MonthCalendarGrid (calcolata sugli stessi
+  // "events" passati anche lì) — così un colore resta coerente ovunque compaia nella Dashboard.
+  const competitionColorMap = useMemo(() => buildCompetitionColorMap(events), [events]);
 
   const goToEvent = (ev: CalendarEvent) => {
     router.push(ev.type === 'PARTITA' ? `/eventi/partita/${ev.id}` : `/eventi/allenamento/${ev.id}`);
@@ -100,7 +103,7 @@ export default function Dashboard() {
       ) : (
         list.map((ev) => (
           <Pressable key={ev.id} style={styles.dayBlockRow} onPress={() => goToEvent(ev)}>
-            <View style={[styles.dayBlockDot, { backgroundColor: eventColor(ev) }]} />
+            <View style={[styles.dayBlockDot, { backgroundColor: eventColor(ev, competitionColorMap) }]} />
             <View style={{ flex: 1 }}>
               <Text style={styles.dayBlockTitle} numberOfLines={1}>
                 {eventIcon(ev)} {eventFullLabel(ev)}

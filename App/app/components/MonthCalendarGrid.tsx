@@ -11,7 +11,7 @@ import { useMemo, useRef, useState } from 'react';
 import { Image, Modal, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { CalendarEvent } from '../data/events';
 import { opponentLogoUrlFromPath } from '../data/organization';
-import { eventColor, eventCompactLabel, eventFullLabel, eventIcon } from '../utils/eventDisplay';
+import { buildCompetitionColorMap, eventColor, eventCompactLabel, eventFullLabel, eventIcon } from '../utils/eventDisplay';
 
 function opponentLogo(ev: CalendarEvent): string | null {
   const path = (ev as any).opponentLogoPath as string | undefined;
@@ -50,6 +50,11 @@ export default function MonthCalendarGrid({ events, onSelectEvent }: Props) {
     }
     return map;
   }, [events]);
+
+  // Colore per competizione calcolato su TUTTI gli eventi visibili, non per singolo evento — un
+  // hash a sé fa collidere facilmente 2-3 competizioni reali sui soli 4 colori disponibili (visto:
+  // Coppa e Campionato finivano entrambe blu). Vedi buildCompetitionColorMap.
+  const competitionColorMap = useMemo(() => buildCompetitionColorMap(events), [events]);
 
   const shiftMonth = (delta: number) => {
     setViewMonth((prev) => {
@@ -127,7 +132,7 @@ export default function MonthCalendarGrid({ events, onSelectEvent }: Props) {
             {topTwo.map((ev) => {
               const logoUrl = opponentLogo(ev);
               return (
-                <View key={ev.id} style={[styles.pill, { backgroundColor: eventColor(ev) }]}>
+                <View key={ev.id} style={[styles.pill, { backgroundColor: eventColor(ev, competitionColorMap) }]}>
                   {logoUrl ? (
                     <Image source={{ uri: logoUrl }} style={styles.pillLogo} />
                   ) : (
@@ -231,7 +236,7 @@ export default function MonthCalendarGrid({ events, onSelectEvent }: Props) {
                   {logoUrl ? (
                     <Image source={{ uri: logoUrl }} style={styles.dayPickerLogo} />
                   ) : (
-                    <View style={[styles.dayPickerDot, { backgroundColor: eventColor(ev) }]} />
+                    <View style={[styles.dayPickerDot, { backgroundColor: eventColor(ev, competitionColorMap) }]} />
                   )}
                   <Text style={styles.dayPickerItemText} numberOfLines={1}>
                     {eventIcon(ev)} {eventFullLabel(ev)}

@@ -1454,6 +1454,36 @@ grigio placeholder quando manca uno stemma, per non sbilanciare il tabellone.
   giorno della partita; aprire Live di una partita con stemmi disponibili e controllare che
   compaiano entrambi, ben dimensionati, sopra i nomi delle squadre.
 
+### Fix: colori competizione che collidevano o cambiavano per la stessa competizione — 2026-08-24 (tredicesimo giro)
+Francesco, dopo aver provato la nuova palette: "Amichevole sono 2 partite viola e 1 blu, Coppa è
+blu e Campionato è blu. Mi aspettavo Coppa tipo gialla e Campionato rosso" — due bug distinti nella
+tavolozza a rotazione introdotta nel giro precedente.
+
+**Causa**: il colore veniva scelto con un hash del nome competizione modulo 4 (i colori
+disponibili), calcolato **partita per partita, isolatamente**. Due problemi:
+1. Un hash su sole 4 caselle fa collidere facilmente 2-3 competizioni reali diverse sullo stesso
+   colore (visto: Coppa e Campionato entrambe blu) — con solo 4 colori e 3 competizioni tipiche di
+   una stagione, la probabilità di collisione è alta (paradosso del compleanno).
+2. Il confronto era case-sensitive e non ignorava gli spazi: "Amichevole" digitato in modo
+   leggermente diverso da una partita all'altra (maiuscole, spazi) veniva trattato come una
+   competizione diversa, con un colore diverso pur essendo "la stessa" per Francesco.
+
+**Fix** (`app/utils/eventDisplay.ts`): nuova `buildCompetitionColorMap(events)` — calcola la mappa
+competizione→colore **una volta su tutte le partite visibili**, non partita per partita: raccoglie
+i nomi distinti (normalizzati: spazi tolti, minuscolo), li ordina alfabeticamente e assegna i 4
+colori in quell'ordine — zero collisioni finché le competizioni distinte restano ≤ 4 (il caso
+tipico), e "Amichevole" ha sempre lo stesso colore indipendentemente da come è stato digitato.
+`eventColor(ev, competitionColorMap)` ora accetta la mappa come secondo parametro (opzionale, con
+fallback all'hash di prima se non passata) — calcolata una volta con `useMemo` sia in
+`MonthCalendarGrid.tsx` sia nel blocco "Oggi/Domani" di `app/index.tsx`, sugli stessi `events` già
+disponibili in entrambi i punti, quindi il colore di una competizione resta coerente ovunque
+compaia nella Dashboard/Calendario.
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti. Con le 3 competizioni
+  dell'esempio di Francesco (Amichevole/Campionato/Coppa), l'ordine alfabetico assegna: Amichevole
+  → giallo, Campionato → blu, Coppa → rosso — tre colori distinti, stabili. **Da verificare dal
+  vero**: controllare che ogni "Amichevole" abbia lo stesso colore e che Coppa/Campionato non
+  coincidano più.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

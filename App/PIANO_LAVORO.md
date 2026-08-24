@@ -232,6 +232,15 @@ sull'angolo di ogni giorno del calendario mensile con partita; su Live, stemmi d
 squadre (56×56) sopra i nomi nel tabellone punteggio, con lo stesso recupero automatico dalle
 Squadre configurate se non già collegato alla partita. Vedi CLAUDE.md per i dettagli tecnici completi.
 
+**Fix — tredicesimo giro (2026-08-24)**: la rotazione colori per competizione (giro precedente)
+sceglieva il colore con un hash calcolato per singola partita — con solo 4 colori disponibili,
+2-3 competizioni reali finivano quasi sempre per collidere sullo stesso colore (Coppa e Campionato
+entrambe blu), e un nome digitato in modo leggermente diverso (maiuscole/spazi) tra una partita e
+l'altra risultava un colore diverso pur essendo "la stessa" competizione. Ora il colore si calcola
+una volta su tutte le competizioni viste insieme (ordine alfabetico dei nomi, normalizzati) — zero
+collisioni fino a 4 competizioni distinte, sempre lo stesso colore per lo stesso nome. Vedi
+CLAUDE.md per i dettagli tecnici completi.
+
 ### Statistiche: gol subiti dal portiere come numero negativo (2026-08-24)
 La colonna "Gol" per il ruolo Portiere mostra già i gol subiti invece di quelli fatti — richiesta di
 Francesco: mostrarli come numero negativo (-1, -2, ...) invece di un numero semplice che poteva
