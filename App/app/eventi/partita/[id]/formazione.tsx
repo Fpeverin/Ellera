@@ -2,7 +2,7 @@
 import { Picker } from '@react-native-picker/picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useRef, useState } from 'react';
-import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { autoAssignPlayersToSlots } from '../../../utils/autoFormation';
 import DraggableToken from '../../../components/tactical/DraggableToken';
@@ -21,6 +21,7 @@ import { loadConvocazione } from '../../../data/convocazione';
 import { loadEvents } from '../../../data/events';
 import {
   loadLineup as loadLineupRemote,
+  loadListaGara,
   loadPositions as loadPositionsRemote,
   saveLineup as saveLineupRemote,
   savePositions as savePositionsRemote,
@@ -79,6 +80,16 @@ export default function Schieramento() {
 
   const [posOverrides, setPosOverrides] = useState<PosOverride[]>([]);
   const loadedRef = useRef(false);
+  // Finché non è true, l'editor resta bloccato: prima si poteva assegnare un giocatore mentre il
+  // caricamento della formazione salvata era ancora in corso, e quando quel caricamento finiva
+  // sovrascriveva silenziosamente l'assegnazione appena fatta — stessa famiglia del bug del
+  // 2026-08-23, ma sulla finestra di editing invece che sul solo caricamento id→giocatore.
+  const [screenReady, setScreenReady] = useState(false);
+  // null finché non si sa ancora, poi true/false a seconda che sia stata trovata una formazione già
+  // salvata — usato per decidere se proporre la Lista Gara come punto di partenza (solo su una
+  // formazione mai impostata, mai per sovrascrivere qualcosa di già fatto).
+  const [hasSavedLineup, setHasSavedLineup] = useState<boolean | null>(null);
+  const appliedListaGaraDefaultRef = useRef(false);
 
   // --- regole di partecipazione (Under/Over) della competizione ---
   const [competition, setCompetition] = useState<string | undefined>(undefined);
@@ -200,11 +211,19 @@ export default function Schieramento() {
 
           setFieldAssignments(fieldById);
           setBenchAssignments(benchById);
+          // "Salvato" ma vuoto (nessuno slot compilato) conta come "non ancora impostata" ai fini
+          // del punto di partenza dalla Lista Gara — l'autosalvataggio scrive comunque uno scheletro
+          // vuoto la prima volta che si apre questa schermata, quindi `saved` da solo non basta a
+          // distinguere "mai toccata" da "già impostata sul serio".
+          setHasSavedLineup(fieldById.some(Boolean) || benchById.length > 0);
+        } else {
+          setHasSavedLineup(false);
         }
         setPosOverrides(await loadPositionsRemote(matchId));
       } catch {
       } finally {
         loadedRef.current = true;
+        setScreenReady(true);
       }
     })();
   }, [matchId, basePlayersLoading]);
@@ -359,6 +378,52 @@ export default function Schieramento() {
     setFieldAssignments(assigned.map(a => (a ? { id: a.id, name: a.name, number: a.number } : null)));
   };
 
+  // Punto di partenza dalla Lista Gara: se questa partita non ha ancora una formazione impostata
+  // (mai salvata, o salvata ma ancora completamente vuota) e la Lista Gara ha già dei numeri
+  // assegnati, li usa come disposizione iniziale — titolari 1-11 sul campo (per reparto, come
+  // "Disponi automaticamente"), panchina 12-20, numeri di maglia compresi. Richiesta di Francesco,
+  // 2026-08-24. Aspetta `screenReady` (Rosa + lineup già caricati) e che il modulo sia risolto
+  // (`fieldSlots` non vuoto), altrimenti gli slot su cui piazzare i titolari non esistono ancora.
+  React.useEffect(() => {
+    if (!matchId || !screenReady || hasSavedLineup !== false || readOnly) return;
+    if (fieldSlots.length === 0) return;
+    if (appliedListaGaraDefaultRef.current) return;
+    if (fieldAssignments.some(Boolean) || benchAssignments.length > 0) return;
+    appliedListaGaraDefaultRef.current = true;
+
+    (async () => {
+      try {
+        const listaGara = await loadListaGara(matchId);
+        const idToPlayer = new Map(basePlayers.map(p => [p.id, p]));
+        const numberByPlayerId: Record<string, number> = {};
+        const starters: (typeof basePlayers)[number][] = [];
+        const benchFromListaGara: { player: (typeof basePlayers)[number]; number: number }[] = [];
+
+        for (const [numStr, playerId] of Object.entries(listaGara.numbers || {})) {
+          const num = Number(numStr);
+          const player = idToPlayer.get(playerId);
+          if (!player || !Number.isFinite(num)) continue;
+          numberByPlayerId[playerId] = num;
+          if (num <= 11) starters.push(player);
+          else benchFromListaGara.push({ player, number: num });
+        }
+        if (starters.length === 0 && benchFromListaGara.length === 0) return; // Lista Gara non compilata
+
+        if (starters.length > 0) {
+          const assigned = autoAssignPlayersToSlots(fieldSlots, starters, numberByPlayerId);
+          setFieldAssignments(assigned.map(a => (a ? { id: a.id, name: a.name, number: a.number } : null)));
+        }
+        if (benchFromListaGara.length > 0) {
+          setBenchAssignments(
+            benchFromListaGara
+              .sort((a, b) => a.number - b.number)
+              .map(({ player, number }) => ({ id: player.id, name: player.name, number }))
+          );
+        }
+      } catch {}
+    })();
+  }, [matchId, screenReady, hasSavedLineup, fieldSlots, basePlayers, fieldAssignments, benchAssignments, readOnly]);
+
   const requestAutoAssign = () => {
     if (liveMode || readOnly) return;
     if (fieldAssignments.some(Boolean)) {
@@ -459,6 +524,12 @@ export default function Schieramento() {
           <Text style={styles.topBarTitle}>Formazione</Text>
           <TeamLogo size={24} />
         </View>
+        {!screenReady ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="large" color="#1b7f3b" />
+            <Text style={styles.loadingText}>Caricamento formazione…</Text>
+          </View>
+        ) : (
         <View style={styles.wrap}>
           {/* SINISTRA */}
           <View style={styles.left}>
@@ -740,6 +811,7 @@ export default function Schieramento() {
             </View>
           </Modal>
         </View>
+        )}
       </SafeAreaView>
     </>
   );
@@ -749,6 +821,8 @@ export default function Schieramento() {
 const styles = StyleSheet.create({
   // SafeArea con stesso background della pagina, così il notch rispetta il design
   safeArea: { flex: 1, backgroundColor: '#f5f7fa' },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { color: '#6b7280', fontWeight: '600' },
 
   topBar: {
     flexDirection: 'row', alignItems: 'center', gap: 8,

@@ -112,6 +112,23 @@ dato il precedente miss sullo stesso set di funzionalità (campo invisibile su w
 
 ## Completato
 
+### Live/Formazione: causa residua + formazione di default dalla Lista Gara (2026-08-24)
+Il fix di ieri (sotto) risolveva un bug reale ma il problema persisteva: **una seconda causa**. La
+schermata non aveva nessuno stato di caricamento — si poteva assegnare un giocatore mentre Rosa/
+lineup stavano ancora caricando in background, e quando il caricamento finiva sovrascriveva
+silenziosamente quell'assegnazione appena fatta (su connessione lenta questa finestra poteva durare
+diversi secondi). **Fix**: la schermata ora mostra un indicatore di caricamento e blocca ogni
+interazione finché Rosa e formazione salvata non sono davvero pronte — nessuna finestra in cui
+un'assegnazione fresca possa sparire.
+Aggiunta anche la funzionalità richiesta insieme: se una partita non ha ancora una formazione
+impostata e la **Lista Gara** ha già dei numeri assegnati, questi diventano il punto di partenza —
+titolari (1-11) piazzati per reparto come "Disponi automaticamente", panchina (12-20), **numeri di
+maglia compresi**. Scatta una sola volta a schermata, mai se c'è già una formazione impostata, mai
+per il ruolo Giocatore.
+**Da verificare dal vero con priorità molto alta**: aprire Formazione con Lista Gara già compilata e
+nessuna formazione impostata (deve popolarsi da sola); assegnare più giocatori molto rapidamente
+appena aperta la schermata; controllare che una formazione già impostata non venga mai sovrascritta.
+
 ### Live/Formazione: la formazione impostata si azzerava da sola (2026-08-23, secondo giro)
 Segnalato subito dopo il giro qui sotto: impostare la formazione e tornare indietro non la salvava.
 Causa reale — non una race di rete, un bug deterministico: l'effect che carica la formazione già

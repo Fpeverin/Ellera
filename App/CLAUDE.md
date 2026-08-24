@@ -853,6 +853,56 @@ lenta del primo render di questo effect.
   riaprire la schermata e controllare che sia ancora quella giusta — sia da ferma (pre-partita) sia
   durante il drag in Live.
 
+## Live/Formazione: causa residua + punto di partenza dalla Lista Gara — 2026-08-24
+
+Il fix del 2026-08-23 sopra risolveva un bug reale, ma Francesco ha confermato che il problema
+persisteva ancora: **una seconda causa, diversa**, nella stessa schermata.
+
+### Causa residua: si poteva assegnare durante il caricamento
+`formazione.tsx` non aveva **nessuno stato di caricamento visibile** — la schermata si rendeva subito
+con l'editor pienamente interagibile, mentre in background partivano le fetch di Rosa/lineup/
+posizioni. Se il coach toccava un giocatore prima che quelle fetch finissero, la sua assegnazione
+finiva nello stato locale (`fieldAssignments`/`benchAssignments`) — ma quando la fetch della
+formazione salvata completava poco dopo, il suo `setFieldAssignments(fieldById)` **sovrascriveva
+silenziosamente** quell'assegnazione appena fatta (stessa famiglia del bug di ieri, stavolta sulla
+finestra di editing invece che sul solo caricamento id→giocatore). Su una connessione lenta a bordo
+campo questa finestra poteva durare diversi secondi — abbastanza per assegnare più giocatori prima
+che tutto andasse perso.
+
+**Fix**: nuovo stato `screenReady` (non solo il `loadedRef` interno, usato solo dagli effect) —
+finché non diventa `true` (Rosa **e** lineup/posizioni caricati) l'editor non viene proprio renderizzato,
+solo un indicatore di caricamento. Nessuna interazione possibile prima che i dati veri siano a posto,
+quindi nessuna finestra in cui un'assegnazione fresca possa essere sovrascritta da un caricamento
+ancora in corso.
+
+### Nuova funzionalità: formazione di default dalla Lista Gara
+Richiesta di Francesco: se una partita non ha ancora una formazione impostata (mai salvata, o salvata
+ma completamente vuota — l'autosalvataggio ne scrive comunque una vuota alla prima apertura, quindi
+"salvata" da sola non basta a distinguere le due situazioni) e la **Lista Gara** ha già dei numeri
+assegnati, usarli come disposizione iniziale: titolari (numeri 1-11) piazzati sul campo per reparto
+(stessa euristica di "Disponi automaticamente", `autoAssignPlayersToSlots` in
+`app/utils/autoFormation.ts` — profondità dello slot vs `Player.role`, non l'id dello slot), panchina
+(numeri 12-20), **numeri di maglia compresi** (passati come `previousNumbers` alla stessa funzione,
+così restano quelli della Lista Gara invece di sparire).
+- Nuovo effect dedicato (non dentro l'effect di caricamento lineup, che gira prima che il modulo sia
+  risolto): aspetta `screenReady`, che `hasSavedLineup` sia risultato `false`, che `fieldSlots` non
+  sia vuoto (il modulo dev'essere già risolto — gli slot su cui piazzare i titolari non esistono
+  prima), e che l'utente non abbia già iniziato ad assegnare qualcosa a mano nel frattempo. Un
+  `useRef` (`appliedListaGaraDefaultRef`) garantisce che scatti **una sola volta** per visita alla
+  schermata — non risincronizza continuamente con la Lista Gara dopo il primo popolamento, altrimenti
+  cambiare modulo dopo aver svuotato tutto a mano la riproporrebbe inaspettatamente.
+- **Non tocca nulla per il ruolo Giocatore** (`readOnly`): un accesso in sola lettura non deve
+  innescare una scrittura.
+- Il risultato di questo popolamento viene comunque salvato dal normale effect di autosalvataggio
+  (nessuna logica di salvataggio duplicata) — diventa a tutti gli effetti la prima formazione
+  "vera" salvata per la partita, modificabile liberamente subito dopo.
+
+**Da verificare dal vero, priorità molto alta**: aprire Formazione per una partita con Lista Gara già
+compilata e nessuna formazione impostata — verificare che si popoli da sola con titolari/panchina e
+numeri corretti; assegnare più giocatori molto rapidamente all'apertura della schermata (anche su
+connessione lenta) e controllare che nulla vada perso; controllare che una formazione già impostata
+in precedenza non venga MAI sovrascritta dalla Lista Gara.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)
