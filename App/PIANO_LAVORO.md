@@ -112,6 +112,23 @@ dato il precedente miss sullo stesso set di funzionalità (campo invisibile su w
 
 ## Completato
 
+### Live/Formazione: id ancora al posto del nome + select non scorrevole in Formazione (2026-08-24, terzo giro)
+Il fix precedente non bastava — indagine da zero, trovate due cause reali diverse da tutto il resto:
+un punto rimasto (`initializeLiveFormationFromLineup` in Live, alla pressione di Start) usava ancora
+la rosa dei soli attivi invece di attivi+ex, quindi un convocato spostato tra gli ex prima di
+premere Start faceva scrivere per sempre il suo id al posto del nome — non c'entrava la lentezza
+della connessione. La stessa causa spiegava anche "la formazione non si salva bene": in
+`formazione.tsx` il caricamento della formazione già salvata usava anch'esso i soli attivi, quindi
+un convocato diventato ex spariva in silenzio dalla formazione ricaricata (sembrava non salvata,
+in realtà solo scartata). Corretti entrambi per usare attivi+ex nella lettura di dati già salvati.
+Corretto anche lo stesso bug di scroll già visto in Live, mai applicato al modale "Scegli
+giocatore" di Formazione (e a `ConvocatiPlayersModal`, usato da Convocazione e Live): il contenitore
+aveva un limite di altezza ma la lista al suo interno no, quindi con una rosa lunga il contenuto
+finiva fuori schermo.
+**Da verificare dal vero con priorità altissima**: convocare un giocatore, spostarlo tra gli ex,
+controllare che compaia ancora con il nome giusto sia in Formazione sia in Live; aprire "Scegli
+giocatore" in Formazione con una rosa lunga e scorrere fino in fondo.
+
 ### Live: select del giocatore non scorrevano nei modali (2026-08-24)
 Effetto collaterale del fix precedente "form sotto la barra Android": quel fix aveva aggiunto
 padding in basso a tutti i modali di Live, ma nessuno aveva mai avuto uno scroll interno — con il

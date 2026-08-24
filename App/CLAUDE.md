@@ -925,6 +925,45 @@ com'erano.
 Inserimento manuale) su un telefono con schermo piccolo e controllare che tutto il contenuto sia
 raggiungibile scorrendo, Picker compreso.
 
+## Live/Formazione: id ancora al posto del nome + select non scorrevole in Formazione — 2026-08-24 (terzo giro)
+
+Il fix precedente non bastava: indagine da zero (senza fidarsi dei fix passati) su tutti e tre i
+sintomi ancora segnalati. Trovate due cause reali, distinte da tutto quanto corretto finora.
+
+**1) Id al posto del nome — ancora in `initializeLiveFormationFromLineup` (`live.tsx`)**: questa
+funzione (chiamata alla pressione di "Start") costruiva la mappa id→nome usando `basePlayers`
+(`usePlayers().players`, **solo attivi**) invece di `baseAllPlayers`/`basePlayersById` (attivi + ex,
+già usati per l'autocorrezione altrove in questo stesso file). Un convocato spostato tra gli ex
+**dopo** essere stato messo in formazione ma **prima** di premere Start faceva fallire la ricerca per
+sempre, a prescindere da quanto la Rosa avesse già finito di caricare — non era la race di
+caricamento già risolta, una causa diversa. Scriveva inoltre la lista "grezza" (non passata da
+`withFreshNames`) sia su Supabase sia nello stato locale, quindi l'autocorrezione scattava solo al
+prossimo caricamento/focus, non subito. **Fix**: usa `basePlayersById` (attivi+ex) e applica
+`withFreshNames` prima di salvare e di aggiornare lo stato.
+
+**2) Formazione "non salvata bene" nella select — in realtà i convocati diventati ex sparivano**: il
+caricamento della formazione già salvata (`formazione.tsx`) traduceva gli id in giocatori usando
+`basePlayers` (solo attivi) — un convocato spostato tra gli ex dopo essere stato schierato spariva
+in silenzio dalla formazione ricaricata (letto come "giocatore non trovato" e scartato), dando
+l'impressione che la formazione non fosse stata salvata. **Fix**: usa `baseAllPlayers` (attivi+ex)
+per questa lettura — resta corretto usare i soli attivi per decidere chi è assegnabile ORA
+(`availablePlayers`, "Disponi automaticamente"), solo la lettura di ciò che è già stato salvato deve
+includere anche gli ex.
+
+**3) Select non scorrevole nel modale "Scegli giocatore" di Formazione**: stesso bug già corretto nei
+modali di Live (`sheet`) ma mai applicato qui — il contenitore del modale (`modalCard`) ha un
+`maxHeight`, ma la `FlatList` al suo interno non aveva alcun limite proprio: senza, prova a
+rendersi alla sua altezza naturale e con una rosa lunga il contenuto (bottone "Chiudi" compreso)
+finiva fuori dallo schermo, irraggiungibile. **Fix**: `maxHeight: 360` sulla FlatList
+(`formazione.tsx`, nuovo stile `pickList`). Applicato per lo stesso motivo anche a
+`ConvocatiPlayersModal.tsx` (stesso identico difetto strutturale, non ancora segnalato ma con lo
+stesso bug), usato da Convocazione e da "Modifica Convocati" in Live.
+
+**Da verificare dal vero con priorità altissima**: convocare un giocatore, spostarlo tra gli ex,
+verificare che compaia ancora correttamente (col nome giusto) sia in Formazione sia in Live dopo
+Start; aprire il modale "Scegli giocatore" in Formazione con una rosa lunga e controllare che si
+scorra fino in fondo, bottone "Chiudi" compreso.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

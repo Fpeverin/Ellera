@@ -380,13 +380,16 @@ export default function LivePartita() {
       }
     }
 
-    const idToName = new Map(basePlayers.map(p => [p.id, p.name]));
+    // basePlayersById (attivi + ex, non solo attivi) evita di scrivere l'id come nome per un
+    // convocato spostato tra gli ex dopo la convocazione ma prima di premere Start — con la sola
+    // rosa attiva quella ricerca falliva sempre, indipendentemente da quanto la Rosa avesse già
+    // finito di caricare (bug distinto dalla race di caricamento, 2026-08-24).
     const benchIds = lineup.bench || [];
 
-    const list: InCampoPlayer[] = [
-      ...inFieldIds.map((id) => ({ id, name: idToName.get(id) || id, inField: true, expelled: false })),
-      ...benchIds.map((id)   => ({ id, name: idToName.get(id) || id, inField: false, expelled: false })),
-    ];
+    const list: InCampoPlayer[] = withFreshNames([
+      ...inFieldIds.map((id) => ({ id, name: basePlayersById.get(id) || id, inField: true, expelled: false })),
+      ...benchIds.map((id)   => ({ id, name: basePlayersById.get(id) || id, inField: false, expelled: false })),
+    ]);
     await saveLiveFormationRemote(matchId!, list);
     await setStartedRemote(matchId!, true);
       await touchApp();

@@ -53,7 +53,7 @@ const surnameOf = (full: string) => {
 export default function Schieramento() {
   const { id: matchId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { players: basePlayers, loading: basePlayersLoading } = usePlayers();
+  const { players: basePlayers, allPlayers: baseAllPlayers, loading: basePlayersLoading } = usePlayers();
   const { membership } = useAuth();
   const readOnly = membership?.role === 'giocatore';
   const params = useLocalSearchParams();
@@ -190,7 +190,11 @@ export default function Schieramento() {
           if (saved.moduleName) setSelectedModuleName(saved.moduleName);
 
           const numbersMap: Record<string, number> = saved.numbers || {};
-          const idToPlayer = new Map(basePlayers.map(p => [p.id, p]));
+          // attivi + ex (non solo attivi): un convocato spostato tra gli ex dopo essere stato
+          // schierato non deve sparire dalla formazione già salvata — sarebbe stato letto come
+          // "giocatore non trovato" e scartato in silenzio, facendo sembrare la formazione mai
+          // salvata correttamente (2026-08-24).
+          const idToPlayer = new Map(baseAllPlayers.map(p => [p.id, p]));
 
           const fieldById = (saved.field || []).map(pid => {
             if (!pid) return null;
@@ -736,6 +740,7 @@ export default function Schieramento() {
                   {pickTarget?.kind === 'FIELD' ? 'Scegli giocatore per lo slot' : 'Scegli giocatore per la panchina'}
                 </Text>
                 <FlatList
+                  style={styles.pickList}
                   data={availablePlayers}
                   keyExtractor={(p) => p.id}
                   ListEmptyComponent={
@@ -898,6 +903,11 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
 
   modalCard: { width: '92%', maxHeight: '92%', backgroundColor: '#fff', borderRadius: 12, padding: 14 },
+  // Un maxHeight sul contenitore non basta a rendere scorrevole una FlatList figlia: senza un
+  // limite proprio, prova a rendersi alla sua altezza naturale e con una rosa lunga il contenuto
+  // (compreso il bottone "Chiudi") finiva fuori dallo schermo, irraggiungibile — bug reale,
+  // segnalato dal vivo 2026-08-24.
+  pickList: { maxHeight: 360 },
   modalCardNumber: { width: 320, maxWidth: '86%', backgroundColor: '#fff', borderRadius: 12, padding: 14 },
 
   modalTitle: { fontSize: 18, fontWeight: '800', marginBottom: 10 },

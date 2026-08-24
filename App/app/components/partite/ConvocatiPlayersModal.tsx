@@ -68,6 +68,7 @@ export default function ConvocatiPlayersModal({
             </Pressable>
           </View>
           <FlatList
+            style={styles.list}
             data={players}
             keyExtractor={(p) => p.id}
             renderItem={({ item }) => {
@@ -109,6 +110,10 @@ export default function ConvocatiPlayersModal({
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
   card: { width: '86%', maxHeight: '80%', backgroundColor: '#fff', borderRadius: 12, padding: 14 },
+  // Un maxHeight sul contenitore non basta a rendere scorrevole una FlatList figlia — serve un
+  // limite proprio, altrimenti con una rosa lunga il contenuto (bottoni compresi) finisce fuori
+  // dallo schermo, irraggiungibile.
+  list: { maxHeight: 360 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 8 },
   title: { fontSize: 18, fontWeight: '800', flex: 1 },
   selectAllBtn: { backgroundColor: '#1b7f3b', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 },
