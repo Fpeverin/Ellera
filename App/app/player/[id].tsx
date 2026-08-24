@@ -552,18 +552,25 @@ export default function PlayerDetail() {
   }, [injuryRecords, trainings]);
 
   // === FOTO / ALLEGATI / TIPI INFORTUNIO ===
-   const pickPhoto = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
-      return;
+  // Tutto avvolto in try/catch, e niente allowsEditing: il ritaglio apriva un editor che su alcuni
+  // browser falliva in silenzio con foto HEIC (iPhone) — senza try/catch l'errore restava
+  // invisibile, sembrava che l'icona non facesse nulla (bug reale confermato su
+  // CompetitionTeamsModal.tsx, stesso identico pattern copiato qui).
+  const pickPhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
+        return;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.9,
+      });
+      if (!res.canceled && res.assets?.length) savePhoto(res.assets[0].uri);
+    } catch {
+      Alert.alert('Errore', 'Impossibile aprire la selezione immagini.');
     }
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.9,
-    });
-    if (!res.canceled) savePhoto(res.assets[0].uri);
   };
   const savePhoto = async (uri: string | null) => {
     if (!id || !uri) return;

@@ -1329,6 +1329,38 @@ un'indagine dedicata (non toccato in questo giro: il codice nuovo di `altreParti
 direttamente `homeAway === 'TRASFERTA'`, corretto per la convenzione attuale, indipendente da
 quell'eventuale bug altrove).
 
+### Fix: stemma non caricabile in Convocazione/Rosa/Admin + stemma squadra non collegato alla partita creata — 2026-08-24 (ottavo giro)
+Due segnalazioni di Francesco dopo il giro precedente.
+
+**1) Stemma non caricabile su Convocazione**: stesso identico bug del giro precedente
+(`CompetitionTeamsModal.tsx`, risolto rimuovendo `allowsEditing` e aggiungendo un `try/catch`
+attorno alla selezione foto) — ma il pattern era stato **copiato** in altri 3 punti dell'app, mai
+corretti: `pickOpponentLogo` in `convocazione.tsx` (stemma avversario), `pickLogo` in
+`app/squadra/staff.tsx` (logo squadra, Admin), `pickPhoto` in `app/player/[id].tsx` (foto
+profilo giocatore). Stesso fix applicato a tutti e tre: rimosso `allowsEditing: true`, tutta la
+selezione foto avvolta in `try/catch` con `Alert.alert` di errore esplicito invece di fallire in
+silenzio.
+
+**2) Stemma di una squadra configurata non arrivava sulla partita creata**: causa reale trovata in
+`CompetitionTeamsModal.tsx` — dopo l'upload di uno stemma (sia per una squadra nuova sia per una
+già esistente), lo stato locale veniva aggiornato solo con `logoUrl` (l'URL usato per
+l'anteprima), **mai con `logoPath`** (il valore usato altrove per collegare lo stemma alla
+partita, es. `pickTeamForRound` in `CompetitionModal.tsx`) — quindi se si sceglieva quella squadra
+come avversario subito dopo averle caricato lo stemma (prima di chiudere e riaprire "Squadre",
+che invece ricarica tutto fresco dal database), il round restava con `opponentLogoPath` vuoto pur
+mostrando correttamente l'anteprima nella lista squadre. **Fix**: sia `handleAdd` sia `pickLogo`
+ora aggiornano anche `logoPath` nello stato locale, non solo `logoUrl`.
+- **Rete di sicurezza aggiuntiva**: `CompetitionModal.tsx`'s `handleCreate` e il bottone "Crea" del
+  form partita singola (`SingleMatchModal` in `PartiteTab.tsx`) ora, appena prima di creare,
+  ricaricano le squadre fresche dal database e recuperano lo stemma **per nome** per qualunque
+  round/partita che ne fosse ancora privo — copre anche altri eventuali disallineamenti di
+  tempistica tra "carico lo stemma" e "scelgo la squadra", non solo la causa specifica trovata sopra.
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti. **Da verificare dal vero**:
+  caricare uno stemma su Convocazione/Admin/scheda giocatore; creare una squadra CON stemma in un
+  solo passaggio (icona 📷 nella riga "aggiungi nuova squadra") e sceglierla subito come avversario
+  di un round, poi controllare che lo stemma compaia sul calendario e sulla pagina partita dopo la
+  creazione.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

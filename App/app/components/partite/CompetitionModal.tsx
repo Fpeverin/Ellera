@@ -119,11 +119,21 @@ export default function CompetitionModal({ visible, onClose, onCreateCompetition
     return rounds.some(validRound);
   }, [compName, rounds]);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!canCreateCompetition) return;
+    // Rilettura finale delle squadre appena prima di creare: se lo stemma di una squadra è stato
+    // caricato DOPO averla già scelta per un round (es. squadra aggiunta al volo, stemma caricato
+    // con un secondo tocco), il round potrebbe avere ancora `opponentLogoPath` vuoto pur avendo
+    // l'avversario giusto — qui lo recupera per nome invece di scartarlo.
+    const freshTeams = compName.trim() ? await loadCompetitionTeams(compName.trim()).catch(() => teams) : teams;
+    const finalRounds = rounds.map((r) => {
+      if (r.opponentLogoPath) return r;
+      const match = freshTeams.find((t) => t.name === r.opponent);
+      return match?.logoPath ? { ...r, opponentLogoPath: match.logoPath } : r;
+    });
     onCreateCompetition({
       name: compName,
-      rounds: rounds,
+      rounds: finalRounds,
     });
     resetForm();
   };

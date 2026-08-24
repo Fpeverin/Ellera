@@ -72,8 +72,8 @@ export default function CompetitionTeamsModal({ visible, competition, onClose }:
       let created = await addCompetitionTeam(competition, name, newStadium.trim());
       if (newLogoUri) {
         try {
-          const { url } = await uploadCompetitionTeamLogo(created.id, newLogoUri);
-          created = { ...created, logoUrl: url };
+          const { path, url } = await uploadCompetitionTeamLogo(created.id, newLogoUri);
+          created = { ...created, logoPath: path, logoUrl: url };
         } catch {
           Alert.alert('Errore', "Squadra aggiunta, ma non è stato possibile caricare lo stemma. Riprova toccando l'icona 📷 sulla riga.");
         }
@@ -106,8 +106,8 @@ export default function CompetitionTeamsModal({ visible, competition, onClose }:
     setTeams((prev) => prev.map((t) => (t.id === team.id ? { ...t, logoUrl: localUri } : t)));
     setUploadingLogoFor(team.id);
     try {
-      const { url } = await uploadCompetitionTeamLogo(team.id, localUri);
-      setTeams((prev) => prev.map((t) => (t.id === team.id ? { ...t, logoUrl: url } : t)));
+      const { path, url } = await uploadCompetitionTeamLogo(team.id, localUri);
+      setTeams((prev) => prev.map((t) => (t.id === team.id ? { ...t, logoPath: path, logoUrl: url } : t)));
     } catch {
       Alert.alert('Errore', 'Impossibile caricare lo stemma.');
     } finally {

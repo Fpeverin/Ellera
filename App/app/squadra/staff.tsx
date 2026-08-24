@@ -121,20 +121,30 @@ export default function AdminScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const pickLogo = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
+    // Tutto avvolto in try/catch, e niente allowsEditing: il ritaglio apriva un editor che su
+    // alcuni browser falliva in silenzio con foto HEIC (iPhone) — senza try/catch l'errore restava
+    // invisibile, sembrava che l'icona non facesse nulla (bug reale confermato su
+    // CompetitionTeamsModal.tsx, stesso identico pattern copiato qui).
+    let localUri: string | null = null;
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
+        return;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.9,
+      });
+      if (res.canceled || !res.assets?.length) return;
+      localUri = res.assets[0].uri;
+    } catch {
+      Alert.alert('Errore', 'Impossibile aprire la selezione immagini.');
       return;
     }
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.9,
-    });
-    if (res.canceled) return;
     setLogoBusy(true);
     try {
-      const publicUrl = await uploadOrgLogo(res.assets[0].uri);
+      const publicUrl = await uploadOrgLogo(localUri);
       setLogoUrl(publicUrl);
       invalidateOrgLogoCache();
     } catch {

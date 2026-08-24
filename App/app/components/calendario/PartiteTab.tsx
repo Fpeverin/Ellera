@@ -745,8 +745,16 @@ function SingleMatchModal({
             <Pressable
               style={[styles.cta, { backgroundColor: '#1b7f3b', flex: 1, opacity: canSave ? 1 : 0.6 }]}
               disabled={!canSave}
-              onPress={() => {
-                onCreateMatch({ date, time, opponent, competition, giornata, homeAway, location, opponentLogoPath });
+              onPress={async () => {
+                // Rilettura finale: se lo stemma è stato caricato dopo aver già scelto
+                // l'avversario, lo recupera qui per nome invece di scartarlo (stessa logica di
+                // CompetitionModal.tsx).
+                let finalLogoPath = opponentLogoPath;
+                if (!finalLogoPath && competition.trim()) {
+                  const fresh = await loadCompetitionTeams(competition.trim()).catch(() => teams);
+                  finalLogoPath = fresh.find((t) => t.name === opponent)?.logoPath || undefined;
+                }
+                onCreateMatch({ date, time, opponent, competition, giornata, homeAway, location, opponentLogoPath: finalLogoPath });
                 reset();
               }}
             >

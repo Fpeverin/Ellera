@@ -199,6 +199,14 @@ Casa/Trasferta in `live.tsx`/`statistiche.tsx`/`player/[id].tsx` per le partite 
 convenzione recente ('CASA'/'TRASFERTA' invece di 'HOME'/'AWAY') — segnalato per un'indagine
 dedicata, vedi CLAUDE.md.
 
+**Fix — ottavo giro (2026-08-24)**: lo stesso bug del ritaglio-foto (giro precedente) era stato
+copiato in altri 3 punti mai corretti — stemma avversario in Convocazione, logo squadra in Admin,
+foto profilo giocatore — stesso fix applicato a tutti. Trovata anche la causa reale per cui uno
+stemma di squadra configurato non arrivava sulla partita creata: dopo l'upload, lo stato locale
+teneva solo l'URL per l'anteprima, non il percorso usato per collegare lo stemma alla partita —
+corretto, più una rilettura di sicurezza appena prima di creare partita/calendario che recupera lo
+stemma per nome se ancora mancante. Vedi CLAUDE.md per i dettagli tecnici completi.
+
 ### Statistiche: gol subiti dal portiere come numero negativo (2026-08-24)
 La colonna "Gol" per il ruolo Portiere mostra già i gol subiti invece di quelli fatti — richiesta di
 Francesco: mostrarli come numero negativo (-1, -2, ...) invece di un numero semplice che poteva
