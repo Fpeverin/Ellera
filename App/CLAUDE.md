@@ -823,6 +823,36 @@ avviata, verificare che non si azzeri/blocchi), il salvataggio di più eventi ra
 connessione debole simulata), e che una formazione già "sporca" con id al posto del nome si corregga
 da sola aprendo la schermata.
 
+## Live: Formazione che si azzerava da sola — 2026-08-23 (stesso giorno, secondo giro)
+
+Francesco ha segnalato, dopo il giro sopra: impostando la formazione in `formazione.tsx` e tornando
+indietro, la disposizione non risultava salvata. **Causa: un bug deterministico, non una race**.
+L'effect che carica la formazione già salvata (`useEffect(..., [matchId])`) traduce gli id salvati in
+oggetti `Player` cercandoli in `basePlayers` (da `usePlayers()`) — ma quell'effect gira **una sola
+volta** e la sua closure resta legata per sempre a `basePlayers` **di quel preciso render**. Al primo
+render `basePlayers` è **sempre** `[]` (lo stato iniziale dell'hook, prima che la fetch a Supabase
+risponda) — e siccome l'effect non aveva `basePlayers`/il flag `loading` tra le dipendenze, non si
+riesegue mai quando la Rosa finisce di caricare poco dopo. Risultato: **ogni singola volta** che si
+apre questa schermata, ogni giocatore della formazione salvata falliva la ricerca per id e veniva
+scartato (`idToPlayer.get(pid)` su una mappa vuota → sempre `null`) — la formazione risultava vuota
+sullo schermo, e l'effect di autosalvataggio (che reagisce a qualsiasi cambio di
+`fieldAssignments`/`benchAssignments`) scriveva subito quella vuotezza sul server, **cancellando per
+davvero** la formazione appena vista come vuota. Non serviva una connessione lenta perché si
+manifestasse: la fetch di `usePlayers()` richiede sempre almeno un giro di rete, quindi è sempre più
+lenta del primo render di questo effect.
+
+- **Fix**: `usePlayers()` ora espone anche `loading` in questa schermata (`basePlayersLoading`),
+  aggiunto alle dipendenze dell'effect di caricamento — l'effect si riesegue davvero quando la Rosa
+  finisce di caricare, questa volta con `basePlayers` popolato.
+- **Fix collaterale**: gli effect di autosalvataggio (lineup e, in Live, le posizioni) potevano avere
+  più scritture in volo insieme (ogni assegnazione ne fa partire una) senza un ordine garantito — una
+  per uno stato "vecchio" poteva arrivare al server dopo quella per lo stato più recente,
+  sovrascrivendolo. Aggiunta una coda (`useRef<Promise<void>>`, ogni nuova scrittura aspetta che la
+  precedente sia finita) a entrambi, così l'ultima modifica vince sempre per davvero.
+- **Verifica dal vero ad altissima priorità**: impostare una formazione completa, tornare indietro,
+  riaprire la schermata e controllare che sia ancora quella giusta — sia da ferma (pre-partita) sia
+  durante il drag in Live.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

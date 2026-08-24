@@ -112,6 +112,19 @@ dato il precedente miss sullo stesso set di funzionalità (campo invisibile su w
 
 ## Completato
 
+### Live/Formazione: la formazione impostata si azzerava da sola (2026-08-23, secondo giro)
+Segnalato subito dopo il giro qui sotto: impostare la formazione e tornare indietro non la salvava.
+Causa reale — non una race di rete, un bug deterministico: l'effect che carica la formazione già
+salvata gira una volta sola e traduce gli id in giocatori usando la Rosa (`usePlayers()`), ma non
+riaspettava che la Rosa avesse finito di caricare (sempre vuota al primissimo render) — ogni
+giocatore veniva quindi scartato, la formazione risultava vuota, e l'autosalvataggio scriveva subito
+quella vuotezza sul server, cancellando per davvero quanto già impostato. **Si verificava ogni
+volta**, non solo su connessione lenta. Corretto (dettagli in CLAUDE.md), più una coda che ordina i
+salvataggi automatici (lineup e posizioni) così una scrittura più vecchia non può più arrivare dopo
+una più recente e cancellarla.
+**Da verificare dal vero con priorità altissima**: impostare una formazione, uscire, rientrare e
+controllare che sia rimasta quella giusta.
+
 ### Live: 5 bug/richieste dopo la prima partita vera (2026-08-23)
 Francesco ha segnalato insieme, dopo la prima partita reale della stagione: cronometro che non
 scorreva, salvataggi di gol/cartellini/sostituzioni "a volte sì a volte no", form di inserimento

@@ -52,7 +52,7 @@ const surnameOf = (full: string) => {
 export default function Schieramento() {
   const { id: matchId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { players: basePlayers } = usePlayers();
+  const { players: basePlayers, loading: basePlayersLoading } = usePlayers();
   const { membership } = useAuth();
   const readOnly = membership?.role === 'giocatore';
   const params = useLocalSearchParams();
@@ -163,9 +163,16 @@ export default function Schieramento() {
   }, [modules, selectedModuleName]);
 
   // --- carica lineup salvata ---
+  // Aspetta che la Rosa (usePlayers) abbia finito di caricare: questo effect gira una sola volta
+  // (dipende solo da matchId) e la sua closure resta legata per sempre a `basePlayers` di quel
+  // preciso render — se a quel momento la Rosa non aveva ancora finito di caricare (sempre vuota
+  // al primo render, prima che la fetch risponda), ogni giocatore salvato falliva la ricerca per id
+  // e finiva scartato: la formazione già salvata veniva letta come vuota e il salvataggio
+  // automatico qui sotto la sovrascriveva così per davvero, cancellando la formazione a ogni
+  // apertura della schermata — bug reale segnalato da Francesco, 2026-08-23.
   React.useEffect(() => {
     (async () => {
-      if (!matchId) return;
+      if (!matchId || basePlayersLoading) return;
       try {
         const saved = await loadLineupRemote(matchId);
         if (saved) {
@@ -200,7 +207,7 @@ export default function Schieramento() {
         loadedRef.current = true;
       }
     })();
-  }, [matchId]);
+  }, [matchId, basePlayersLoading]);
 
   // --- allinea lunghezze ---
   React.useEffect(() => {
@@ -369,39 +376,45 @@ export default function Schieramento() {
   };
 
   // --- salvataggi lineup + posizioni ---
+  // Ogni assegnazione (drag, tap sul picker, "Disponi automaticamente"...) fa scattare questo
+  // effect da capo: più modifiche ravvicinate potevano quindi avere più scritture in volo insieme,
+  // e senza un ordine garantito quella per uno stato "vecchio" poteva arrivare al server DOPO
+  // quella per lo stato più recente, sovrascrivendolo — la formazione appena impostata spariva al
+  // rientro sulla schermata. Le due code qui sotto forzano l'ordine: una nuova scrittura parte solo
+  // dopo che la precedente è finita, così l'ultima modifica vince sempre per davvero.
+  const lineupSaveQueueRef = React.useRef<Promise<void>>(Promise.resolve());
   React.useEffect(() => {
     if (!loadedRef.current || !matchId) return;
-    (async () => {
-      try {
-        // costruisci mappa id->numero
-        const numbers: Record<string, number> = {};
-        for (const p of fieldAssignments) {
-          if (p?.number) numbers[p.id] = p.number;
-        }
-        for (const p of benchAssignments) {
-          if (p?.number) numbers[p.id] = p.number;
-        }
+    // costruisci mappa id->numero
+    const numbers: Record<string, number> = {};
+    for (const p of fieldAssignments) {
+      if (p?.number) numbers[p.id] = p.number;
+    }
+    for (const p of benchAssignments) {
+      if (p?.number) numbers[p.id] = p.number;
+    }
 
-        const payload: SavedLineup = {
-          moduleName: selectedModuleName ?? null,
-          convocati: convocatiPlayerIds,
-          field: fieldAssignments.map(p => p?.id ?? null),
-          bench: benchAssignments.map(p => p.id),
-          numbers, // <-- SALVO I NUMERI
-        };
-        await saveLineupRemote(matchId, payload);
-      } catch {}
-    })();
+    const payload: SavedLineup = {
+      moduleName: selectedModuleName ?? null,
+      convocati: convocatiPlayerIds,
+      field: fieldAssignments.map(p => p?.id ?? null),
+      bench: benchAssignments.map(p => p.id),
+      numbers, // <-- SALVO I NUMERI
+    };
+    lineupSaveQueueRef.current = lineupSaveQueueRef.current.then(
+      () => saveLineupRemote(matchId, payload).catch(() => {}),
+      () => saveLineupRemote(matchId, payload).catch(() => {})
+    );
   }, [matchId, selectedModuleName, convocatiPlayerIds, fieldAssignments, benchAssignments]);
 
+  const positionsSaveQueueRef = React.useRef<Promise<void>>(Promise.resolve());
   React.useEffect(() => {
     if (!loadedRef.current || !matchId) return;
     if (!liveMode) return;
-    (async () => {
-      try {
-        await savePositionsRemote(matchId, posOverrides);
-      } catch {}
-    })();
+    positionsSaveQueueRef.current = positionsSaveQueueRef.current.then(
+      () => savePositionsRemote(matchId, posOverrides).catch(() => {}),
+      () => savePositionsRemote(matchId, posOverrides).catch(() => {})
+    );
   }, [posOverrides, matchId, liveMode]);
 
   // ==== Calcolo etichette nomi ====
