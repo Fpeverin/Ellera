@@ -464,7 +464,7 @@ export default function LivePartita() {
       await touchApp();
       setIsFinished(true);
       setFinishOpen(false);
-      router.replace('/partite');
+      router.replace({ pathname: '/calendario', params: { tab: 'partite' } });
     } catch {
       setFinishError('Si è verificato un problema durante il salvataggio.');
     } finally {
@@ -1230,7 +1230,7 @@ export default function LivePartita() {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingTop: 8 }}>
           <Pressable
             style={styles.backBtn}
-            onPress={() => router.replace('/partite')}
+            onPress={() => router.replace({ pathname: '/calendario', params: { tab: 'partite' } })}
             accessibilityLabel="Torna a Partite"
           >
             <Text style={styles.backBtnTxt}>← Partite</Text>

@@ -369,7 +369,8 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
         const map = perPlayerTotals[p.id] || {};
         const s = map[key] || EMPTY;
 
-        const golUnico = p.role === 'PORTIERE' ? s.goalsConceded : s.goals;
+        // Portiere: gol subiti come numero negativo (-1, -2, ...), stesso criterio della schermata.
+        const golUnico = p.role === 'PORTIERE' ? (s.goalsConceded > 0 ? -s.goalsConceded : 0) : s.goals;
 
         const base: (string | number)[] = [
           `"${p.name.replace(/"/g, '""')}"`,
@@ -419,15 +420,15 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       })
       .map(p => {
         const s = (perPlayerTotals[p.id]?.[key] || EMPTY);
-        const golUnico = p.role === 'PORTIERE' ? s.goalsConceded : s.goals;
+        // Portiere: gol subiti come numero negativo (-1, -2, ...), stesso criterio della schermata.
+        const golUnico = p.role === 'PORTIERE' ? (s.goalsConceded > 0 ? -s.goalsConceded : 0) : s.goals;
 
-        const base = [
-          esc(p.name),
-          golUnico,
+        const golCell = golUnico < 0 ? `<td class="conceded">${esc(golUnico)}</td>` : `<td>${esc(golUnico)}</td>`;
+        const rest = [
           s.yellows, s.reds,
           s.minutes, s.starts, s.bench, s.notCalled, s.subbedOff, s.subbedOn,
-        ];
-        const cells = base.map(v => `<td>${esc(v)}</td>`).join('');
+        ].map(v => `<td>${esc(v)}</td>`).join('');
+        const cells = `<td>${esc(p.name)}</td>${golCell}${rest}`;
         const hlClass = shouldHL(s.yellows) ? ' class="hl"' : '';
         return `<tr${hlClass}>${cells}</tr>`;
       })
@@ -441,6 +442,7 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
         thead th { background: #f1f5f9; }
         tbody td:first-child { text-align: left; font-weight: bold; }
         tbody tr.hl { background: #fff7b3; }
+        td.conceded { color: #b91c1c; font-weight: bold; }
       </style>
     `;
 
@@ -611,13 +613,17 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
                     const key = (activeCompetition ?? '__ALL__');
                     const s = map[key] || EMPTY;
                     const highlight = shouldHighlightRow(s.yellows);
-                    const golUnico = p.role === 'PORTIERE' ? s.goalsConceded : s.goals;
-                    
+                    // Per il portiere la colonna "Gol" mostra i subiti come numero negativo
+                    // (-1, -2, ...) invece dei fatti — così si distingue a colpo d'occhio dal
+                    // "Gol" positivo dei giocatori di movimento, evidenziato in rosso.
+                    const isGoalkeeper = p.role === 'PORTIERE';
+                    const golUnico = isGoalkeeper ? (s.goalsConceded > 0 ? -s.goalsConceded : 0) : s.goals;
+
                     return (
                       <View key={p.id} style={[styles.dataRow, highlight && styles.highlightRow, index % 2 === 0 && styles.evenRow]}>
                         {/* Performance */}
                         <View style={styles.dataGroup}>
-                          <Text style={[styles.dataCell, styles.primaryStat]}>{golUnico}</Text>
+                          <Text style={[styles.dataCell, isGoalkeeper && golUnico < 0 ? styles.concededStat : styles.primaryStat]}>{golUnico}</Text>
                           <Text style={styles.dataCell}>{s.minutes}</Text>
                         </View>
                         
@@ -911,6 +917,10 @@ playerContent: {
   },
   redCard: {
     color: '#ef4444',
+    fontWeight: 'bold',
+  },
+  concededStat: {
+    color: '#b91c1c',
     fontWeight: 'bold',
   },
   percentStat: {

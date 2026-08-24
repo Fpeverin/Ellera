@@ -25,6 +25,7 @@ type NewRound = {
   time: string;
   homeAway: 'CASA' | 'TRASFERTA';
   location: string;
+  giornata: string;
 };
 
 interface CompetitionModalProps {
@@ -53,6 +54,9 @@ export default function CompetitionModal({ visible, onClose, onCreateCompetition
         time: '',
         homeAway: 'CASA',
         location: '',
+        // Numero di giornata di partenza — coincide con l'ordine di creazione ma resta modificabile
+        // per ogni round (rinvii/recuperi possono spostare una partita fuori dal suo ordine naturale).
+        giornata: String(i + 1),
       });
     }
     return arr;
@@ -138,7 +142,15 @@ export default function CompetitionModal({ visible, onClose, onCreateCompetition
               };
               return (
                 <View key={idx} style={styles.roundCard}>
-                  <Text style={styles.roundTitle}>Giornata {idx + 1}</Text>
+                  <Text style={styles.roundTitle}>Round {idx + 1}</Text>
+
+                  <Text style={styles.labelMini}>Giornata</Text>
+                  <TextInput
+                    value={r.giornata}
+                    onChangeText={(val) => updateRound(idx, 'giornata', val)}
+                    placeholder={String(idx + 1)}
+                    style={styles.inputMini}
+                  />
 
                   <Text style={styles.labelMini}>Avversario</Text>
                   <TextInput

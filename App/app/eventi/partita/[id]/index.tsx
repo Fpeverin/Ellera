@@ -98,9 +98,9 @@ export default function PartitaIndexChooser() {
           </Text>
         )}
 
-        <View style={styles.cardsRow}>
+        <View style={styles.cardsGrid}>
           <Pressable
-            style={[styles.actionCard, styles.convocazioneCard]}
+            style={[styles.gridCard, styles.convocazioneCard]}
             onPress={() => router.push(`/eventi/partita/${matchId}/convocazione`)}
           >
             <Text style={styles.actionIcon}>📋</Text>
@@ -109,7 +109,7 @@ export default function PartitaIndexChooser() {
           </Pressable>
 
           <Pressable
-            style={[styles.actionCard, styles.listaGaraCard]}
+            style={[styles.gridCard, styles.listaGaraCard]}
             onPress={() => router.push(`/eventi/partita/${matchId}/listaGara`)}
           >
             <Text style={styles.actionIcon}>🧾</Text>
@@ -118,12 +118,21 @@ export default function PartitaIndexChooser() {
           </Pressable>
 
           <Pressable
-            style={[styles.actionCard, styles.liveCard]}
+            style={[styles.gridCard, styles.liveCard]}
             onPress={() => router.push(`/eventi/partita/${matchId}/live`)}
           >
             <Text style={styles.actionIcon}>🔴</Text>
             <Text style={styles.actionTitle}>LIVE</Text>
             <Text style={styles.actionSubtitle}>Formazione, tattiche, cronaca</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.gridCard, styles.altrePartiteCard]}
+            onPress={() => router.push(`/eventi/partita/${matchId}/altrePartite`)}
+          >
+            <Text style={styles.actionIcon}>🗓️</Text>
+            <Text style={styles.actionTitle}>ALTRE PARTITE</Text>
+            <Text style={styles.actionSubtitle}>Risultati della giornata</Text>
           </Pressable>
         </View>
       </View>
@@ -149,13 +158,20 @@ const styles = StyleSheet.create({
   preMatchVs: { fontSize: 14, fontWeight: '700', color: '#94a3b8' },
   preMatchHint: { fontSize: 13, color: '#94a3b8', marginTop: 20 },
 
-  cardsRow: { flexDirection: 'row', gap: 10, marginTop: 28 },
-  actionCard: {
+  cardsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 28,
     flex: 1,
+  },
+  gridCard: {
+    width: '48%',
+    aspectRatio: 1.15,
     backgroundColor: 'white',
     borderRadius: 16,
     paddingVertical: 20,
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -166,7 +182,8 @@ const styles = StyleSheet.create({
   convocazioneCard: { backgroundColor: '#dcfce7' },
   listaGaraCard: { backgroundColor: '#e0e7ff' },
   liveCard: { backgroundColor: '#fee2e2' },
-  actionIcon: { fontSize: 28 },
-  actionTitle: { fontSize: 13, fontWeight: '900', marginTop: 8, color: '#0f172a' },
+  altrePartiteCard: { backgroundColor: '#fef3c7' },
+  actionIcon: { fontSize: 32 },
+  actionTitle: { fontSize: 14, fontWeight: '900', marginTop: 10, color: '#0f172a' },
   actionSubtitle: { fontSize: 12, color: '#6b7280', marginTop: 4, textAlign: 'center', paddingHorizontal: 8 },
 });

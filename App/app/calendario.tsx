@@ -1,22 +1,31 @@
 // app/calendario.tsx
-import { useFocusEffect, useRouter } from 'expo-router';
+//
+// Schermata "Calendario" unificata (2026-08-24): sostituisce i due bottoni separati "Allenamenti"/
+// "Partite" in Home. Racchiude entrambe le funzionalità — calendario mensile in cima
+// (MonthCalendarGrid, lo stesso componente già usato in Home) più un selettore Allenamenti/Partite
+// che mostra il contenuto della vecchia route corrispondente (spostato, invariato, in
+// app/components/calendario/AllenamentiTab.tsx e PartiteTab.tsx). Tap su un giorno del calendario
+// apre direttamente l'evento, stesso comportamento della Home.
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import EventEditorModal from './components/EventEditorModal';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import AllenamentiTab from './components/calendario/AllenamentiTab';
+import PartiteTab from './components/calendario/PartiteTab';
+import MonthCalendarGrid from './components/MonthCalendarGrid';
 import TeamLogo from './components/TeamLogo';
-import { useAuth } from './context/AuthContext';
 import { CalendarEvent, loadEvents } from './data/events';
 
+type TabKey = 'allenamenti' | 'partite';
+
 export default function Calendario() {
-  const { membership } = useAuth();
-  const readOnly = membership?.role === 'giocatore';
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [showModal, setShowModal] = useState(false);
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const { tab: initialTabParam } = useLocalSearchParams<{ tab?: string }>();
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
+
+  const [tab, setTab] = useState<TabKey>(initialTabParam === 'partite' ? 'partite' : 'allenamenti');
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
 
   const refreshEvents = async () => {
     const list = await loadEvents();
@@ -25,74 +34,68 @@ export default function Calendario() {
 
   useFocusEffect(useCallback(() => { refreshEvents(); }, []));
 
+  const goToEvent = (ev: CalendarEvent) => {
+    router.push(ev.type === 'PARTITA' ? `/eventi/partita/${ev.id}` : `/eventi/allenamento/${ev.id}`);
+  };
+
   return (
-    <SafeAreaView style={styles.container} edges={['top','bottom']}>
-      {/* Top bar coerente con le altre pagine */}
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.topBar}>
-        <View style={styles.topBarTitleRow}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()} accessibilityLabel="Indietro">
-            <Text style={styles.backBtnTxt}>←</Text>
-          </Pressable>
-          <TeamLogo size={28} style={{ marginRight: 8 }} />
-          <Text style={styles.title}>Calendario</Text>
+        <Pressable style={styles.backBtn} onPress={() => router.back()} accessibilityLabel="Indietro">
+          <Text style={styles.backBtnTxt}>←</Text>
+        </Pressable>
+        <TeamLogo size={28} style={{ marginRight: 8 }} />
+        <Text style={styles.title}>Calendario</Text>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <View style={[styles.wide, isWide && styles.wideCentered]}>
+          <MonthCalendarGrid events={events} onSelectEvent={goToEvent} />
         </View>
-        {!readOnly && (
-          <Pressable style={styles.createBtn} onPress={() => setShowModal(true)}>
-            <Text style={styles.createBtnText}>＋ Nuovo</Text>
+
+        <View style={[styles.tabSwitch, styles.wide, isWide && styles.wideCentered]}>
+          <Pressable
+            style={[styles.tabBtn, tab === 'allenamenti' && styles.tabBtnActive]}
+            onPress={() => setTab('allenamenti')}
+          >
+            <Text style={[styles.tabBtnText, tab === 'allenamenti' && styles.tabBtnTextActive]}>🏃 Allenamenti</Text>
           </Pressable>
-        )}
-      </View>
+          <Pressable
+            style={[styles.tabBtn, tab === 'partite' && styles.tabBtnActive]}
+            onPress={() => setTab('partite')}
+          >
+            <Text style={[styles.tabBtnText, tab === 'partite' && styles.tabBtnTextActive]}>🏆 Partite</Text>
+          </Pressable>
+        </View>
 
-      <View style={[styles.listWrap, isWide && styles.listWrapWide]}>
-        <FlatList
-          data={[...events].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))}
-          keyExtractor={(item) => item.id}
-          ListEmptyComponent={<Text style={{ color: '#6b7280' }}>Nessun evento trovato</Text>}
-          renderItem={({ item }) => (
-            <Pressable
-              style={styles.eventCard}
-              onPress={() =>
-                item.type === 'PARTITA'
-                  ? router.push(`/eventi/partita/${item.id}`)
-                  : router.push(`/eventi/allenamento/${item.id}`)
-              }
-            >
-              <Text style={styles.eventTitle}>
-                {item.type === 'PARTITA' ? `Partita vs ${item.opponent}` : 'Allenamento'}
-              </Text>
-              <Text style={{ color: '#374151' }}>{item.date} · {item.time} · {item.location}</Text>
-            </Pressable>
-          )}
-          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-          contentContainerStyle={{ paddingBottom: 16 + insets.bottom }}
-        />
-      </View>
-
-      <EventEditorModal
-        visible={showModal}
-        onClose={() => setShowModal(false)}
-        onSaved={refreshEvents}
-      />
+        <View style={[styles.wide, isWide && styles.wideCentered]}>
+          {tab === 'allenamenti' ? <AllenamentiTab /> : <PartiteTab />}
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 12 },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 10 },
-  topBarTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  container: { flex: 1, backgroundColor: '#f5f7fa' },
+  topBar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 10 },
   backBtn: {
     width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff',
   },
   backBtnTxt: { fontSize: 18, fontWeight: '800', color: '#111' },
-  title: { fontSize: 22, fontWeight: '800' },
-  createBtn: { backgroundColor: '#1b7f3b', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
-  createBtnText: { color: '#fff', fontWeight: '800' },
+  title: { fontSize: 22, fontWeight: '800', color: '#1a202c' },
 
-  listWrap: { flex: 1 },
-  listWrapWide: { width: '100%', maxWidth: 700, alignSelf: 'center' },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 32 },
+  wide: { width: '100%' },
+  wideCentered: { maxWidth: 700, alignSelf: 'center' },
 
-  eventCard: { backgroundColor: '#f4f6f8', borderRadius: 10, padding: 12 },
-  eventTitle: { fontWeight: '800', marginBottom: 2, fontSize: 16 },
+  tabSwitch: {
+    flexDirection: 'row', gap: 8, marginTop: 16, marginBottom: 16,
+    backgroundColor: '#e5e7eb', borderRadius: 12, padding: 4,
+  },
+  tabBtn: { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: 'center' },
+  tabBtnActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, elevation: 1 },
+  tabBtnText: { fontWeight: '700', color: '#6b7280', fontSize: 14 },
+  tabBtnTextActive: { color: '#1a202c' },
 });

@@ -112,6 +112,36 @@ dato il precedente miss sullo stesso set di funzionalità (campo invisibile su w
 
 ## Completato
 
+### Calendario unificato, Competizione/Giornata, Altre Partite, pagina partita a 4 riquadri (2026-08-24)
+4 richieste di Francesco insieme, piano concordato e realizzato in 4 fasi (dettagli tecnici completi
+in CLAUDE.md):
+1. **Competizione + Giornata**: le partite mostrano "Competizione · Nª Giornata" più nome/stemma
+   dell'avversario della giornata, editabili da `CompetitionModal`/`EditMatchModal`/creazione singola.
+2. **Altre Partite** (nuova sezione per partita, `altrePartite.tsx`): incontri delle altre squadre
+   della stessa giornata/competizione — testo libero (squadre/risultato/marcatori), chiave
+   `(competition, giornata)` condivisa tra le nostre partite (nuove tabelle `matchday_fixtures`/
+   `matchday_fixture_attachments`, script `27_schema_matchday_fixtures.sql`), allegati foto/PDF delle
+   formazioni.
+3. **Pagina scelta-partita a 4 riquadri**: griglia 2×2 (Convocazione/Lista Gara/Live/Altre Partite) al
+   posto delle 3 card in riga.
+4. **Calendario unificato**: bottone Home unico "📅 Calendario" al posto di "🏃 Allenamenti"/
+   "🏆 Partite" separati — stessa identica logica di prima, solo spostata dentro due componenti tab
+   (`AllenamentiTab.tsx`/`PartiteTab.tsx`) mostrati sotto un calendario mensile condiviso
+   (`MonthCalendarGrid.tsx`, estratto anche per la Dashboard). Nessuna funzionalità persa.
+
+**Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti dopo ogni fase; avviato anche un
+server locale per controllare che l'app si carichi senza errori console fino alla schermata di
+login (non verificabile oltre senza credenziali reali in questo ambiente). **Da verificare dal vero
+con priorità molto alta, soprattutto il punto 4** (il più esteso): ripetere ogni operazione di
+Allenamenti e Partite dal nuovo Calendario, il tap sulla griglia mensile, e il rientro da Live sul
+tab Partite del Calendario.
+
+### Statistiche: gol subiti dal portiere come numero negativo (2026-08-24)
+La colonna "Gol" per il ruolo Portiere mostra già i gol subiti invece di quelli fatti — richiesta di
+Francesco: mostrarli come numero negativo (-1, -2, ...) invece di un numero semplice che poteva
+sembrare "gol fatti". Applicato in modo coerente su schermata, export CSV e stampa PDF; nella
+schermata e nel PDF il numero negativo è anche in rosso, come i cartellini. Nessuna migrazione dati.
+
 ### Live/Formazione: id ancora al posto del nome + select non scorrevole in Formazione (2026-08-24, terzo giro)
 Il fix precedente non bastava — indagine da zero, trovate due cause reali diverse da tutto il resto:
 un punto rimasto (`initializeLiveFormationFromLineup` in Live, alla pressione di Start) usava ancora

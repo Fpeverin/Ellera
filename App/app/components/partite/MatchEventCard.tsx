@@ -1,11 +1,14 @@
 // app/components/partite/MatchEventCard.tsx
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CalendarEvent } from '../../data/events';
+import { opponentLogoUrlFromPath } from '../../data/organization';
 
 type MatchEvent = CalendarEvent & {
   competition?: string;
+  giornata?: string;
   homeAway?: 'CASA' | 'TRASFERTA';
+  opponentLogoPath?: string;
 };
 
 interface MatchEventCardProps {
@@ -18,15 +21,20 @@ interface MatchEventCardProps {
 export default function MatchEventCard({ item, onPress, onEdit, onDelete }: MatchEventCardProps) {
   const comp = item.competition || '—';
   const ha = item.homeAway || 'CASA';
+  const compLabel = item.giornata ? `${comp} · ${item.giornata}ª giornata` : comp;
+  const logoUrl = item.opponentLogoPath ? opponentLogoUrlFromPath(item.opponentLogoPath) : null;
 
   return (
     <View style={styles.eventCard}>
       <Pressable style={{ flex: 1 }} onPress={() => onPress(item)}>
         <View style={styles.rowBetween}>
-          <Text style={styles.badge}>{comp}</Text>
+          <Text style={styles.badge} numberOfLines={1}>{compLabel}</Text>
           <Text style={[styles.haBadge, ha === 'CASA' ? styles.haHome : styles.haAway]}>{ha}</Text>
         </View>
-        <Text style={styles.opponent}>vs {item.opponent || '—'}</Text>
+        <View style={styles.opponentRow}>
+          {logoUrl && <Image source={{ uri: logoUrl }} style={styles.opponentLogo} resizeMode="contain" />}
+          <Text style={styles.opponent}>vs {item.opponent || '—'}</Text>
+        </View>
         <Text style={styles.meta}>
           {item.date || '—'} · {item.time || '--:--'} · {item.location || '—'}
         </Text>
@@ -89,10 +97,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#fef3c7',
     color: '#92400e',
   },
+  opponentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  opponentLogo: {
+    width: 20,
+    height: 20,
+  },
   opponent: {
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: 4,
   },
   meta: {
     fontSize: 12,

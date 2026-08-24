@@ -1,9 +1,10 @@
 // app/components/partite/EditMatchModal.tsx
 //
-// Modifica di data/ora/luogo di una partita già creata — solo Admin (richiesta di Francesco,
-// 2026-08-22: prima non c'era alcun modo di correggere questi campi dopo la creazione, se non
-// eliminare e ricreare la partita). Non tocca avversario/competizione/casa-trasferta: cambiarli
-// significherebbe sostituire la partita, non correggerne data/ora/luogo.
+// Modifica di una partita già creata — solo Admin (richiesta di Francesco, 2026-08-22: prima non
+// c'era alcun modo di correggere questi campi dopo la creazione, se non eliminare e ricreare la
+// partita). Data/ora/luogo/competizione/giornata sono correggibili qui; avversario/casa-trasferta
+// no — cambiarli significherebbe sostituire la partita, non correggerne i dati (2026-08-24: aggiunti
+// Competizione/Giornata, prima limitato a data/ora/luogo).
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Calendar } from 'react-native-calendars';
@@ -15,7 +16,10 @@ interface EditMatchModalProps {
   visible: boolean;
   event: CalendarEvent | null;
   onClose: () => void;
-  onSave: (eventId: string, patch: { date: string; time: string; location: string }) => void;
+  onSave: (
+    eventId: string,
+    patch: { date: string; time: string; location: string; competition: string; giornata: string }
+  ) => void;
 }
 
 const TIME_RE = /^\d{2}:\d{2}$/;
@@ -24,6 +28,8 @@ export default function EditMatchModal({ visible, event, onClose, onSave }: Edit
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [location, setLocation] = useState('');
+  const [competition, setCompetition] = useState('');
+  const [giornata, setGiornata] = useState('');
 
   // Riparte dai valori della partita ogni volta che si apre (o si cambia partita da modificare).
   useEffect(() => {
@@ -31,6 +37,8 @@ export default function EditMatchModal({ visible, event, onClose, onSave }: Edit
       setDate(event.date || '');
       setTime(event.time || '');
       setLocation(event.location || '');
+      setCompetition((event as any).competition || '');
+      setGiornata((event as any).giornata || '');
     }
   }, [event]);
 
@@ -42,7 +50,7 @@ export default function EditMatchModal({ visible, event, onClose, onSave }: Edit
 
   const handleSave = () => {
     if (!event || !canSave) return;
-    onSave(event.id, { date, time, location });
+    onSave(event.id, { date, time, location, competition, giornata });
   };
 
   return (
@@ -84,6 +92,22 @@ export default function EditMatchModal({ visible, event, onClose, onSave }: Edit
               style={[styles.input, errors.location && styles.inputError]}
             />
             {errors.location && <Text style={styles.errorMsg}>Campo obbligatorio</Text>}
+
+            <Text style={styles.label}>Competizione (opzionale)</Text>
+            <TextInput
+              value={competition}
+              onChangeText={setCompetition}
+              placeholder="Es. Campionato / Coppa"
+              style={styles.input}
+            />
+
+            <Text style={styles.label}>Giornata (opzionale)</Text>
+            <TextInput
+              value={giornata}
+              onChangeText={setGiornata}
+              placeholder="Es. 25"
+              style={styles.input}
+            />
 
             <Pressable style={[styles.saveBtn, !canSave && { opacity: 0.6 }]} disabled={!canSave} onPress={handleSave}>
               <Text style={styles.saveText}>SALVA MODIFICHE</Text>

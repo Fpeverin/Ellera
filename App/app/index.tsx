@@ -1,11 +1,12 @@
 // app/index.tsx
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from './context/AuthContext';
 import { CalendarEvent, loadEvents } from './data/events';
 import { registerPushTokenForCurrentUser } from './data/pushNotify';
+import MonthCalendarGrid from './components/MonthCalendarGrid';
 import TeamLogo from './components/TeamLogo';
 import { scheduleEventReminders } from './utils/eventReminders';
 
@@ -37,12 +38,6 @@ export default function Dashboard() {
   const isGiocatore = membership?.role === 'giocatore';
 
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [viewMonth, setViewMonth] = useState(() => {
-    const d = new Date();
-    d.setDate(1);
-    return d;
-  });
-  const [dayPickerEvents, setDayPickerEvents] = useState<CalendarEvent[] | null>(null);
 
   const refreshEvents = async () => {
     const list = await loadEvents();
@@ -136,107 +131,6 @@ export default function Dashboard() {
     </View>
   );
 
-  /* ------------------------- Navigazione mese ------------------------- */
-  const shiftMonth = (delta: number) => {
-    setViewMonth((prev) => {
-      const next = new Date(prev);
-      next.setDate(1);
-      next.setMonth(next.getMonth() + delta);
-      return next;
-    });
-  };
-  const goToCurrentMonth = () => {
-    const d = new Date();
-    d.setDate(1);
-    setViewMonth(d);
-  };
-  const isCurrentMonthShown = fmtYMDLocal(viewMonth).slice(0, 7) === fmtYMDLocal(new Date()).slice(0, 7);
-
-  const handleDayPress = (list: CalendarEvent[]) => {
-    if (list.length === 0) return;
-    if (list.length === 1) {
-      goToEvent(list[0]);
-      return;
-    }
-    setDayPickerEvents(list);
-  };
-
-  /* ------------------------- Griglia calendario (6x7) ------------------------- */
-  const renderMonthGrid = () => {
-    const today = new Date();
-    const currentMonth = viewMonth.getMonth();
-    const currentYear = viewMonth.getFullYear();
-    const firstDay = new Date(currentYear, currentMonth, 1);
-    const startDate = new Date(firstDay);
-    // settimana che inizia di Lunedì
-    const weekday = firstDay.getDay() === 0 ? 7 : firstDay.getDay(); // 1..7
-    startDate.setDate(startDate.getDate() - (weekday - 1));
-
-    const cells: React.ReactElement[] = [];
-    const cursor = new Date(startDate);
-
-    for (let i = 0; i < 42; i++) {
-      const d = cursor.getDate();
-      const isCurrentMonth = cursor.getMonth() === currentMonth;
-      const isToday = fmtYMDLocal(cursor) === fmtYMDLocal(today);
-      const dateStr = fmtYMDLocal(cursor);
-      const list = eventsByDate.get(dateStr) || [];
-
-      const topTwo = list.slice(0, 2);
-      const more = list.length - topTwo.length;
-
-      cells.push(
-        <Pressable
-          key={dateStr}
-          style={[styles.dayCell, !isCurrentMonth && styles.otherMonth, isToday && styles.todayCell]}
-          onPress={() => handleDayPress(list)}
-        >
-          <Text
-            style={[
-              styles.dayNumber,
-              isWide && styles.dayNumberWide,
-              !isCurrentMonth && styles.otherMonthText,
-              isToday && styles.todayNumber,
-            ]}
-          >
-            {d}
-          </Text>
-
-          <View style={styles.pillsWrap}>
-            {topTwo.map((ev) => (
-              <View key={ev.id} style={[styles.pill, { backgroundColor: pillColor(ev) }]}>
-                <Text style={[styles.pillText, isWide && styles.pillTextWide]} numberOfLines={1}>
-                  {formatEventPill(ev)}
-                </Text>
-              </View>
-            ))}
-            {more > 0 && (
-              <View style={[styles.pill, styles.morePill]}>
-                <Text style={[styles.pillText, isWide && styles.pillTextWide, { color: '#111' }]}>+{more}</Text>
-              </View>
-            )}
-          </View>
-        </Pressable>
-      );
-
-      cursor.setDate(cursor.getDate() + 1);
-    }
-
-    return cells;
-  };
-
-  /* ------------------------- Swipe orizzontale tra mesi ------------------------- */
-  const monthPanResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_evt, gesture) =>
-        Math.abs(gesture.dx) > 20 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 2,
-      onPanResponderRelease: (_evt, gesture) => {
-        if (gesture.dx < -50) shiftMonth(1);
-        else if (gesture.dx > 50) shiftMonth(-1);
-      },
-    })
-  ).current;
-
   const handleAccountPress = () => {
     const roleLabel = membership ? ROLE_LABELS[membership.role] ?? membership.role : '';
     Alert.alert(
@@ -295,45 +189,7 @@ export default function Dashboard() {
         </View>
 
         <View style={[styles.calendarSection, isWide && styles.calendarSectionWide]}>
-          <View style={styles.miniCalendar}>
-            <View style={styles.monthNavRow}>
-              <Pressable style={styles.monthNavBtn} onPress={() => shiftMonth(-1)} hitSlop={8}>
-                <Text style={styles.monthNavBtnText}>‹</Text>
-              </Pressable>
-              <Text style={styles.monthTitle}>
-                {viewMonth.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
-              </Text>
-              <Pressable style={styles.monthNavBtn} onPress={() => shiftMonth(1)} hitSlop={8}>
-                <Text style={styles.monthNavBtnText}>›</Text>
-              </Pressable>
-            </View>
-            {!isCurrentMonthShown && (
-              <Pressable style={styles.todayLinkBtn} onPress={goToCurrentMonth}>
-                <Text style={styles.todayLinkText}>Torna a oggi</Text>
-              </Pressable>
-            )}
-
-            {/* Giorni settimana */}
-            <View style={styles.weekDays}>
-              {['L', 'M', 'M', 'G', 'V', 'S', 'D'].map((d, i) => (
-                <Text key={i} style={styles.weekDay}>
-                  {d}
-                </Text>
-              ))}
-            </View>
-
-            {/* Griglia 6x7 (swipe orizzontale per cambiare mese) */}
-            <View style={styles.daysGrid} {...monthPanResponder.panHandlers}>{renderMonthGrid()}</View>
-
-            <Text style={styles.calendarInfo}>
-              {events.length} eventi totali ·{' '}
-              {
-                events.filter((ev) => parseYMDTimeLocal(ev.date, ev.time || '00:00') >= new Date())
-                  .length
-              }{' '}
-              futuri
-            </Text>
-          </View>
+          <MonthCalendarGrid events={events} onSelectEvent={goToEvent} />
         </View>
         </ScrollView>
       </View>
@@ -342,13 +198,9 @@ export default function Dashboard() {
       <View style={styles.actionsSection}>
         <Text style={styles.sectionTitle}>Azioni rapide</Text>
         <View style={styles.actions}>
-           <Pressable style={styles.actionButton} onPress={() => router.push('/allenamenti')}>
-            <Text style={styles.actionIcon}>🏃</Text>
-            <Text style={styles.actionText}>Allenamenti</Text>
-          </Pressable>
-          <Pressable style={styles.actionButton} onPress={() => router.push('/partite')}>
-            <Text style={styles.actionIcon}>🏆</Text>
-            <Text style={styles.actionText}>Partite</Text>
+           <Pressable style={styles.actionButton} onPress={() => router.push('/calendario')}>
+            <Text style={styles.actionIcon}>📅</Text>
+            <Text style={styles.actionText}>Calendario</Text>
           </Pressable>
           {isGiocatore ? (
             <Pressable style={styles.actionButton} onPress={() => router.push('/squadra/rosa')}>
@@ -366,38 +218,6 @@ export default function Dashboard() {
       
       {/* Spazio per la barra di navigazione del sistema */}
       <SafeAreaView edges={['bottom']} />
-
-      {/* Scelta evento quando un giorno del calendario ne ha più di uno */}
-      <Modal
-        visible={!!dayPickerEvents}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDayPickerEvents(null)}
-      >
-        <Pressable style={styles.dayPickerOverlay} onPress={() => setDayPickerEvents(null)}>
-          <View style={styles.dayPickerCard}>
-            <Text style={styles.dayPickerTitle}>Eventi del giorno</Text>
-            {dayPickerEvents?.map((ev) => (
-              <Pressable
-                key={ev.id}
-                style={styles.dayPickerItem}
-                onPress={() => {
-                  setDayPickerEvents(null);
-                  goToEvent(ev);
-                }}
-              >
-                <View style={[styles.dayBlockDot, { backgroundColor: pillColor(ev) }]} />
-                <Text style={styles.dayPickerItemText} numberOfLines={1}>
-                  {formatEventPill(ev)}
-                </Text>
-              </Pressable>
-            ))}
-            <Pressable style={styles.dayPickerCancel} onPress={() => setDayPickerEvents(null)}>
-              <Text style={styles.dayPickerCancelText}>Annulla</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -469,61 +289,6 @@ const styles = StyleSheet.create({
   // Su schermi larghi (webapp desktop): contenuto centrato a larghezza massima leggibile,
   // invece della griglia mensile che si allarga a celle enormi
   calendarSectionWide: { width: '100%', maxWidth: 560, alignSelf: 'center' },
-  miniCalendar: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  monthNavRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  monthNavBtn: { paddingHorizontal: 14, paddingVertical: 4 },
-  monthNavBtnText: { fontSize: 22, fontWeight: '700', color: '#1b7f3b' },
-  monthTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1a202c',
-    textAlign: 'center',
-    textTransform: 'capitalize',
-  },
-  todayLinkBtn: { alignSelf: 'center', marginTop: 4, marginBottom: 8 },
-  todayLinkText: { fontSize: 13, fontWeight: '700', color: '#1b7f3b' },
-  weekDays: { flexDirection: 'row', marginBottom: 8, marginTop: 12 },
-  weekDay: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-    paddingVertical: 8,
-  },
-
-  daysGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 },
-  dayCell: {
-    width: '14.28571%',
-    aspectRatio: 1,
-    position: 'relative',
-    paddingTop: 6,
-    paddingHorizontal: 4,
-  },
-  dayNumber: { fontSize: 12, color: '#1a202c', fontWeight: '700' },
-  dayNumberWide: { fontSize: 14 },
-  todayCell: { borderWidth: 1, borderColor: '#1b7f3b', borderRadius: 8 },
-  todayNumber: { color: '#1b7f3b' },
-  otherMonth: { opacity: 0.35 },
-  otherMonthText: { color: '#999' },
-
-  pillsWrap: { marginTop: 4, gap: 2 },
-  pill: { borderRadius: 4, paddingHorizontal: 4, paddingVertical: 2, minHeight: 18 },
-  pillText: { color: 'white', fontSize: 10, fontWeight: '700' },
-  pillTextWide: { fontSize: 11 },
-  morePill: { backgroundColor: '#e5e7eb' },
-
-  calendarInfo: { fontSize: 14, color: '#666', textAlign: 'center', marginTop: 8 },
 
   // Bottoni - sempre visibili in fondo
   actionsSection: { 
@@ -547,20 +312,4 @@ const styles = StyleSheet.create({
   },
   actionIcon: { fontSize: 24, marginBottom: 8 },
   actionText: { fontSize: 14, fontWeight: '600', color: '#1a202c', textAlign: 'center' },
-
-  // Modale scelta evento (giorno con più eventi)
-  dayPickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 },
-  dayPickerCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16 },
-  dayPickerTitle: { fontSize: 16, fontWeight: '700', color: '#1a202c', marginBottom: 8, textAlign: 'center' },
-  dayPickerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  dayPickerItemText: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1a202c' },
-  dayPickerCancel: { alignItems: 'center', paddingVertical: 14, marginTop: 4 },
-  dayPickerCancelText: { fontSize: 15, fontWeight: '700', color: '#64748b' },
 });

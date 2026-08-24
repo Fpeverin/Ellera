@@ -1,15 +1,18 @@
-// app/allenamenti.tsx
-import { useFocusEffect, useRouter } from 'expo-router';
+// app/components/calendario/AllenamentiTab.tsx
+//
+// Contenuto di quella che era la route app/allenamenti.tsx (spostato qui il 2026-08-24 per la
+// fusione in un'unica schermata Calendario) — stessa logica, invariata: statistiche rapide, crea
+// singolo, "Settimana ideale", sezioni Oggi/Prossimi/Passati, cancellazioni, Import/Export/Modello
+// Excel. Rimossi solo header/SafeAreaView propri: li fornisce la shell (app/calendario.tsx).
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { Calendar } from 'react-native-calendars';
-import EventEditorModal from './components/EventEditorModal';
-import TeamLogo from './components/TeamLogo';
-import { useAuth } from './context/AuthContext';
-import { downloadTrainingsTemplate, exportTrainingsToXlsx, pickAndParseTrainingsXlsx, planTrainingsImport } from './data/calendarFile';
-import { CalendarEvent, loadEvents, saveEvents } from './data/events';
-import { loadStaffExportPermissions } from './data/organization';
+import { useFocusEffect, useRouter } from 'expo-router';
+import EventEditorModal from '../EventEditorModal';
+import { useAuth } from '../../context/AuthContext';
+import { downloadTrainingsTemplate, exportTrainingsToXlsx, pickAndParseTrainingsXlsx, planTrainingsImport } from '../../data/calendarFile';
+import { CalendarEvent, loadEvents, saveEvents } from '../../data/events';
+import { loadStaffExportPermissions } from '../../data/organization';
 
 interface CalendarDay {
   dateString: string;
@@ -31,7 +34,7 @@ const IT_DAYS: { label: string; getDay: WeekKey }[] = [
   { label: 'Domenica', getDay: 0 },
 ];
 
-export default function Allenamenti() {
+export default function AllenamentiTab() {
   const { membership } = useAuth();
   const readOnly = membership?.role === 'giocatore';
   const isAdmin = membership?.role === 'admin';
@@ -56,7 +59,7 @@ export default function Allenamenti() {
       return eventDate.getMonth() === now.getMonth() && eventDate.getFullYear() === now.getFullYear();
     }).length;
     const upcoming = events.filter(e => new Date(e.date) >= new Date()).length;
-    
+
     return { total, thisMonth, upcoming };
   }, [events]);
 
@@ -92,14 +95,14 @@ export default function Allenamenti() {
     today.setHours(0, 0, 0, 0); // Inizio giornata
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999); // Fine giornata alle 23:59
-    
+
     const todayEvents: CalendarEvent[] = [];
     const futureEvents: CalendarEvent[] = [];
     const pastEvents: CalendarEvent[] = [];
-    
+
     events.forEach(event => {
       const eventDate = new Date(event.date + 'T00:00:00');
-      
+
       if (eventDate >= today && eventDate <= todayEnd) {
         todayEvents.push(event);
       } else if (eventDate > todayEnd) {
@@ -108,14 +111,14 @@ export default function Allenamenti() {
         pastEvents.push(event);
       }
     });
-    
+
     // Ordina ogni categoria per data e ora
     const sortEvents = (a: CalendarEvent, b: CalendarEvent) => {
       const dateCompare = a.date.localeCompare(b.date);
       if (dateCompare !== 0) return dateCompare;
       return (a.time || '00:00').localeCompare(b.time || '00:00');
     };
-    
+
     return {
       today: todayEvents.sort(sortEvents),
       future: futureEvents.sort(sortEvents),
@@ -124,9 +127,9 @@ export default function Allenamenti() {
   }, [events]);
 
   const renderEventCard = (item: CalendarEvent, isPast = false) => (
-    <Pressable 
+    <Pressable
       key={item.id}
-      style={[styles.eventCard, isPast && styles.eventCardPast]} 
+      style={[styles.eventCard, isPast && styles.eventCardPast]}
       onPress={() => router.push(`/eventi/allenamento/${item.id}`)}
     >
       <View style={styles.eventContent}>
@@ -148,7 +151,7 @@ export default function Allenamenti() {
           </Text>
         )}
       </View>
-      
+
       {!readOnly && (
         <View style={styles.eventActions}>
           <Pressable
@@ -167,7 +170,7 @@ export default function Allenamenti() {
 
   const renderSection = (title: string, sectionEvents: CalendarEvent[], isPast = false, icon = '📅') => {
     if (sectionEvents.length === 0) return null;
-    
+
     return (
       <View key={title} style={styles.section}>
         <View style={styles.sectionHeader}>
@@ -354,18 +357,7 @@ export default function Allenamenti() {
   }, [startDate, endDate]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top','bottom']}>
-      <View style={styles.header}>
-        <View style={styles.headerTitleRow}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()} accessibilityLabel="Indietro">
-            <Text style={styles.backBtnTxt}>←</Text>
-          </Pressable>
-          <TeamLogo size={32} style={{ marginRight: 8 }} />
-          <Text style={[styles.title, { flex: 1 }]}>Allenamenti</Text>
-        </View>
-        <Text style={styles.subtitle}>Gestisci tutti gli allenamenti della squadra</Text>
-      </View>
-
+    <View style={styles.container}>
       {/* Statistiche panoramica */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
@@ -425,29 +417,24 @@ export default function Allenamenti() {
         </View>
       )}
 
-      <ScrollView 
-        style={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {events.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>🏃‍♂️</Text>
-            <Text style={styles.emptyTitle}>Nessun allenamento</Text>
-            <Text style={styles.emptySubtitle}>Crea il primo allenamento per la tua squadra</Text>
-          </View>
-        ) : (
-          <>
-            {/* Allenamenti di oggi - priorità massima */}
-            {renderSection('Oggi', categorizedEvents.today, false, '⭐')}
-            
-            {/* Allenamenti futuri */}
-            {renderSection('Prossimi allenamenti', categorizedEvents.future, false, '🔜')}
-            
-            {/* Allenamenti passati */}
-            {renderSection('Allenamenti passati', categorizedEvents.past, true, '📋')}
-          </>
-        )}
-      </ScrollView>
+      {events.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyIcon}>🏃‍♂️</Text>
+          <Text style={styles.emptyTitle}>Nessun allenamento</Text>
+          <Text style={styles.emptySubtitle}>Crea il primo allenamento per la tua squadra</Text>
+        </View>
+      ) : (
+        <>
+          {/* Allenamenti di oggi - priorità massima */}
+          {renderSection('Oggi', categorizedEvents.today, false, '⭐')}
+
+          {/* Allenamenti futuri */}
+          {renderSection('Prossimi allenamenti', categorizedEvents.future, false, '🔜')}
+
+          {/* Allenamenti passati */}
+          {renderSection('Allenamenti passati', categorizedEvents.past, true, '📋')}
+        </>
+      )}
 
       {/* Modale "nuovo" (riutilizzo editor standard) */}
       <EventEditorModal
@@ -583,34 +570,13 @@ export default function Allenamenti() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#f8fafc' },
-  
-  header: {
-    marginBottom: 24,
-  },
-  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  backBtn: {
-    width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff',
-  },
-  backBtnTxt: { fontSize: 18, fontWeight: '800', color: '#111' },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#1e293b',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#64748b',
-    fontWeight: '500',
-  },
-  
+  container: { flex: 1 },
+
   statsContainer: {
     flexDirection: 'row',
     gap: 12,
@@ -639,7 +605,7 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontWeight: '600',
   },
-  
+
   quickActions: {
     flexDirection: 'row',
     gap: 12,
@@ -679,10 +645,6 @@ const styles = StyleSheet.create({
   xlsxBtn: { flex: 1, backgroundColor: '#eef2f7', borderRadius: 10, paddingVertical: 8, alignItems: 'center' },
   xlsxBtnText: { color: '#1a202c', fontWeight: '700', fontSize: 13 },
 
-  scrollContainer: {
-    flex: 1,
-  },
-  
   // Sezioni
   section: {
     marginBottom: 24,
@@ -708,7 +670,7 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontWeight: '600',
   },
-  
+
   // Card eventi
   eventCard: {
     backgroundColor: '#ffffff',
@@ -797,7 +759,7 @@ const styles = StyleSheet.create({
   deleteBtnText: {
     fontSize: 18,
   },
-  
+
   emptyState: {
     flex: 1,
     alignItems: 'center',

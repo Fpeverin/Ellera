@@ -964,6 +964,124 @@ verificare che compaia ancora correttamente (col nome giusto) sia in Formazione 
 Start; aprire il modale "Scegli giocatore" in Formazione con una rosa lunga e controllare che si
 scorra fino in fondo, bottone "Chiudi" compreso.
 
+## Statistiche: gol subiti dal portiere come numero negativo — 2026-08-24
+
+La colonna "Gol" in Statistiche squadra (schermata, export CSV, stampa PDF — `app/squadra/
+statistiche.tsx`) mostra già da tempo, per il ruolo Portiere, i gol **subiti** invece dei gol
+**fatti** (`golUnico = p.role === 'PORTIERE' ? s.goalsConceded : s.goals`) — ma senza alcun segno, un
+numero come "3" nella riga di un portiere poteva sembrare "3 gol fatti" invece di "3 subiti".
+Richiesta di Francesco: mostrarli come numero negativo (-1, -2, ...), coerente in tutti e tre i
+punti (schermata, CSV, PDF). Nella schermata e nel PDF il numero negativo è anche evidenziato in
+rosso (`#b91c1c`, stesso principio dei cartellini gialli/rossi già colorati) — nel CSV resta un
+numero semplice (nessuna formattazione possibile in un file dati). Nessuna migrazione: `goalsConceded`
+è già calcolato correttamente, cambia solo la formattazione in lettura.
+
+## Calendario unificato, Competizione/Giornata, Altre Partite, pagina partita a 4 riquadri — avviato 2026-08-24
+
+Richiesta di Francesco in 4 parti (piano completo salvato e concordato, si procede in fasi separate
+con verifica tra una e l'altra): 1) bottone Home "Calendario" unico al posto di Allenamenti/Partite
+separati; 2) partite con "Competizione - Nª Giornata" in evidenza, insieme a nome/stemma
+dell'avversario; 3) sezione "Altre Partite" dentro ogni partita, con gli incontri delle altre
+squadre della stessa giornata (testo libero) e allegati formazioni (foto/PDF); 4) pagina partita
+con griglia 2×2 (Convocati/Lista Gara/Live/Altre Partite) al posto delle 3 card attuali. Ordine di
+lavoro: Punto 2 (piccolo, base per il 3) → Punto 3 (isolato) → Punto 4 (visivo) → Punto 1 (il più
+grosso, ultimo).
+
+### Punto 2 — Competizione + Giornata (fatto, da verificare dal vero)
+`giornata` è un nuovo campo **testo libero** (come già `competition`), salvato nella stessa colonna
+dinamica `data` di `events` — nessuna migrazione SQL.
+- **`app/components/partite/CompetitionModal.tsx`**: ogni round del calendario-competizione ha ora
+  un campo "Giornata" precompilato in sequenza (round 1 → giornata "1", ecc.) ma modificabile a mano
+  per round (utile per rinvii/recuperi che spostano una partita fuori dal suo ordine naturale).
+- **`app/components/partite/EditMatchModal.tsx`**: oltre a data/ora/luogo (già editabili, vedi sotto
+  "Modifica data/ora/luogo"), ora **anche Competizione e Giornata** sono correggibili qui — prima
+  l'unico modo per cambiarle era eliminare e ricreare la partita.
+- **`app/partite.tsx`** (poi diventato `app/components/calendario/PartiteTab.tsx` col Punto 1 più
+  sotto): il form di creazione singola partita ha lo stesso nuovo campo "Giornata (opzionale)";
+  `MatchEventRow`/gli handler di creazione e modifica lo propagano.
+- **`app/components/partite/MatchEventCard.tsx`**: il badge in alto mostra ora "Competizione ·
+  Nª Giornata" (invece della sola competizione) quando la giornata è impostata; aggiunta anche
+  un'icona/stemma dell'avversario (`event.opponentLogoPath`, già caricato dal tab Convocazione)
+  accanto al nome — richiesta esplicita di Francesco dopo la prima bozza di piano ("deve essere
+  presente anche nome, se inserito anche lo stemma, dell'avversario della giornata").
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti. **Da verificare dal vero**: creare/
+  modificare una partita con Competizione+Giornata e controllare che compaia nel formato corretto
+  nella lista Partite.
+
+### Punto 3 — Altre Partite (fatto, da verificare dal vero)
+Nuova sezione per partita con gli incontri delle altre squadre della stessa giornata — **testo
+libero**, nessun collegamento alla rosa reale.
+- **Schema** — `App/supabase/27_schema_matchday_fixtures.sql`: tabella `matchday_fixtures` (id, org,
+  competition, giornata, home_team, away_team, home_score, away_score, scorers) — chiave
+  **(org_id, competition, giornata)**, non un id-partita, stesso principio di `competition_rules`:
+  inserendo un incontro da una qualsiasi delle nostre partite di quella giornata, compare
+  automaticamente anche aprendo "Altre Partite" da un'altra nostra partita della stessa
+  giornata/competizione. Tabella `matchday_fixture_attachments` (id, org, fixture_id, name,
+  storage_path) + bucket Storage pubblico `matchday-attachments` (4 policy SELECT/INSERT/UPDATE/
+  DELETE, stesso pattern-fix di `14_schema_storage_select_fix.sql`) per foto/PDF delle formazioni.
+  RLS: lettura `is_member_of`, scrittura `is_staff_or_admin_of` (compreso l'upload sul bucket).
+- **`app/data/matchdayFixtures.ts`** (nuovo): `loadFixtures(competition, giornata)`, `addFixture`,
+  `updateFixture`, `removeFixture` (cancella anche gli allegati, storage compreso, prima della riga),
+  `loadFixtureAttachments`, `addFixtureAttachment` (upload generico `application/octet-stream`,
+  stesso pattern di `playerMedia.ts`'s `addAttachment` — funziona sia per immagini sia per PDF),
+  `removeFixtureAttachment`.
+- **`app/eventi/partita/[id]/altrePartite.tsx`** (nuovo): legge competizione/giornata della partita
+  corrente — se una delle due manca, banner che invita a impostarle prima (da Calendario/Partite,
+  bottone "✏️", solo Admin) invece della lista. Altrimenti: card per incontro (squadre, risultato,
+  marcatori, allegati), aggiungi/modifica/elimina rapidi (Staff/Admin), allega foto o PDF
+  (`expo-document-picker`, filtro `image/*`+`application/pdf`). Sola lettura per il Giocatore, stesso
+  principio di tutte le altre schermate di partita.
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti. **Da verificare dal vero**:
+  aggiungere 2-3 incontri della stessa giornata da una partita e controllare che compaiano anche
+  aprendo "Altre Partite" da un'altra nostra partita della stessa giornata/competizione; allegare una
+  foto e un PDF e verificare che si aprano correttamente.
+
+### Punto 4 — Pagina partita a 4 riquadri (fatto, da verificare dal vero)
+`app/eventi/partita/[id]/index.tsx`: le 3 card in riga (Convocazione/Lista Gara/Live) sono diventate
+una griglia 2×2 (`flexWrap`, ogni riquadro ~48% larghezza, `aspectRatio` generoso) con l'aggiunta di
+un quarto riquadro **"🗓️ ALTRE PARTITE"** (verso `altrePartite.tsx`). Nessun'altra logica della
+schermata cambia (resta raggiungibile solo pre-Start per Staff/Admin, redirect a Live invariato; la
+vista minimale del Giocatore pre-Start non è toccata).
+
+### Punto 1 — Calendario unificato (fatto, da verificare dal vero — il più grosso)
+Sostituiti i due bottoni Home "🏃 Allenamenti"/"🏆 Partite" con un unico **"📅 Calendario"**
+(`router.push('/calendario')`). Strategia seguita: **spostare**, non riscrivere — tutta la logica di
+`app/allenamenti.tsx` e `app/partite.tsx` (ora cancellati come route) vive, invariata, in due nuovi
+componenti; nessuna funzionalità persa.
+- **`app/components/MonthCalendarGrid.tsx`** (nuovo): il calendario mensile a griglia (6×7, swipe tra
+  mesi, modale di scelta quando un giorno ha più eventi) **estratto** da `app/index.tsx` — props
+  `events`/`onSelectEvent`, completamente self-contained (mese mostrato e modale sono stato interno).
+  Riusato identico sia in Home sia nel nuovo Calendario. Home (`app/index.tsx`) non ha più la sua
+  copia inline di `viewMonth`/`renderMonthGrid`/`monthPanResponder`/il modale multi-evento — solo
+  `<MonthCalendarGrid events={events} onSelectEvent={goToEvent} />`; il blocco "Oggi e domani"
+  (diverso, non toccato) mantiene le proprie `pillColor`/`formatEventPill` in loco.
+- **`app/components/calendario/AllenamentiTab.tsx`** (nuovo, da `app/allenamenti.tsx`): statistiche,
+  crea singolo, "Settimana ideale", sezioni Oggi/Prossimi/Passati, cancellazioni, Import/Export/
+  Modello Excel — identico, tolti solo header/SafeAreaView/`ScrollView` propri (il Calendario fornisce
+  un unico scroll per tutta la pagina).
+- **`app/components/calendario/PartiteTab.tsx`** (nuovo, da `app/partite.tsx`): crea singola, crea
+  calendario competizione, filtro competizione, Regole Under/Over, modifica data/ora/luogo/
+  competizione/giornata, cancellazioni, Import/Export/Modello Excel — identico, stessa rimozione di
+  header/SafeAreaView/scroll propri. Il componente `SingleMatchModal` locale (usato davvero da questo
+  file) resta inline; **eliminato invece** `app/components/partite/SingleMatchModal.tsx`, una
+  seconda copia mai importata da nessuno (codice morto già identificato durante la fase di
+  pianificazione).
+- **`app/calendario.tsx`** (riscritto da zero — prima era una semplice lista piatta): header con
+  bottone indietro/`TeamLogo`/titolo, `MonthCalendarGrid` in cima, un selettore a due voci
+  "🏃 Allenamenti / 🏆 Partite" (solo uno dei due tab è montato per volta) e il tab scelto sotto,
+  tutto dentro un unico `ScrollView`. Accetta un parametro di route opzionale `?tab=partite` per
+  aprirsi direttamente sul tab Partite — usato da `live.tsx` (i due `router.replace('/partite')` a
+  fine/uscita partita puntano ora a `router.replace({ pathname: '/calendario', params: { tab:
+  'partite' } })`, unico altro punto dell'app che navigava verso la vecchia route `/partite`).
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti; avviato anche un server locale
+  (`npx expo start --web`) e controllato che la schermata di login si carichi senza errori console —
+  **non verificato oltre il login** (richiede credenziali reali). **Da verificare dal vero con
+  priorità molto alta, dato quanto è ampio questo spostamento**: ripetere OGNI operazione che prima
+  viveva in Allenamenti (settimana ideale, singolo, cancellazioni, Excel) e in Partite (competizione,
+  singola, Regole, modifica, cancellazioni, Excel) dal nuovo Calendario e confermare che si comportino
+  esattamente come prima; il tap su un giorno della griglia mensile deve aprire l'evento giusto; il
+  passaggio da Live a "torna a Partite" deve aprire il Calendario già sul tab Partite.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)
@@ -1080,12 +1198,17 @@ precisa.
 - **Export/Import backup**: esporta le eventuali chiavi AsyncStorage ancora locali in un JSON
   condivisibile e le reimporta — ora che tutti i dati veri vivono su Supabase, resta poco da
   esportare (es. flag interni), la vera "copia di sicurezza" dei dati è il database Supabase stesso.
-- Scorciatoie verso Allenamenti, Partite, Gestione Squadra.
+- Scorciatoie verso Calendario, Gestione Squadra.
 
-### Calendario (`app/calendario.tsx`)
-- Vista a lista di tutti gli eventi ordinati per data/ora, con creazione nuovo evento.
+### Calendario (`app/calendario.tsx`) — unificato dal 2026-08-24, vedi Punto 1 più sotto
+Un unico bottone Home ("📅 Calendario") al posto dei due precedenti "🏃 Allenamenti"/"🏆 Partite":
+calendario mensile a griglia in cima (`app/components/MonthCalendarGrid.tsx`, condiviso con la
+Dashboard), un selettore a due voci **Allenamenti/Partite** sotto, e il contenuto del tab scelto
+(`app/components/calendario/AllenamentiTab.tsx` / `PartiteTab.tsx`) — stesse identiche funzionalità
+descritte nelle due sottosezioni seguenti, prima route separate (`app/allenamenti.tsx`/
+`app/partite.tsx`, non più esistenti).
 
-### Allenamenti (`app/allenamenti.tsx`)
+### Allenamenti (`app/components/calendario/AllenamentiTab.tsx`, tab "Allenamenti" del Calendario)
 - Statistiche rapide (totale, del mese, prossimi).
 - Creazione singolo allenamento.
 - **Generazione "settimana ideale"**: selezione periodo su calendario + giorni/orari ricorrenti →
@@ -1097,7 +1220,7 @@ precisa.
 - Dettaglio allenamento (`eventi/allenamento/[id]/index.tsx`): gestione presenze per giocatore con stato
   `presente / assente / infortunato / differenziato`, tema della seduta.
 
-### Partite (`app/partite.tsx` + `eventi/partita/[id]/*`)
+### Partite (`app/components/calendario/PartiteTab.tsx`, tab "Partite" del Calendario + `eventi/partita/[id]/*`)
 - Creazione partita singola o per competizione/girone (`CompetitionModal`), filtro per competizione.
 - Eliminazione singola partita, per competizione, o totale (con conferme dedicate).
 - **Modifica data/ora/luogo di una partita già creata** (bottone "✏️" sulla card, **solo Admin** —
@@ -1139,6 +1262,13 @@ precisa.
     modale ma il bottone finale è "Proponi" invece di "Salva" — crea una proposta `pending` in
     `match_event_proposals`. Staff/Admin vedono una sezione "Proposte in attesa" con Conferma (la
     accoda a gol/cartellini reali) o Rifiuta.
+- **Altre Partite** (`altrePartite.tsx`, dal 2026-08-24): incontri delle altre squadre della stessa
+  giornata/competizione — testo libero (squadre, risultato, marcatori), chiave `(competition,
+  giornata)` condivisa tra le nostre partite di quella giornata, allegati foto/PDF delle formazioni.
+  Vedi "Punto 3" più sotto per i dettagli tecnici.
+- **Pagina scelta-partita a 4 riquadri** (`app/eventi/partita/[id]/index.tsx`, dal 2026-08-24): per
+  Staff/Admin pre-Start, griglia 2×2 — Convocazione/Lista Gara/Live/Altre Partite — al posto delle 3
+  card in riga di prima. Vedi "Punto 4" più sotto.
 
 ### Gestione Squadra (`app/squadra/*`)
 - **Panoramica**: conteggi per ruolo ed età media squadra.

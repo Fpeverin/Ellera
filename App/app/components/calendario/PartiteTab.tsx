@@ -1,18 +1,23 @@
+// app/components/calendario/PartiteTab.tsx
+//
+// Contenuto di quella che era la route app/partite.tsx (spostato qui il 2026-08-24 per la fusione
+// in un'unica schermata Calendario) — stessa logica, invariata: crea singola, crea calendario
+// competizione, filtro competizione, Regole Under/Over, modifica data/ora/luogo/competizione/
+// giornata, cancellazioni, Import/Export/Modello Excel. Rimossi solo header/SafeAreaView/scroll
+// propri: li fornisce la shell (app/calendario.tsx).
 import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import CompetitionModal from './components/partite/CompetitionModal';
-import CompetitionRulesModal from './components/partite/CompetitionRulesModal';
-import ConfirmDeleteModal from './components/partite/ConfirmDeleteModal';
-import EditMatchModal from './components/partite/EditMatchModal';
-import MatchEventCard from './components/partite/MatchEventCard';
-import TeamLogo from './components/TeamLogo';
-import { useAuth } from './context/AuthContext';
-import { downloadMatchesTemplate, exportMatchesToXlsx, pickAndParseMatchesXlsx, planMatchesImport } from './data/calendarFile';
-import { CalendarEvent, loadEvents, saveEvents } from './data/events';
-import { loadStaffExportPermissions } from './data/organization';
+import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import CompetitionModal from '../partite/CompetitionModal';
+import CompetitionRulesModal from '../partite/CompetitionRulesModal';
+import ConfirmDeleteModal from '../partite/ConfirmDeleteModal';
+import EditMatchModal from '../partite/EditMatchModal';
+import MatchEventCard from '../partite/MatchEventCard';
+import { useAuth } from '../../context/AuthContext';
+import { downloadMatchesTemplate, exportMatchesToXlsx, pickAndParseMatchesXlsx, planMatchesImport } from '../../data/calendarFile';
+import { CalendarEvent, loadEvents, saveEvents } from '../../data/events';
+import { loadStaffExportPermissions } from '../../data/organization';
 
 /* -------------------------------------------------------------------------- */
 /*                                Tipi locali                                 */
@@ -20,10 +25,12 @@ import { loadStaffExportPermissions } from './data/organization';
 
 type MatchEventRow = CalendarEvent & {
   competition?: string;
+  giornata?: string;
   homeAway?: 'CASA' | 'TRASFERTA';
   status?: 'FINISHED' | string;
   score?: { home: number; away: number };
   resultText?: string;
+  opponentLogoPath?: string;
 };
 
 type NewRound = {
@@ -32,6 +39,7 @@ type NewRound = {
   time: string;
   homeAway: 'CASA' | 'TRASFERTA';
   location: string;
+  giornata: string;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -41,7 +49,7 @@ type NewRound = {
 const TIME_RE = /^\d{2}:\d{2}$/;
 const ALL_COMP = '__ALL__';
 
-export default function Partite() {
+export default function PartiteTab() {
   const router = useRouter();
   const { membership } = useAuth();
   const readOnly = membership?.role === 'giocatore';
@@ -152,12 +160,17 @@ export default function Partite() {
   // modifica data/ora/luogo di una partita già creata (solo Admin)
   const handleSaveEditedMatch = async (
     eventId: string,
-    patch: { date: string; time: string; location: string }
+    patch: { date: string; time: string; location: string; competition: string; giornata: string }
   ) => {
     setBusy(true);
     try {
       const all: CalendarEvent[] = await loadEvents();
-      const updated = all.map((ev) => (ev.id === eventId ? { ...ev, ...patch } : ev));
+      const normalized = {
+        ...patch,
+        competition: patch.competition || undefined,
+        giornata: patch.giornata || undefined,
+      };
+      const updated = all.map((ev) => (ev.id === eventId ? { ...ev, ...normalized } : ev));
       await saveEvents(updated);
       setEditingMatch(null);
       refreshEvents();
@@ -210,6 +223,7 @@ export default function Partite() {
     time: string;
     opponent: string;
     competition: string;
+    giornata: string;
     homeAway: 'CASA' | 'TRASFERTA';
     location: string;
   }) => {
@@ -233,6 +247,7 @@ export default function Partite() {
       location: matchData.location,
       opponent: matchData.opponent,
       competition: matchData.competition || undefined,
+      giornata: matchData.giornata || undefined,
       homeAway: matchData.homeAway,
       formationSlots: undefined,
       benchIds: [],
@@ -275,6 +290,7 @@ export default function Partite() {
         location: r.location,
         opponent: r.opponent,
         competition: competitionData.name,
+        giornata: r.giornata || undefined,
         homeAway: r.homeAway,
         formationSlots: undefined,
         benchIds: [],
@@ -379,15 +395,7 @@ export default function Partite() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top','bottom']}>
-      <View style={styles.titleRow}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} accessibilityLabel="Indietro">
-          <Text style={styles.backBtnTxt}>←</Text>
-        </Pressable>
-        <TeamLogo size={32} style={{ marginRight: 8 }} />
-        <Text style={styles.title}>Partite</Text>
-      </View>
-
+    <View style={styles.container}>
       {/* Filtri in alto */}
       <View style={styles.filtersRow}>
         <View style={styles.filterBlock}>
@@ -452,19 +460,17 @@ export default function Partite() {
       )}
 
       {/* Liste: oggi / future / passate */}
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        {filteredEvents.length === 0 ? (
-          <Text style={{ color: '#6b7280', textAlign: 'center', marginTop: 24 }}>
-            Nessuna partita trovata
-          </Text>
-        ) : (
-          <>
-            <Section title="Oggi" data={categorized.today} icon="⭐" />
-            <Section title="Prossime partite" data={categorized.future} icon="🔜" />
-            <Section title="Partite passate" data={categorized.past} icon="📋" isPast />
-          </>
-        )}
-      </ScrollView>
+      {filteredEvents.length === 0 ? (
+        <Text style={{ color: '#6b7280', textAlign: 'center', marginTop: 24 }}>
+          Nessuna partita trovata
+        </Text>
+      ) : (
+        <>
+          <Section title="Oggi" data={categorized.today} icon="⭐" />
+          <Section title="Prossime partite" data={categorized.future} icon="🔜" />
+          <Section title="Partite passate" data={categorized.past} icon="📋" isPast />
+        </>
+      )}
 
       {/* CTA bottom */}
       {!readOnly && (
@@ -578,7 +584,7 @@ export default function Partite() {
         onCancel={() => setConfirmDeleteComp(false)}
         busy={busy}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -598,6 +604,7 @@ function SingleMatchModal({
     time: string;
     opponent: string;
     competition: string;
+    giornata: string;
     homeAway: 'CASA' | 'TRASFERTA';
     location: string;
   }) => void;
@@ -606,13 +613,14 @@ function SingleMatchModal({
   const [time, setTime] = useState('');
   const [opponent, setOpponent] = useState('');
   const [competition, setCompetition] = useState('');
+  const [giornata, setGiornata] = useState('');
   const [homeAway, setHomeAway] = useState<'CASA' | 'TRASFERTA'>('CASA');
   const [location, setLocation] = useState('');
 
   const canSave = date && TIME_RE.test(time) && opponent && location;
 
   const reset = () => {
-    setDate(''); setTime(''); setOpponent(''); setCompetition(''); setHomeAway('CASA'); setLocation('');
+    setDate(''); setTime(''); setOpponent(''); setCompetition(''); setGiornata(''); setHomeAway('CASA'); setLocation('');
   };
 
   return (
@@ -633,6 +641,9 @@ function SingleMatchModal({
           <Text style={styles.label}>Competizione (opzionale)</Text>
           <TextInput value={competition} onChangeText={setCompetition} placeholder="Es. Coppa CSI" style={styles.input} />
 
+          <Text style={styles.label}>Giornata (opzionale)</Text>
+          <TextInput value={giornata} onChangeText={setGiornata} placeholder="Es. 25" style={styles.input} />
+
           <Text style={styles.label}>Casa/Trasferta</Text>
           <View style={styles.pickerWrap}>
             <Picker selectedValue={homeAway} onValueChange={(v) => setHomeAway(v)}>
@@ -652,7 +663,7 @@ function SingleMatchModal({
               style={[styles.cta, { backgroundColor: '#1b7f3b', flex: 1, opacity: canSave ? 1 : 0.6 }]}
               disabled={!canSave}
               onPress={() => {
-                onCreateMatch({ date, time, opponent, competition, homeAway, location });
+                onCreateMatch({ date, time, opponent, competition, giornata, homeAway, location });
                 reset();
               }}
             >
@@ -670,14 +681,7 @@ function SingleMatchModal({
 /* -------------------------------------------------------------------------- */
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  backBtn: {
-    width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff',
-  },
-  backBtnTxt: { fontSize: 18, fontWeight: '800', color: '#111' },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 12 },
+  container: { flex: 1 },
 
   // Filtri
   filtersRow: { marginBottom: 8 },
