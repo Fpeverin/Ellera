@@ -1361,6 +1361,30 @@ ora aggiornano anche `logoPath` nello stato locale, non solo `logoUrl`.
   di un round, poi controllare che lo stemma compaia sul calendario e sulla pagina partita dopo la
   creazione.
 
+### Stemma avversario: recupero automatico dalle Squadre configurate — 2026-08-24 (nono giro)
+Francesco: "Non riesco a caricare il logo sulla singola partita [da Convocazione] — se riesci a
+recuperarlo in modo automatico dalle squadre che avevo configurato sarebbe anche meglio". Il
+caricamento manuale (`pickOpponentLogo` in `convocazione.tsx`) aveva già ricevuto lo stesso fix del
+giro precedente (niente `allowsEditing`, `try/catch` esplicito) — resta comunque disponibile come
+prima; qui si aggiunge il recupero automatico, che rende il caricamento a mano necessario solo per
+gli avversari NON ancora configurati in "Squadre della competizione".
+- **`convocazione.tsx`** e **`app/eventi/partita/[id]/index.tsx`** (la pagina scelta-partita,
+  raggiunta ancora prima di Convocazione): al caricamento, se la partita non ha già uno stemma
+  avversario impostato ma ha Competizione e Avversario compilati, cerca una squadra configurata con
+  quel nome esatto per quella competizione (`loadCompetitionTeams`) e, se trovata con uno stemma,
+  lo salva automaticamente sulla partita (`patchEventData`) — nessun caricamento manuale necessario
+  per gli avversari già censiti. In `index.tsx` questo avviene solo per Staff/Admin (mai per il
+  Giocatore, sia perché la scrittura su `events` gli sarebbe comunque negata da RLS sia perché per
+  lui la schermata resta di sola consultazione).
+- Il caricamento manuale resta il fallback per un avversario non ancora configurato, o per
+  sostituire lo stemma recuperato automaticamente con uno diverso.
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti. **Da verificare dal vero**: aprire
+  una partita il cui avversario è già configurato (con stemma) in "Squadre della competizione" e
+  controllare che lo stemma compaia da solo, senza doverlo caricare a mano; se il caricamento
+  manuale continuasse a non funzionare nonostante il fix del giro precedente, serve sapere di nuovo
+  la sequenza esatta (si apre la selezione foto? compare un errore?) per capire se si tratta di una
+  causa diversa specifica a questo punto dell'app.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

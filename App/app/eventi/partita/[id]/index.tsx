@@ -14,7 +14,8 @@ import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TeamLogo from '../../../components/TeamLogo';
 import { useAuth } from '../../../context/AuthContext';
-import { CalendarEvent, loadEvents } from '../../../data/events';
+import { loadCompetitionTeams } from '../../../data/competitionTeams';
+import { CalendarEvent, loadEvents, patchEventData } from '../../../data/events';
 import { loadStarted } from '../../../data/matchLive';
 import { loadOrgLogoUrl, opponentLogoUrlFromPath } from '../../../data/organization';
 
@@ -40,7 +41,25 @@ export default function PartitaIndexChooser() {
         setEvent(ev);
         setOrgLogoUrl(orgLogo);
         const opponentLogoPath = (ev as any)?.opponentLogoPath;
-        setOpponentLogoUrl(opponentLogoPath ? opponentLogoUrlFromPath(opponentLogoPath) : null);
+        if (opponentLogoPath) {
+          setOpponentLogoUrl(opponentLogoUrlFromPath(opponentLogoPath));
+        } else if (membership?.role !== 'giocatore' && ev?.competition && ev?.opponent) {
+          // Nessuno stemma caricato per questa partita: se la squadra avversaria è già configurata
+          // (con stemma) per questa competizione, lo recupera automaticamente da lì — stessa logica
+          // di convocazione.tsx, qui copre anche chi non apre mai quella scheda prima di guardare il
+          // calendario. Mai per il Giocatore (sola lettura, l'RLS in scrittura su "events" glielo
+          // impedirebbe comunque).
+          try {
+            const teams = await loadCompetitionTeams(ev.competition);
+            const match = teams.find((t) => t.name === ev.opponent);
+            if (match?.logoPath) {
+              await patchEventData(matchId, { opponentLogoPath: match.logoPath });
+              setOpponentLogoUrl(match.logoUrl);
+            }
+          } catch {
+            // nessuna squadra configurata o errore di rete — resta senza stemma, caricabile a mano
+          }
+        }
       } catch {
         setStarted(true);
       } finally {

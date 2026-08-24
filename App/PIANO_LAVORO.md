@@ -207,6 +207,12 @@ teneva solo l'URL per l'anteprima, non il percorso usato per collegare lo stemma
 corretto, più una rilettura di sicurezza appena prima di creare partita/calendario che recupera lo
 stemma per nome se ancora mancante. Vedi CLAUDE.md per i dettagli tecnici completi.
 
+**Nuovo — nono giro (2026-08-24)**: stemma avversario recuperato ora automaticamente dalle Squadre
+configurate — se l'avversario di una partita corrisponde (per nome) a una squadra già configurata
+con uno stemma per quella competizione, lo stemma si collega da solo alla partita (Convocazione e
+pagina scelta-partita), senza bisogno di caricarlo a mano. Il caricamento manuale resta disponibile
+come fallback/sostituzione. Vedi CLAUDE.md per i dettagli tecnici completi.
+
 ### Statistiche: gol subiti dal portiere come numero negativo (2026-08-24)
 La colonna "Gol" per il ruolo Portiere mostra già i gol subiti invece di quelli fatti — richiesta di
 Francesco: mostrarli come numero negativo (-1, -2, ...) invece di un numero semplice che poteva

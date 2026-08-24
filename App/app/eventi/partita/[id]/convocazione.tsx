@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../../context/AuthContext';
+import { loadCompetitionTeams } from '../../../data/competitionTeams';
 import { loadConvocazione, saveConvocatiPlayerIds, saveConvocazione } from '../../../data/convocazione';
 import { printOrShareHtml } from '../../../utils/webExport';
 import { CalendarEvent, loadEvents, patchEventData } from '../../../data/events';
@@ -121,7 +122,24 @@ export default function Convocazione() {
         setStaffMembers(staff);
         setOrgLogoUrl(orgLogo);
         const opponentLogoPath = (ev as any)?.opponentLogoPath;
-        setOpponentLogoUrl(opponentLogoPath ? opponentLogoUrlFromPath(opponentLogoPath) : null);
+        if (opponentLogoPath) {
+          setOpponentLogoUrl(opponentLogoUrlFromPath(opponentLogoPath));
+        } else if (ev?.competition && ev?.opponent) {
+          // Nessuno stemma caricato a mano per questa partita: se la squadra avversaria è già
+          // configurata (con stemma) per questa competizione, lo recupera da lì automaticamente —
+          // richiesta di Francesco, evita di dover ricaricare a mano lo stesso stemma partita per
+          // partita.
+          try {
+            const teams = await loadCompetitionTeams(ev.competition);
+            const match = teams.find((t) => t.name === ev.opponent);
+            if (match?.logoPath) {
+              await patchEventData(matchId, { opponentLogoPath: match.logoPath });
+              setOpponentLogoUrl(match.logoUrl);
+            }
+          } catch {
+            // nessuna squadra configurata o errore di rete — resta senza stemma, caricabile a mano
+          }
+        }
 
         setRitrovo(conv.ritrovo);
         setPlayerIds(conv.playerIds);
