@@ -4,10 +4,19 @@
 // con la nuova schermata Calendario unificata — self-contained: gestisce da solo mese mostrato,
 // swipe tra mesi e la modale di scelta quando un giorno ha più eventi. Nessun tap-per-creare (solo
 // per aprire un evento esistente), stessa scelta già presa in Dashboard.
+//
+// Stemma avversario nella pillola (2026-08-24, terzo giro): quando una partita ha
+// `opponentLogoPath` impostato, sostituisce l'icona ⚽ generica — più informativo a colpo d'occhio.
 import { useMemo, useRef, useState } from 'react';
-import { Modal, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Image, Modal, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { CalendarEvent } from '../data/events';
+import { opponentLogoUrlFromPath } from '../data/organization';
 import { eventColor, eventCompactLabel, eventFullLabel, eventIcon } from '../utils/eventDisplay';
+
+function opponentLogo(ev: CalendarEvent): string | null {
+  const path = (ev as any).opponentLogoPath as string | undefined;
+  return ev.type === 'PARTITA' && path ? opponentLogoUrlFromPath(path) : null;
+}
 
 function pad2(n: number) {
   return String(n).padStart(2, '0');
@@ -107,13 +116,21 @@ export default function MonthCalendarGrid({ events, onSelectEvent }: Props) {
           </Text>
 
           <View style={styles.pillsWrap}>
-            {topTwo.map((ev) => (
-              <View key={ev.id} style={[styles.pill, { backgroundColor: eventColor(ev) }]}>
-                <Text style={[styles.pillText, isWide && styles.pillTextWide]} numberOfLines={1}>
-                  {eventIcon(ev)} {eventCompactLabel(ev)}
-                </Text>
-              </View>
-            ))}
+            {topTwo.map((ev) => {
+              const logoUrl = opponentLogo(ev);
+              return (
+                <View key={ev.id} style={[styles.pill, { backgroundColor: eventColor(ev) }]}>
+                  {logoUrl ? (
+                    <Image source={{ uri: logoUrl }} style={styles.pillLogo} />
+                  ) : (
+                    <Text style={styles.pillIcon}>{eventIcon(ev)}</Text>
+                  )}
+                  <Text style={[styles.pillText, isWide && styles.pillTextWide]} numberOfLines={1}>
+                    {eventCompactLabel(ev)}
+                  </Text>
+                </View>
+              );
+            })}
             {more > 0 && (
               <View style={[styles.pill, styles.morePill]}>
                 <Text style={[styles.pillText, isWide && styles.pillTextWide, { color: '#111' }]}>+{more}</Text>
@@ -192,21 +209,28 @@ export default function MonthCalendarGrid({ events, onSelectEvent }: Props) {
         <Pressable style={styles.dayPickerOverlay} onPress={() => setDayPickerEvents(null)}>
           <View style={styles.dayPickerCard}>
             <Text style={styles.dayPickerTitle}>Eventi del giorno</Text>
-            {dayPickerEvents?.map((ev) => (
-              <Pressable
-                key={ev.id}
-                style={styles.dayPickerItem}
-                onPress={() => {
-                  setDayPickerEvents(null);
-                  onSelectEvent(ev);
-                }}
-              >
-                <View style={[styles.dayPickerDot, { backgroundColor: eventColor(ev) }]} />
-                <Text style={styles.dayPickerItemText} numberOfLines={1}>
-                  {eventIcon(ev)} {eventFullLabel(ev)}
-                </Text>
-              </Pressable>
-            ))}
+            {dayPickerEvents?.map((ev) => {
+              const logoUrl = opponentLogo(ev);
+              return (
+                <Pressable
+                  key={ev.id}
+                  style={styles.dayPickerItem}
+                  onPress={() => {
+                    setDayPickerEvents(null);
+                    onSelectEvent(ev);
+                  }}
+                >
+                  {logoUrl ? (
+                    <Image source={{ uri: logoUrl }} style={styles.dayPickerLogo} />
+                  ) : (
+                    <View style={[styles.dayPickerDot, { backgroundColor: eventColor(ev) }]} />
+                  )}
+                  <Text style={styles.dayPickerItemText} numberOfLines={1}>
+                    {eventIcon(ev)} {eventFullLabel(ev)}
+                  </Text>
+                </Pressable>
+              );
+            })}
             <Pressable style={styles.dayPickerCancel} onPress={() => setDayPickerEvents(null)}>
               <Text style={styles.dayPickerCancelText}>Annulla</Text>
             </Pressable>
@@ -267,8 +291,13 @@ const styles = StyleSheet.create({
   otherMonthText: { color: '#999' },
 
   pillsWrap: { marginTop: 4, gap: 2 },
-  pill: { borderRadius: 4, paddingHorizontal: 4, paddingVertical: 2, minHeight: 18 },
-  pillText: { color: 'white', fontSize: 10, fontWeight: '700' },
+  pill: {
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    borderRadius: 4, paddingHorizontal: 4, paddingVertical: 2, minHeight: 18,
+  },
+  pillLogo: { width: 10, height: 10, borderRadius: 2 },
+  pillIcon: { fontSize: 9 },
+  pillText: { flexShrink: 1, color: 'white', fontSize: 10, fontWeight: '700' },
   pillTextWide: { fontSize: 11 },
   morePill: { backgroundColor: '#e5e7eb' },
 
@@ -286,6 +315,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f1f5f9',
   },
   dayPickerDot: { width: 8, height: 8, borderRadius: 4 },
+  dayPickerLogo: { width: 20, height: 20, borderRadius: 4 },
   dayPickerItemText: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1a202c' },
   dayPickerCancel: { alignItems: 'center', paddingVertical: 14, marginTop: 4 },
   dayPickerCancelText: { fontSize: 15, fontWeight: '700', color: '#64748b' },

@@ -1270,11 +1270,64 @@ irrobustito il punto più fragile trovato via analisi statica:
   foto scattate da iPhone) — sospetto concreto dato che l'app si usa quasi sempre da iPhone in PWA;
   per uno stemma (mostrato con `resizeMode: 'contain'`, qualunque proporzione va bene) il ritaglio
   non è comunque necessario.
-- **Se il problema persiste dopo questo fix**, il prossimo passo utile è sapere ESATTAMENTE cosa
-  succede toccando l'icona 📷: si apre la selezione foto del telefono? Dopo aver scelto una foto,
-  compare un messaggio di errore (ora dovrebbe, se il problema è quello sopra) o non succede
-  proprio nulla? Questa informazione permette di restringere la causa reale in modo molto più
-  mirato della sola analisi statica del codice.
+**Confermato risolto** (2026-08-24): Francesco ha riportato la sequenza esatta del bug — icona 📷 →
+selezione foto → nessun errore, nessuna anteprima, icona invariata — che corrisponde esattamente al
+ritaglio (`allowsEditing`) che falliva in silenzio prima del fix. Con la rimozione del ritaglio ora
+funziona.
+
+### Altre Partite: nostra partita automatica, allegati consultabili, stemma sul calendario — 2026-08-24 (settimo giro)
+Tre richieste di Francesco insieme dopo aver verificato il fix dello stemma.
+
+**1) La nostra partita compare da sola in Altre Partite**: prima l'elenco conteneva solo gli
+incontri inseriti a mano — la partita di Ellera stessa (quella a cui la sezione appartiene) non
+c'era. Nuova `syncOwnFixture()` in `altrePartite.tsx`, chiamata a ogni apertura della schermata
+(solo Staff/Admin, mai per il Giocatore — RLS in scrittura richiede staff/admin): calcola
+Casa/Trasferta/avversario dall'evento, legge `loadGoals`/`loadStarted` da `matchLive.ts` e ne
+ricava **risultato e marcatori automaticamente** (richiesta esplicita: "marcatori e risultato li
+si deve prendere automaticamente dalla sezione live") — i marcatori avversari, che in Live sono
+testo libero digitato dallo staff, vengono riportati con il nome della squadra tra parentesi per
+distinguerli dai nostri. Se la partita non è ancora iniziata, resta senza risultato ("— : —"),
+coerente con gli incontri manuali non ancora giocati.
+- **`app/data/matchdayFixtures.ts`**: nuova `syncOwnMatchFixture(competition, giornata, matchId,
+  input)` — upsert su un **id deterministico** `own-{matchId}` (mai un id casuale): questo fa sì
+  che, se in seguito cambiano Competizione/Giornata della partita, la stessa riga si sposti lì
+  invece di duplicarsi o restare orfana nella vecchia giornata. Nuovo campo `MatchdayFixture.
+  matchId` (colonna `match_id`, `App/supabase/29_schema_matchday_fixtures_own_match.sql`) per
+  riconoscere questa riga nella UI.
+- **UI** (`altrePartite.tsx`): la riga della nostra partita mostra un badge "🔴 Aggiornata
+  automaticamente da Live", nasconde "✏️ Modifica"/"🗑️ Elimina" (verrebbero comunque sovrascritte
+  al prossimo sync) ma **mantiene "📎 Allega foto/PDF"** — un allegato caricato lì non viene mai
+  toccato dal sync (tabella separata, `matchday_fixture_attachments`, tocca solo `matchday_fixtures`).
+
+**2) Allegati "consultabili"**: prima un allegato era un chip col solo nome, apribile solo con
+`WebBrowser.openBrowserAsync`/`Linking.openURL` (browser esterno). Ora, se il nome file ha
+un'estensione immagine (jpg/png/gif/webp/heic/bmp), viene mostrato come **miniatura reale** nella
+card dell'incontro, e toccandola si apre un'**anteprima a schermo intero dentro l'app** (nuovo
+Modal, sfondo nero, tap per chiudere). I PDF restano un chip apribile esternamente (nessun
+visualizzatore PDF integrato nell'app).
+
+**3) Stemma avversario sul calendario mensile**: `app/components/MonthCalendarGrid.tsx` (condiviso
+da Home e Calendario) — quando una partita ha `opponentLogoPath` impostato (caricato da
+Convocazione, o riusato automaticamente dalle Squadre fisse per competizione), la pillola nella
+griglia mostra lo stemma al posto dell'icona ⚽ generica; stesso trattamento nella modale "Eventi
+del giorno" (stemma al posto del pallino colorato).
+
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti. **Richiede l'esecuzione su
+  Supabase di `App/supabase/29_schema_matchday_fixtures_own_match.sql`** (dopo il 27, già presente).
+  **Da verificare dal vero**: aprire Altre Partite di una partita con Competizione/Giornata
+  impostate, verificare che la propria partita compaia con Casa/Trasferta corretti e che il
+  risultato si aggiorni segnando un gol in Live; allegare una foto e controllare l'anteprima a
+  schermo intero; controllare lo stemma nella griglia mensile per una partita con logo avversario
+  caricato.
+
+**Nota emersa durante questo giro (non affrontata, fuori scope)**: analizzando `live.tsx` per
+calcolare Casa/Trasferta della nostra partita, è emerso un possibile bug preesistente e più ampio —
+`live.tsx`/`statistiche.tsx`/`player/[id].tsx` determinano Casa/Trasferta controllando solo il
+valore legacy `homeAway === 'HOME'`, ma le partite create oggi (`CompetitionModal`/`PartiteTab`)
+salvano `'CASA'`/`'TRASFERTA'` — per queste il controllo risulterebbe sempre falso. Segnalato per
+un'indagine dedicata (non toccato in questo giro: il codice nuovo di `altrePartite.tsx` usa
+direttamente `homeAway === 'TRASFERTA'`, corretto per la convenzione attuale, indipendente da
+quell'eventuale bug altrove).
 
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 

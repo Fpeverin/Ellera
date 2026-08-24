@@ -13,6 +13,12 @@
 // incontri si condividono con le altre nostre partite della stessa giornata/competizione; se
 // lasciate vuote, `fixtureKey()` usa l'id di questa partita come chiave privata (mai condivisa per
 // errore con un'altra partita altrettanto priva di competizione/giornata).
+//
+// La NOSTRA partita compare da sola nell'elenco (2026-08-24, terzo giro): `syncOwnFixture`
+// sincronizza automaticamente una riga con risultato/marcatori presi da Live (non modificabile a
+// mano, ma resta possibile allegare foto/PDF anche lì). Gli allegati immagine si aprono con
+// un'anteprima a schermo intero dentro l'app (prima solo un chip col nome, apribile solo nel
+// browser esterno).
 import * as DocumentPicker from 'expo-document-picker';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -34,8 +40,13 @@ import {
   MatchdayFixture,
   removeFixture,
   removeFixtureAttachment,
+  syncOwnMatchFixture,
   updateFixture,
 } from '../../../data/matchdayFixtures';
+import { GoalItem, loadGoals, loadStarted } from '../../../data/matchLive';
+
+const CLUB_NAME = 'Ellera';
+const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|bmp)$/i;
 
 type FormState = {
   id?: string;
@@ -91,6 +102,45 @@ export default function AltrePartite() {
     setAttachmentsByFixture(Object.fromEntries(pairs));
   };
 
+  // La nostra partita compare da sola in Altre Partite, con risultato/marcatori presi da Live —
+  // richiesta di Francesco: "la partita della mia squadra deve comunque andare ad aggiornare
+  // automaticamente la sezione Altre Partite". Upsert su un id deterministico (own-{matchId}),
+  // quindi resta comunque possibile allegare foto/PDF su questa riga come su ogni altra. Solo
+  // Staff/Admin possono scrivere (RLS), un Giocatore vede l'ultimo stato sincronizzato.
+  const syncOwnFixture = async (ev: CalendarEvent, comp: string, g: string) => {
+    if (!matchId || readOnly) return;
+    const homeAway = ((ev as any).homeAway === 'TRASFERTA' ? 'TRASFERTA' : 'CASA') as 'CASA' | 'TRASFERTA';
+    const opponent = ev.opponent || 'Avversario';
+    const homeTeam = homeAway === 'CASA' ? CLUB_NAME : opponent;
+    const awayTeam = homeAway === 'CASA' ? opponent : CLUB_NAME;
+    const ourSide = homeAway === 'CASA' ? 'HOME' : 'AWAY';
+
+    let homeScore: number | null = null;
+    let awayScore: number | null = null;
+    let scorers = '';
+    try {
+      const [started, goals] = await Promise.all([loadStarted(matchId), loadGoals(matchId)]);
+      if (started) {
+        homeScore = goals.filter((gl) => gl.team === 'HOME').length;
+        awayScore = goals.filter((gl) => gl.team === 'AWAY').length;
+        scorers = goals
+          .slice()
+          .sort((a: GoalItem, b: GoalItem) => a.minute - b.minute)
+          .map((gl) => `${gl.scorer} ${gl.minute}'${gl.team === ourSide ? '' : ` (${opponent})`}`)
+          .join(', ');
+      }
+    } catch {
+      // nessun dato Live ancora disponibile — resta 0 gol/nessun marcatore, non blocca il resto
+    }
+
+    try {
+      const [effComp, effG] = fixtureKey(comp, g);
+      await syncOwnMatchFixture(effComp, effG, matchId, { homeTeam, awayTeam, homeScore, awayScore, scorers });
+    } catch {
+      // sync silenziosa: se fallisce, Altre Partite resta comunque utilizzabile per gli incontri manuali
+    }
+  };
+
   useEffect(() => {
     (async () => {
       if (!matchId) return;
@@ -101,6 +151,7 @@ export default function AltrePartite() {
       const g = ((ev as any)?.giornata || '').trim();
       setCompetitionInput(comp);
       setGiornataInput(g);
+      if (ev) await syncOwnFixture(ev, comp, g);
       await loadFixturesFor(comp, g);
       setLoading(false);
     })();
@@ -227,9 +278,19 @@ export default function AltrePartite() {
     }
   };
 
-  const openAttachment = async (uri: string) => {
-    if (/^https?:\/\//i.test(uri)) await WebBrowser.openBrowserAsync(uri);
-    else await Linking.openURL(uri);
+  // Anteprima a schermo intero per un allegato immagine — un file (foto/PDF) allegato deve essere
+  // "consultabile in qualche modo": prima si vedeva solo un chip col nome, senza modo di vederlo
+  // se non aprendolo nel browser esterno. Le immagini si aprono ora dentro l'app; i PDF restano
+  // aperti esternamente (nessun visualizzatore PDF integrato).
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  const openAttachment = async (a: FixtureAttachment) => {
+    if (IMAGE_EXT_RE.test(a.name)) {
+      setPreviewImage(a.uri);
+      return;
+    }
+    if (/^https?:\/\//i.test(a.uri)) await WebBrowser.openBrowserAsync(a.uri);
+    else await Linking.openURL(a.uri);
   };
 
   if (loading) {
@@ -303,6 +364,7 @@ export default function AltrePartite() {
               const attachments = attachmentsByFixture[f.id] ?? [];
               const homeLogo = teams.find((t) => t.name === f.homeTeam)?.logoUrl;
               const awayLogo = teams.find((t) => t.name === f.awayTeam)?.logoUrl;
+              const isOwn = !!f.matchId && f.matchId === matchId;
               return (
                 <View key={f.id} style={styles.fixtureCard}>
                   <View style={styles.fixtureHeaderRow}>
@@ -317,43 +379,61 @@ export default function AltrePartite() {
                       </Text>
                     </View>
                   </View>
+                  {isOwn && <Text style={styles.ownBadge}>🔴 Aggiornata automaticamente da Live</Text>}
                   {!!f.scorers && <Text style={styles.scorersText}>⚽ {f.scorers}</Text>}
 
                   {attachments.length > 0 && (
                     <View style={styles.attachmentsRow}>
-                      {attachments.map((a) => (
-                        <View key={a.id} style={styles.attachmentChip}>
-                          <Pressable style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => openAttachment(a.uri)}>
-                            <Text style={styles.attachmentChipIcon}>📎</Text>
-                            <Text style={styles.attachmentChipText} numberOfLines={1}>{a.name}</Text>
-                          </Pressable>
-                          {!readOnly && (
-                            <Pressable onPress={() => removeAttachment(f.id, a)} accessibilityLabel="Rimuovi allegato">
-                              <Text style={styles.attachmentChipRemove}>✕</Text>
+                      {attachments.map((a) =>
+                        IMAGE_EXT_RE.test(a.name) ? (
+                          <View key={a.id} style={styles.attachmentImageWrap}>
+                            <Pressable onPress={() => openAttachment(a)}>
+                              <Image source={{ uri: a.uri }} style={styles.attachmentImage} />
                             </Pressable>
-                          )}
-                        </View>
-                      ))}
+                            {!readOnly && (
+                              <Pressable style={styles.attachmentImageRemove} onPress={() => removeAttachment(f.id, a)} accessibilityLabel="Rimuovi allegato">
+                                <Text style={styles.attachmentChipRemoveText}>✕</Text>
+                              </Pressable>
+                            )}
+                          </View>
+                        ) : (
+                          <View key={a.id} style={styles.attachmentChip}>
+                            <Pressable style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => openAttachment(a)}>
+                              <Text style={styles.attachmentChipIcon}>📄</Text>
+                              <Text style={styles.attachmentChipText} numberOfLines={1}>{a.name}</Text>
+                            </Pressable>
+                            {!readOnly && (
+                              <Pressable onPress={() => removeAttachment(f.id, a)} accessibilityLabel="Rimuovi allegato">
+                                <Text style={styles.attachmentChipRemove}>✕</Text>
+                              </Pressable>
+                            )}
+                          </View>
+                        )
+                      )}
                     </View>
                   )}
 
                   {!readOnly && (
                     <View style={styles.fixtureActionsRow}>
-                      <Pressable style={styles.smallBtn} onPress={() => openEditModal(f)}>
-                        <Text style={styles.smallBtnText}>✏️ Modifica</Text>
-                      </Pressable>
+                      {!isOwn && (
+                        <Pressable style={styles.smallBtn} onPress={() => openEditModal(f)}>
+                          <Text style={styles.smallBtnText}>✏️ Modifica</Text>
+                        </Pressable>
+                      )}
                       <Pressable
                         style={styles.smallBtn}
                         onPress={() => addAttachment(f.id)}
                         disabled={uploadingFor === f.id}
                       >
                         <Text style={styles.smallBtnText}>
-                          {uploadingFor === f.id ? 'Caricamento…' : '📎 Allega'}
+                          {uploadingFor === f.id ? 'Caricamento…' : '📎 Allega foto/PDF'}
                         </Text>
                       </Pressable>
-                      <Pressable style={[styles.smallBtn, styles.smallBtnDanger]} onPress={() => confirmDeleteFixture(f)}>
-                        <Text style={styles.smallBtnDangerText}>🗑️ Elimina</Text>
-                      </Pressable>
+                      {!isOwn && (
+                        <Pressable style={[styles.smallBtn, styles.smallBtnDanger]} onPress={() => confirmDeleteFixture(f)}>
+                          <Text style={styles.smallBtnDangerText}>🗑️ Elimina</Text>
+                        </Pressable>
+                      )}
                     </View>
                   )}
                 </View>
@@ -454,6 +534,15 @@ export default function AltrePartite() {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
+        <Pressable style={styles.previewOverlay} onPress={() => setPreviewImage(null)}>
+          {previewImage && <Image source={{ uri: previewImage }} style={styles.previewImage} />}
+          <Pressable style={styles.previewCloseBtn} onPress={() => setPreviewImage(null)}>
+            <Text style={styles.previewCloseBtnText}>✕ Chiudi</Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -494,6 +583,7 @@ const styles = StyleSheet.create({
   fixtureVs: { color: '#9ca3af', fontWeight: '400' },
   scoreBadge: { backgroundColor: '#f1f5f9', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   scoreBadgeText: { fontWeight: '800', color: '#1a202c' },
+  ownBadge: { marginTop: 6, fontSize: 12, fontWeight: '700', color: '#b91c1c' },
   scorersText: { marginTop: 6, fontSize: 13, color: '#4b5563' },
 
   attachmentsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
@@ -505,6 +595,18 @@ const styles = StyleSheet.create({
   attachmentChipIcon: { fontSize: 12 },
   attachmentChipText: { fontSize: 12, color: '#334155', maxWidth: 140 },
   attachmentChipRemove: { fontSize: 12, color: '#dc2626', fontWeight: '800', marginLeft: 6 },
+  attachmentImageWrap: { width: 72, height: 72, borderRadius: 8, overflow: 'hidden' },
+  attachmentImage: { width: 72, height: 72, backgroundColor: '#f1f5f9' },
+  attachmentImageRemove: {
+    position: 'absolute', top: 2, right: 2, width: 20, height: 20, borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center',
+  },
+  attachmentChipRemoveText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+
+  previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', alignItems: 'center', justifyContent: 'center' },
+  previewImage: { width: '92%', height: '80%', resizeMode: 'contain' },
+  previewCloseBtn: { position: 'absolute', top: 50, right: 20, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)' },
+  previewCloseBtnText: { color: '#fff', fontWeight: '700' },
 
   fixtureActionsRow: { flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' },
   smallBtn: {

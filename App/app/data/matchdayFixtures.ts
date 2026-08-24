@@ -20,6 +20,10 @@ export type MatchdayFixture = {
   homeScore: number | null;
   awayScore: number | null;
   scorers: string;
+  /** Se valorizzato, questa riga rappresenta una NOSTRA partita (id = quello dell'evento) —
+   * sincronizzata da altrePartite.tsx con risultato/marcatori presi da Live, non modificabile a
+   * mano (resta comunque possibile allegare foto/PDF). Null per un incontro inserito a mano. */
+  matchId: string | null;
 };
 
 function fromRow(row: any): MatchdayFixture {
@@ -32,6 +36,7 @@ function fromRow(row: any): MatchdayFixture {
     homeScore: row.home_score,
     awayScore: row.away_score,
     scorers: row.scorers ?? '',
+    matchId: row.match_id ?? null,
   };
 }
 
@@ -75,7 +80,35 @@ export async function addFixture(
     scorers: input.scorers,
   });
   if (error) throw error;
-  return { id, competition, giornata, ...input };
+  return { id, competition, giornata, matchId: null, ...input };
+}
+
+/** Crea o aggiorna (upsert per id deterministico `own-{matchId}`) la riga che rappresenta una
+ * nostra partita — chiamata ogni volta che si apre Altre Partite, per tenere risultato/marcatori
+ * allineati con Live senza intervento manuale. L'id fisso fa sì che, se in seguito cambiano
+ * Competizione/Giornata della partita, la stessa riga si "sposti" lì invece di duplicarsi. */
+export async function syncOwnMatchFixture(
+  competition: string,
+  giornata: string,
+  matchId: string,
+  input: FixtureInput
+): Promise<MatchdayFixture> {
+  const orgId = getCurrentOrgId();
+  const id = `own-${matchId}`;
+  const { error } = await supabase.from('matchday_fixtures').upsert({
+    id,
+    org_id: orgId,
+    competition,
+    giornata,
+    match_id: matchId,
+    home_team: input.homeTeam,
+    away_team: input.awayTeam,
+    home_score: input.homeScore,
+    away_score: input.awayScore,
+    scorers: input.scorers,
+  });
+  if (error) throw error;
+  return { id, competition, giornata, matchId, ...input };
 }
 
 export async function updateFixture(id: string, input: FixtureInput): Promise<void> {

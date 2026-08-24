@@ -183,6 +183,22 @@ ritaglio automatico (sospetto concreto: può fallire in silenzio con foto HEIC d
 problema persiste, serve sapere da Francesco cosa succede esattamente toccando l'icona 📷 per
 restringere la causa. Vedi CLAUDE.md.
 
+**Confermato risolto (2026-08-24)**: la sequenza riportata da Francesco confermava l'ipotesi (il
+ritaglio falliva in silenzio) — con la sua rimozione ora funziona.
+
+**Nuovo, stesso giorno — settimo giro**: tre richieste dopo aver verificato il fix. 1) La partita
+di Ellera compare ora da sola in Altre Partite, con risultato e marcatori presi automaticamente da
+Live (non modificabile a mano, ma restano allegabili foto/PDF anche lì). 2) Gli allegati immagine
+si aprono con un'anteprima a schermo intero dentro l'app invece che nel browser esterno. 3) Il
+calendario mensile (Home e Calendario) mostra lo stemma dell'avversario al posto dell'icona
+generica, quando presente. Richiede l'esecuzione su Supabase di
+`29_schema_matchday_fixtures_own_match.sql`. Vedi CLAUDE.md per i dettagli tecnici completi.
+
+**Nota emersa (non affrontata, fuori scope)**: possibile bug preesistente sulla determinazione
+Casa/Trasferta in `live.tsx`/`statistiche.tsx`/`player/[id].tsx` per le partite create con la
+convenzione recente ('CASA'/'TRASFERTA' invece di 'HOME'/'AWAY') — segnalato per un'indagine
+dedicata, vedi CLAUDE.md.
+
 ### Statistiche: gol subiti dal portiere come numero negativo (2026-08-24)
 La colonna "Gol" per il ruolo Portiere mostra già i gol subiti invece di quelli fatti — richiesta di
 Francesco: mostrarli come numero negativo (-1, -2, ...) invece di un numero semplice che poteva
