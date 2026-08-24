@@ -1254,6 +1254,28 @@ un pizzico più esteso lì: mancava del tutto, non solo bloccato dal guard).
   cambi allo stadio della squadra (se configurato); scrivere il Luogo a mano e controllare che
   cambiare Casa/Trasferta non lo sovrascriva più.
 
+### Fix (parziale, in indagine): anteprima stemma ancora non visibile — 2026-08-24 (sesto giro)
+Francesco ha confermato che l'anteprima immediata introdotta nel giro precedente **non risolve**:
+"continuo a non vedere l'anteprima". Non essendo riproducibile in questo ambiente (niente
+selezione file/fotocamera reale disponibile qui), non è stata trovata una causa certa — solo
+irrobustito il punto più fragile trovato via analisi statica:
+- **`pickImage()`** (`CompetitionTeamsModal.tsx`) non aveva **nessun** `try/catch` attorno alle due
+  chiamate `ImagePicker.requestMediaLibraryPermissionsAsync()`/`launchImageLibraryAsync()` — se una
+  delle due lancia un errore (permesso negato in modo anomalo, formato foto non gestito dal
+  browser, ecc.), la promise rifiutata restava senza alcun gestore: nessun errore a schermo,
+  nessuna anteprima, esattamente il sintomo riportato, indistinguibile da un annullamento. Aggiunto
+  un `try/catch` con `Alert.alert` di errore esplicito.
+- Rimosso `allowsEditing: true` dalla chiamata: apre un ritaglio (crop) che su alcuni browser può
+  fallire in silenzio con certi formati foto (in particolare HEIC, il formato di default delle
+  foto scattate da iPhone) — sospetto concreto dato che l'app si usa quasi sempre da iPhone in PWA;
+  per uno stemma (mostrato con `resizeMode: 'contain'`, qualunque proporzione va bene) il ritaglio
+  non è comunque necessario.
+- **Se il problema persiste dopo questo fix**, il prossimo passo utile è sapere ESATTAMENTE cosa
+  succede toccando l'icona 📷: si apre la selezione foto del telefono? Dopo aver scelto una foto,
+  compare un messaggio di errore (ora dovrebbe, se il problema è quello sopra) o non succede
+  proprio nulla? Questa informazione permette di restringere la causa reale in modo molto più
+  mirato della sola analisi statica del codice.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

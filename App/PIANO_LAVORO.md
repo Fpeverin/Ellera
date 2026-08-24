@@ -176,6 +176,13 @@ valore, una volta scritto la prima volta, veniva considerato "già compilato" e 
 ora si ricalcola ogni volta che cambia Casa/Trasferta o la squadra scelta, finché non viene
 modificato a mano. Vedi CLAUDE.md per i dettagli tecnici completi.
 
+**Fix parziale, in indagine — sesto giro (2026-08-24)**: l'anteprima non risolveva ancora secondo
+Francesco. Non riproducibile in questo ambiente — irrobustito il punto più fragile trovato
+(mancava un try/catch attorno alla selezione foto, un errore lì restava invisibile) e rimosso il
+ritaglio automatico (sospetto concreto: può fallire in silenzio con foto HEIC da iPhone). Se il
+problema persiste, serve sapere da Francesco cosa succede esattamente toccando l'icona 📷 per
+restringere la causa. Vedi CLAUDE.md.
+
 ### Statistiche: gol subiti dal portiere come numero negativo (2026-08-24)
 La colonna "Gol" per il ruolo Portiere mostra già i gol subiti invece di quelli fatti — richiesta di
 Francesco: mostrarli come numero negativo (-1, -2, ...) invece di un numero semplice che poteva

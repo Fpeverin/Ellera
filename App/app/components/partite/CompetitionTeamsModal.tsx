@@ -32,17 +32,27 @@ export default function CompetitionTeamsModal({ visible, competition, onClose }:
   const [uploadingLogoFor, setUploadingLogoFor] = useState<string | null>(null);
 
   const pickImage = async (): Promise<string | null> => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
+    // Tutto avvolto in try/catch: senza, un errore qui (permessi, picker) resta una promise
+    // rifiutata senza gestori — su schermo non succede nulla e non lo si può distinguere da un
+    // annullamento, esattamente il sintomo segnalato ("non vedo l'anteprima").
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
+        return null;
+      }
+      // Niente allowsEditing: apre un ritaglio che su alcuni browser (webapp) può fallire in
+      // silenzio con certi formati foto (es. HEIC da iPhone) — per uno stemma non serve ritagliare.
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.9,
+      });
+      if (res.canceled || !res.assets?.length) return null;
+      return res.assets[0].uri;
+    } catch {
+      Alert.alert('Errore', 'Impossibile aprire la selezione immagini.');
       return null;
     }
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.9,
-    });
-    return res.canceled ? null : res.assets[0].uri;
   };
 
   useEffect(() => {
