@@ -14,7 +14,7 @@ import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TeamLogo from '../../../components/TeamLogo';
 import { useAuth } from '../../../context/AuthContext';
-import { loadCompetitionTeams } from '../../../data/competitionTeams';
+import { findTeamLogoForOpponent } from '../../../data/competitionTeams';
 import { CalendarEvent, loadEvents, patchEventData } from '../../../data/events';
 import { loadStarted } from '../../../data/matchLive';
 import { loadOrgLogoUrl, opponentLogoUrlFromPath } from '../../../data/organization';
@@ -43,15 +43,14 @@ export default function PartitaIndexChooser() {
         const opponentLogoPath = (ev as any)?.opponentLogoPath;
         if (opponentLogoPath) {
           setOpponentLogoUrl(opponentLogoUrlFromPath(opponentLogoPath));
-        } else if (membership?.role !== 'giocatore' && ev?.competition && ev?.opponent) {
+        } else if (membership?.role !== 'giocatore' && ev?.opponent) {
           // Nessuno stemma caricato per questa partita: se la squadra avversaria è già configurata
-          // (con stemma) per questa competizione, lo recupera automaticamente da lì — stessa logica
-          // di convocazione.tsx, qui copre anche chi non apre mai quella scheda prima di guardare il
-          // calendario. Mai per il Giocatore (sola lettura, l'RLS in scrittura su "events" glielo
-          // impedirebbe comunque).
+          // (con stemma) — nella stessa Competizione della partita, o in qualunque altra se lì non
+          // si trova — lo recupera automaticamente da lì (stessa logica di convocazione.tsx, qui
+          // copre anche chi non apre mai quella scheda prima di guardare il calendario). Mai per il
+          // Giocatore (sola lettura, l'RLS in scrittura su "events" glielo impedirebbe comunque).
           try {
-            const teams = await loadCompetitionTeams(ev.competition);
-            const match = teams.find((t) => t.name === ev.opponent);
+            const match = await findTeamLogoForOpponent((ev as any)?.competition, ev.opponent);
             if (match?.logoPath) {
               await patchEventData(matchId, { opponentLogoPath: match.logoPath });
               setOpponentLogoUrl(match.logoUrl);

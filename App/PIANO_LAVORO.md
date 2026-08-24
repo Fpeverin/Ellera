@@ -213,6 +213,14 @@ con uno stemma per quella competizione, lo stemma si collega da solo alla partit
 pagina scelta-partita), senza bisogno di caricarlo a mano. Il caricamento manuale resta disponibile
 come fallback/sostituzione. Vedi CLAUDE.md per i dettagli tecnici completi.
 
+**Fix — decimo giro (2026-08-24)**: causa reale trovata per "funziona da Android ma non da
+webapp" — su web il selettore foto va aperto SUBITO nel tocco dell'utente, senza nessun `await`
+prima (nemmeno per i permessi, che su web sono comunque un no-op); un `await` di troppo fa sì che
+il browser ignori il click in silenzio, senza errori. Sistemato nei 4 punti con lo stesso
+caricamento foto. Reso anche più permissivo il collegamento automatico allo stemma (nome
+avversario/squadra confrontato ignorando spazi e maiuscole/minuscole, cercando anche in altre
+competizioni se non trovato in quella della partita). Vedi CLAUDE.md per i dettagli tecnici completi.
+
 ### Statistiche: gol subiti dal portiere come numero negativo (2026-08-24)
 La colonna "Gol" per il ruolo Portiere mostra già i gol subiti invece di quelli fatti — richiesta di
 Francesco: mostrarli come numero negativo (-1, -2, ...) invece di un numero semplice che poteva

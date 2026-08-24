@@ -52,6 +52,46 @@ export async function loadCompetitionTeams(competition: string): Promise<Competi
   return (data ?? []).map(fromRow);
 }
 
+/** Tutte le squadre configurate dall'organizzazione, di qualunque competizione — usata come
+ * fallback in findTeamLogoForOpponent quando una partita non ha (ancora) la stessa Competizione
+ * con cui la squadra è stata censita. */
+export async function loadAllCompetitionTeams(): Promise<CompetitionTeam[]> {
+  const orgId = getCurrentOrgId();
+  const { data, error } = await supabase
+    .from('competition_teams')
+    .select('*')
+    .eq('org_id', orgId)
+    .order('name');
+  if (error) throw error;
+  return (data ?? []).map(fromRow);
+}
+
+function namesMatch(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+/** Trova lo stemma di una squadra configurata a partire dal nome avversario di una partita —
+ * usata per il collegamento automatico (Convocazione/pagina scelta-partita). Prima cerca dentro la
+ * stessa Competizione (match esatto sul nome, spazi e maiuscole/minuscole ignorati); se non trova
+ * nulla lì (o la partita non ha Competizione impostata), cerca tra TUTTE le squadre configurate
+ * dall'organizzazione — un nome ripetuto in competizioni diverse è raro, e senza questo fallback
+ * un disallineamento tra il nome Competizione della partita e quello con cui è stata censita la
+ * squadra impedirebbe il collegamento anche quando lo stemma esiste già. */
+export async function findTeamLogoForOpponent(
+  competition: string | undefined,
+  opponentName: string
+): Promise<CompetitionTeam | null> {
+  const name = (opponentName || '').trim();
+  if (!name) return null;
+  if (competition) {
+    const scoped = await loadCompetitionTeams(competition);
+    const match = scoped.find((t) => namesMatch(t.name, name) && t.logoPath);
+    if (match) return match;
+  }
+  const all = await loadAllCompetitionTeams();
+  return all.find((t) => namesMatch(t.name, name) && t.logoPath) ?? null;
+}
+
 export async function addCompetitionTeam(competition: string, name: string, stadium: string): Promise<CompetitionTeam> {
   const orgId = getCurrentOrgId();
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

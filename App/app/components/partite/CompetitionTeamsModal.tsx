@@ -6,7 +6,7 @@
 // di un incontro). Autosalva a ogni modifica, nessun bottone "Salva" esplicito.
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   addCompetitionTeam,
   CompetitionTeam,
@@ -36,10 +36,18 @@ export default function CompetitionTeamsModal({ visible, competition, onClose }:
     // rifiutata senza gestori — su schermo non succede nulla e non lo si può distinguere da un
     // annullamento, esattamente il sintomo segnalato ("non vedo l'anteprima").
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
-        return null;
+      // Su web niente richiesta permessi prima del picker: launchImageLibraryAsync lì apre un
+      // <input type="file"> nascosto con un click simulato, che alcuni browser (Safari su iPhone,
+      // dove gira questa PWA) eseguono solo se avviene SUBITO nel gesto dell'utente — un "await"
+      // anche solo per una richiesta di permessi che su web è comunque un no-op spezza quel gesto e
+      // il click simulato non apre nulla, senza errori (funziona da Android, non da webapp: stesso
+      // sintomo esatto). Su nativo il permesso resta necessario e non ha questo vincolo.
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
+          return null;
+        }
       }
       // Niente allowsEditing: apre un ritaglio che su alcuni browser (webapp) può fallire in
       // silenzio con certi formati foto (es. HEIC da iPhone) — per uno stemma non serve ritagliare.

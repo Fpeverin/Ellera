@@ -11,10 +11,10 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../../context/AuthContext';
-import { loadCompetitionTeams } from '../../../data/competitionTeams';
+import { findTeamLogoForOpponent } from '../../../data/competitionTeams';
 import { loadConvocazione, saveConvocatiPlayerIds, saveConvocazione } from '../../../data/convocazione';
 import { printOrShareHtml } from '../../../utils/webExport';
 import { CalendarEvent, loadEvents, patchEventData } from '../../../data/events';
@@ -124,14 +124,14 @@ export default function Convocazione() {
         const opponentLogoPath = (ev as any)?.opponentLogoPath;
         if (opponentLogoPath) {
           setOpponentLogoUrl(opponentLogoUrlFromPath(opponentLogoPath));
-        } else if (ev?.competition && ev?.opponent) {
+        } else if (ev?.opponent) {
           // Nessuno stemma caricato a mano per questa partita: se la squadra avversaria è già
-          // configurata (con stemma) per questa competizione, lo recupera da lì automaticamente —
-          // richiesta di Francesco, evita di dover ricaricare a mano lo stesso stemma partita per
-          // partita.
+          // configurata (con stemma) — nella stessa Competizione della partita, o in qualunque
+          // altra se lì non si trova — lo recupera da lì automaticamente. Nome ignorando spazi e
+          // maiuscole/minuscole, per non perdere il collegamento per una differenza minima di
+          // digitazione tra dove è stata censita la squadra e l'avversario della partita.
           try {
-            const teams = await loadCompetitionTeams(ev.competition);
-            const match = teams.find((t) => t.name === ev.opponent);
+            const match = await findTeamLogoForOpponent((ev as any)?.competition, ev.opponent);
             if (match?.logoPath) {
               await patchEventData(matchId, { opponentLogoPath: match.logoPath });
               setOpponentLogoUrl(match.logoUrl);
@@ -191,10 +191,16 @@ export default function Convocazione() {
     // CompetitionTeamsModal.tsx, stesso identico pattern copiato qui).
     let localUri: string | null = null;
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
-        return;
+      // Su web niente richiesta permessi prima del picker (vedi nota identica in
+      // CompetitionTeamsModal.tsx): un "await" prima di launchImageLibraryAsync spezza il gesto
+      // utente richiesto da alcuni browser (Safari su iPhone) per aprire il file picker — stesso
+      // sintomo esatto segnalato: funziona da Android, non da webapp, senza errori.
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
+          return;
+        }
       }
       const res = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,

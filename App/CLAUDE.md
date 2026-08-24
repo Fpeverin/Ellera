@@ -1385,6 +1385,39 @@ gli avversari NON ancora configurati in "Squadre della competizione".
   la sequenza esatta (si apre la selezione foto? compare un errore?) per capire se si tratta di una
   causa diversa specifica a questo punto dell'app.
 
+### Fix: caricamento stemma funzionante da Android ma non da webapp + matching squadre più permissivo — 2026-08-24 (decimo giro)
+Francesco: "Da Android funziona mentre da webapp non funziona ancora. Inoltre non c'è
+un'associazione automatica alle squadre già con loghi esistenti."
+
+**1) Android sì, webapp no — causa reale diversa da quella corretta nei giri precedenti**: i fix
+precedenti (niente `allowsEditing`, `try/catch` esplicito) restavano corretti ma non bastavano.
+Su web, `ImagePicker.launchImageLibraryAsync` apre un `<input type="file">` nascosto con un click
+simulato — alcuni browser (Safari su iPhone, dove gira questa PWA "Aggiunta a Home") lo eseguono
+solo se avviene **subito dentro il gesto dell'utente** (il tocco sul bottone): un `await` prima di
+quella chiamata, anche solo per `requestMediaLibraryPermissionsAsync()` che su web è comunque un
+no-op, "spezza" quel gesto e il click simulato non apre nulla — senza nessun errore, perché non è
+un'eccezione: è un click che il browser ignora silenziosamente. Spiega perfettamente il sintomo:
+funziona da nativo (Android non ha questo vincolo, i permessi sono un vero dialogo di sistema), mai
+da webapp. **Fix**: la richiesta permessi ora si salta del tutto su web (`Platform.OS !== 'web'`),
+andando dritti a `launchImageLibraryAsync` come primissima chiamata nel gestore del tocco — nei 4
+punti con lo stesso pattern: `CompetitionTeamsModal.tsx`, `convocazione.tsx`, `staff.tsx` (logo
+squadra), `player/[id].tsx` (foto profilo).
+
+**2) Collegamento automatico troppo rigido**: il match tra nome avversario e nome squadra
+configurata era case-sensitive e limitato alla sola Competizione della partita — una differenza
+minima di maiuscole/spazi, o la partita con una Competizione impostata diversamente da come è
+stata censita la squadra, impediva il collegamento anche con lo stemma già esistente. Nuova
+`findTeamLogoForOpponent(competition, opponentName)` in `app/data/competitionTeams.ts`: confronto
+nome ignorando spazi e maiuscole/minuscole, prima nella Competizione della partita poi (fallback)
+tra **tutte** le squadre configurate dall'organizzazione, qualunque competizione — usata sia in
+`convocazione.tsx` sia in `index.tsx` al posto del confronto esatto precedente.
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti. **Da verificare dal vero, con
+  priorità alta essendo il terzo giro sullo stesso bug**: caricare uno stemma da webapp (Convocazione,
+  Admin, scheda giocatore, Squadre della competizione) e controllare che il selettore foto si apra
+  davvero; aprire una partita il cui avversario è già configurato con stemma (anche con
+  maiuscole/spazi leggermente diversi, o in un'altra competizione) e verificare che si colleghi da
+  solo.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

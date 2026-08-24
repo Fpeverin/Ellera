@@ -2,7 +2,7 @@
 import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NotifyRecipientsPicker from '../components/NotifyRecipientsPicker';
 import { useAuth } from '../context/AuthContext';
@@ -127,10 +127,15 @@ export default function AdminScreen() {
     // CompetitionTeamsModal.tsx, stesso identico pattern copiato qui).
     let localUri: string | null = null;
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
-        return;
+      // Su web niente richiesta permessi prima del picker (vedi nota identica in
+      // CompetitionTeamsModal.tsx): un "await" prima di launchImageLibraryAsync spezza il gesto
+      // utente richiesto da alcuni browser (Safari su iPhone) per aprire il file picker.
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
+          return;
+        }
       }
       const res = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,

@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   Share,
@@ -558,10 +559,15 @@ export default function PlayerDetail() {
   // CompetitionTeamsModal.tsx, stesso identico pattern copiato qui).
   const pickPhoto = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
-        return;
+      // Su web niente richiesta permessi prima del picker (vedi nota identica in
+      // CompetitionTeamsModal.tsx): un "await" prima di launchImageLibraryAsync spezza il gesto
+      // utente richiesto da alcuni browser (Safari su iPhone) per aprire il file picker.
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
+          return;
+        }
       }
       const res = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
