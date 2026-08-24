@@ -27,8 +27,23 @@ export default function CompetitionTeamsModal({ visible, competition, onClose }:
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const [newStadium, setNewStadium] = useState('');
+  const [newLogoUri, setNewLogoUri] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [uploadingLogoFor, setUploadingLogoFor] = useState<string | null>(null);
+
+  const pickImage = async (): Promise<string | null> => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
+      return null;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.9,
+    });
+    return res.canceled ? null : res.assets[0].uri;
+  };
 
   useEffect(() => {
     if (!visible) return;
@@ -44,10 +59,19 @@ export default function CompetitionTeamsModal({ visible, competition, onClose }:
     if (!name) return;
     setAdding(true);
     try {
-      const created = await addCompetitionTeam(competition, name, newStadium.trim());
+      let created = await addCompetitionTeam(competition, name, newStadium.trim());
+      if (newLogoUri) {
+        try {
+          const { url } = await uploadCompetitionTeamLogo(created.id, newLogoUri);
+          created = { ...created, logoUrl: url };
+        } catch {
+          Alert.alert('Errore', "Squadra aggiunta, ma non è stato possibile caricare lo stemma. Riprova toccando l'icona 📷 sulla riga.");
+        }
+      }
       setTeams((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
       setNewName('');
       setNewStadium('');
+      setNewLogoUri(null);
     } catch {
       Alert.alert('Errore', 'Impossibile aggiungere la squadra.');
     } finally {
@@ -64,20 +88,15 @@ export default function CompetitionTeamsModal({ visible, competition, onClose }:
   };
 
   const pickLogo = async (team: CompetitionTeam) => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permessi', 'Serve il permesso per accedere alle foto.');
-      return;
-    }
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.9,
-    });
-    if (res.canceled) return;
+    const localUri = await pickImage();
+    if (!localUri) return;
+    // Anteprima immediata dal file locale, prima ancora che l'upload sia finito — altrimenti
+    // l'icona resta uno spinner per tutta la durata del caricamento e sembra che "non sia successo
+    // niente" quando si sceglie una foto.
+    setTeams((prev) => prev.map((t) => (t.id === team.id ? { ...t, logoUrl: localUri } : t)));
     setUploadingLogoFor(team.id);
     try {
-      const { url } = await uploadCompetitionTeamLogo(team.id, res.assets[0].uri);
+      const { url } = await uploadCompetitionTeamLogo(team.id, localUri);
       setTeams((prev) => prev.map((t) => (t.id === team.id ? { ...t, logoUrl: url } : t)));
     } catch {
       Alert.alert('Errore', 'Impossibile caricare lo stemma.');
@@ -126,12 +145,15 @@ export default function CompetitionTeamsModal({ visible, competition, onClose }:
               {teams.map((team) => (
                 <View key={team.id} style={styles.teamRow}>
                   <Pressable style={styles.logoPicker} onPress={() => pickLogo(team)} disabled={uploadingLogoFor === team.id}>
-                    {uploadingLogoFor === team.id ? (
-                      <ActivityIndicator size="small" color="#1b4f7f" />
-                    ) : team.logoUrl ? (
+                    {team.logoUrl ? (
                       <Image source={{ uri: team.logoUrl }} style={styles.logoImage} />
                     ) : (
                       <Text style={styles.logoPickerText}>📷</Text>
+                    )}
+                    {uploadingLogoFor === team.id && (
+                      <View style={styles.logoUploadingOverlay}>
+                        <ActivityIndicator size="small" color="#fff" />
+                      </View>
                     )}
                   </Pressable>
                   <View style={{ flex: 1 }}>
@@ -163,6 +185,13 @@ export default function CompetitionTeamsModal({ visible, competition, onClose }:
               ))}
 
               <View style={styles.addRow}>
+                <Pressable style={styles.logoPicker} onPress={async () => setNewLogoUri(await pickImage())}>
+                  {newLogoUri ? (
+                    <Image source={{ uri: newLogoUri }} style={styles.logoImage} />
+                  ) : (
+                    <Text style={styles.logoPickerText}>📷</Text>
+                  )}
+                </Pressable>
                 <View style={{ flex: 1 }}>
                   <TextInput
                     style={styles.teamInput}
@@ -178,7 +207,7 @@ export default function CompetitionTeamsModal({ visible, competition, onClose }:
                   />
                 </View>
                 <Pressable style={[styles.addBtn, (!newName.trim() || adding) && { opacity: 0.6 }]} onPress={handleAdd} disabled={!newName.trim() || adding}>
-                  <Text style={styles.addBtnText}>+</Text>
+                  {adding ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.addBtnText}>+</Text>}
                 </Pressable>
               </View>
 
@@ -209,6 +238,10 @@ const styles = StyleSheet.create({
   },
   logoImage: { width: 44, height: 44, resizeMode: 'contain' },
   logoPickerText: { fontSize: 18 },
+  logoUploadingOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center',
+  },
 
   addRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', marginTop: 4, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e5e7eb' },
   addBtn: { backgroundColor: '#1b4f7f', borderRadius: 8, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },

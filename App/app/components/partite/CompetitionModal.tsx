@@ -31,6 +31,10 @@ type NewRound = {
   location: string;
   giornata: string;
   opponentLogoPath?: string;
+  /** true finché il Luogo è stato scritto dall'automatismo (stadio squadra/stadio di casa) e non
+   * ancora toccato a mano — permette di ricalcolarlo quando si cambia Casa/Trasferta o si sceglie
+   * un'altra squadra, senza però mai sovrascrivere un Luogo scritto a mano dall'utente. */
+  locationAuto?: boolean;
 };
 
 interface CompetitionModalProps {
@@ -132,22 +136,32 @@ export default function CompetitionModal({ visible, onClose, onCreateCompetition
   const updateRound = (idx: number, field: keyof NewRound, value: string | 'CASA' | 'TRASFERTA') => {
     const updated = [...rounds];
     const round = { ...updated[idx], [field]: value } as NewRound;
-    if ((field === 'opponent' || field === 'homeAway') && !round.location) {
+    if (field === 'location') {
+      round.locationAuto = false; // modifica manuale: non va più sovrascritto dall'automatismo
+    }
+    if ((field === 'opponent' || field === 'homeAway') && (!round.location || round.locationAuto)) {
       const auto = computeAutoLocation(round.opponent, round.homeAway);
-      if (auto) round.location = auto;
+      if (auto) {
+        round.location = auto;
+        round.locationAuto = true;
+      }
     }
     updated[idx] = round;
     setRounds(updated);
   };
 
   /** Scelta di una squadra configurata dai chip: oltre al nome, riusa automaticamente stadio
-   * (per il Luogo, se non già scritto a mano) e stemma della squadra per questo round. */
+   * (per il Luogo, se non già scritto a mano o comunque frutto dell'automatismo) e stemma della
+   * squadra per questo round. */
   const pickTeamForRound = (idx: number, team: CompetitionTeam) => {
     const updated = [...rounds];
     const round = { ...updated[idx], opponent: team.name, opponentLogoPath: team.logoPath || undefined };
-    if (!round.location) {
+    if (!round.location || round.locationAuto) {
       const auto = computeAutoLocation(round.opponent, round.homeAway);
-      if (auto) round.location = auto;
+      if (auto) {
+        round.location = auto;
+        round.locationAuto = true;
+      }
     }
     updated[idx] = round;
     setRounds(updated);

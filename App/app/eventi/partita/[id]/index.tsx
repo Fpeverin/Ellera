@@ -1,11 +1,13 @@
 // app/eventi/partita/[id]/index.tsx
 //
-// Prima di avviare il live, chi apre una partita:
-// - Staff/Admin sceglie tra Convocazione e Live.
-// - Giocatore vede solo data/ora/avversario + loghi, in sola lettura (niente
-//   Convocazione/Formazione/Live finché la partita non è avviata).
-// Dopo lo Start, tutti vanno dritti su Live (dove il Giocatore può proporre
-// gol/cartellini, come già previsto).
+// Chi apre una partita:
+// - Staff/Admin vede sempre la griglia a 4 riquadri (Convocazione/Lista Gara/Live/Altre Partite),
+//   qualunque sia lo stato della partita (2026-08-24: prima, a partita avviata o finita, si veniva
+//   reindirizzati dritti su Live — impedendo di raggiungere Altre Partite/Convocazione/Lista Gara
+//   per qualunque partita già iniziata, non solo mentre è ancora da avviare).
+// - Giocatore vede solo data/ora/avversario + loghi, in sola lettura, finché la partita non è
+//   avviata; dopo lo Start va dritto su Live (dove può proporre gol/cartellini, come già previsto)
+//   — per lui non cambia nulla.
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -55,7 +57,7 @@ export default function PartitaIndexChooser() {
     );
   }
 
-  if (started) {
+  if (readOnly && started) {
     return <Redirect href={{ pathname: '/eventi/partita/[id]/live', params: { id: matchId } }} />;
   }
 

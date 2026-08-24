@@ -6,10 +6,13 @@
 // qualsiasi delle nostre partite di quella giornata compare automaticamente anche dalle altre.
 // Sola lettura per il Giocatore (stesso principio di tutte le altre schermate di partita).
 //
-// Competizione/Giornata si impostano DIRETTAMENTE qui (2026-08-24, feedback di Francesco: prima
-// bisognava averle già impostate altrove — Calendario/Partite — prima di poter usare la sezione,
-// un blocco inutile). Cambiarle qui aggiorna anche la partita stessa (stessa colonna letta da
-// MatchEventCard/EditMatchModal), così restano coerenti ovunque.
+// Competizione/Giornata si impostano DIRETTAMENTE qui (2026-08-24) e sono del tutto OPZIONALI
+// (2026-08-24, secondo giro — Francesco: "deve essere possibile crearlo in ogni momento, anche
+// senza competizione impostata"): la sezione si usa sempre, senza alcun prerequisito. Se compilate,
+// aggiornano anche la partita stessa (stessa colonna letta da MatchEventCard/EditMatchModal) e gli
+// incontri si condividono con le altre nostre partite della stessa giornata/competizione; se
+// lasciate vuote, `fixtureKey()` usa l'id di questa partita come chiave privata (mai condivisa per
+// errore con un'altra partita altrettanto priva di competizione/giornata).
 import * as DocumentPicker from 'expo-document-picker';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -71,15 +74,18 @@ export default function AltrePartite() {
 
   const competition = competitionInput.trim();
   const giornata = giornataInput.trim();
-  const hasMatchdayKey = !!competition && !!giornata;
+
+  // Altre Partite si può usare sempre, anche senza Competizione/Giornata impostate — quando
+  // mancano entrambe, l'elenco resta privato di questa partita (chiave sulla sua id) invece di
+  // condividersi per errore con qualunque altra partita altrettanto priva di competizione/
+  // giornata. Non appena si compila almeno uno dei due campi, torna la condivisione con le altre
+  // nostre partite della stessa giornata/competizione (comportamento originale, invariato).
+  const fixtureKey = (comp: string, g: string): [string, string] =>
+    comp || g ? [comp, g] : ['', `_solo_${matchId}`];
 
   const loadFixturesFor = async (comp: string, g: string) => {
-    if (!comp || !g) {
-      setFixtures([]);
-      setAttachmentsByFixture({});
-      return;
-    }
-    const list = await loadFixtures(comp, g);
+    const [effComp, effG] = fixtureKey(comp, g);
+    const list = await loadFixtures(effComp, effG);
     setFixtures(list);
     const pairs = await Promise.all(list.map((f) => loadFixtureAttachments(f.id).then((a) => [f.id, a] as const)));
     setAttachmentsByFixture(Object.fromEntries(pairs));
@@ -160,7 +166,8 @@ export default function AltrePartite() {
       if (form.id) {
         await updateFixture(form.id, input);
       } else {
-        await addFixture(competition, giornata, input);
+        const [effComp, effG] = fixtureKey(competition, giornata);
+        await addFixture(effComp, effG, input);
       }
       setForm(null);
       await reloadFixtures();
@@ -271,16 +278,16 @@ export default function AltrePartite() {
             </View>
           </View>
           {savingMeta && <Text style={styles.metaSaving}>Salvataggio…</Text>}
-          {!hasMatchdayKey && (
+          {!(competition || giornata) && (
             <Text style={styles.metaHint}>
-              Inserisci Competizione e Giornata per iniziare ad aggiungere gli incontri — vengono
-              condivise automaticamente con le altre nostre partite della stessa giornata.
+              Opzionali: se le compili, questi incontri compaiono automaticamente anche dalle
+              altre nostre partite della stessa giornata/competizione. Senza, restano visibili solo
+              da qui.
             </Text>
           )}
         </View>
 
-        {hasMatchdayKey && (
-          <>
+        <>
             {fixtures.length === 0 && (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyIcon}>🗒️</Text>
@@ -358,8 +365,7 @@ export default function AltrePartite() {
                 <Text style={styles.addBtnText}>＋ Aggiungi incontro</Text>
               </Pressable>
             )}
-          </>
-        )}
+        </>
       </ScrollView>
 
       <Modal visible={!!form} transparent animationType="slide" onRequestClose={() => setForm(null)}>

@@ -1192,6 +1192,68 @@ incontro, invece di ridigitare sempre lo stesso nome a mano.
   sia in CASA sia in TRASFERTA; verificare lo stesso per la creazione di una singola partita e per
   le due squadre di un incontro in Altre Partite.
 
+### Pagina partita: griglia a 4 riquadri sempre raggiungibile + Altre Partite senza prerequisiti — 2026-08-24 (quarto giro)
+Feedback di Francesco: "Quando clicco su una partita devo sempre arrivare sulle 4 card (Live,
+Altre Partite, Convocati, Lista Gara) anche se la partita è in corso o finita" — collegato al
+punto precedente: il vero blocco non era (solo) l'obbligo di Competizione/Giornata, ma il fatto che
+**qualunque partita già avviata reindirizzava dritta a Live**, rendendo Altre Partite (e
+Convocazione/Lista Gara) irraggiungibili proprio quando servono di più (durante/dopo la partita).
+- **`app/eventi/partita/[id]/index.tsx`**: il redirect automatico a Live quando `started` è vero
+  ora si applica **solo al Giocatore** (per lui non cambia nulla — dopo lo Start va sempre dritto
+  su Live, comportamento voluto). Per Staff/Admin la griglia a 4 riquadri è sempre quella che si
+  vede aprendo una partita, qualunque sia il suo stato (da avviare, in corso, finita) — "LIVE"
+  resta uno dei 4 riquadri, non più l'unica destinazione forzata.
+- **Altre Partite senza prerequisiti** (`altrePartite.tsx`, seguito diretto: "deve essere possibile
+  crearlo in ogni momento, anche se non c'è la competizione impostata"): rimosso anche l'ultimo
+  vincolo — Competizione/Giornata sono ora del tutto **opzionali**, la sezione si usa comunque.
+  Nuovo `fixtureKey(comp, giornata)`: se almeno uno dei due campi è compilato, la chiave di
+  condivisione resta quella originale (condivisa con le altre nostre partite della stessa
+  giornata/competizione); se sono **entrambi vuoti**, usa l'id di questa partita come chiave
+  privata — così due partite diverse, entrambe senza competizione impostata, non si ritrovano per
+  errore a condividere lo stesso elenco di "altre partite" (bug potenziale evitato, non richiesto
+  esplicitamente ma necessario per non rompere l'isolamento tra partite scorrelate). Le squadre
+  configurate (chip) restano legate a una competizione con nome reale — senza competizione
+  impostata l'inserimento squadre resta comunque **sempre possibile a mano** (il campo di testo
+  libero non è mai stato condizionato dai chip, invariato).
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti. **Da verificare dal vero**:
+  aprire una partita già in corso o già finita e controllare che si vedano sempre le 4 card (non
+  il redirect a Live); aprire Altre Partite di una partita senza Competizione/Giornata e
+  verificare che si possano comunque aggiungere incontri liberamente.
+
+### Fix: stemma squadra senza anteprima + Luogo non si aggiornava passando a Trasferta — 2026-08-24 (quinto giro)
+Due bug segnalati da Francesco su "Squadre della competizione" (`CompetitionTeamsModal.tsx`) e sul
+Luogo automatico introdotti nel giro precedente.
+
+**1) Stemma "non si riesce a inserire"**: causa reale — l'icona 📷 per caricare lo stemma esisteva
+**solo sulle righe delle squadre già salvate**, non nella riga "aggiungi nuova squadra": chi provava
+a impostare lo stemma mentre stava ancora compilando nome/stadio di una squadra nuova non trovava
+alcun controllo per farlo, e concludeva che "non funzionava". **Fix**: stessa icona 📷 aggiunta
+anche alla riga di aggiunta (`newLogoUri`, stato locale) — l'immagine scelta lì viene caricata
+subito dopo che la squadra viene creata (stesso tocco su "+"). In più, **anteprima immediata**: sia
+per una squadra nuova sia per una già esistente, l'immagine scelta si vede subito (dal file locale,
+`res.assets[0].uri`) invece di restare uno spinner per tutta la durata dell'upload — la richiesta
+esplicita di Francesco era proprio "vorrei vedere l'immagine che sto caricando". Lo spinner resta,
+ma come overlay semi-trasparente **sopra** l'anteprima, non al posto suo.
+
+**2) Luogo non cambiava passando da CASA a TRASFERTA**: causa reale — l'automatismo che precompila
+il Luogo (introdotto per le "Squadre fisse per competizione" sopra) scriveva il valore solo se il
+campo era **vuoto** (`!round.location`); dopo la prima compilazione automatica (es. scegliendo una
+squadra mentre il round era ancora impostato su CASA → Luogo precompilato con lo stadio di casa), il
+campo non era più vuoto, quindi cambiare a TRASFERTA non ricalcolava più nulla — il Luogo restava
+quello (sbagliato) di prima. **Fix**: nuovo flag `locationAuto` (su `NewRound` in
+`CompetitionModal.tsx`, e come stato locale nell'inline `SingleMatchModal` di `PartiteTab.tsx`) —
+true finché il valore in Luogo è stato scritto dall'automatismo e non ancora toccato a mano;
+scrivere direttamente nel campo Luogo lo azzera (da quel momento l'automatismo non lo tocca più,
+comportamento voluto), mentre cambiare Casa/Trasferta o la squadra scelta ricalcola il Luogo ogni
+volta che è vuoto **o** ancora "automatico". Aggiunto anche in `SingleMatchModal` un
+`onValueChange` sul Picker Casa/Trasferta che prima non ricalcolava proprio nulla (stesso bug,
+un pizzico più esteso lì: mancava del tutto, non solo bloccato dal guard).
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti. **Da verificare dal vero**:
+  aggiungere una squadra nuova con stemma e controllare che compaia subito; scegliere una squadra
+  per un round/partita mentre è impostato CASA, poi passare a TRASFERTA e controllare che il Luogo
+  cambi allo stadio della squadra (se configurato); scrivere il Luogo a mano e controllare che
+  cambiare Casa/Trasferta non lo sovrascriva più.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

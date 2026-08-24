@@ -639,12 +639,17 @@ function SingleMatchModal({
   const [opponentLogoPath, setOpponentLogoPath] = useState<string | undefined>(undefined);
   const [teams, setTeams] = useState<CompetitionTeam[]>([]);
   const [homeStadium, setHomeStadium] = useState('');
+  // true finché il Luogo è stato scritto dall'automatismo (stadio squadra/stadio di casa) e non
+  // ancora toccato a mano — permette di ricalcolarlo cambiando Casa/Trasferta o squadra, senza mai
+  // sovrascrivere un Luogo scritto a mano dall'utente.
+  const [locationAuto, setLocationAuto] = useState(false);
 
   const canSave = date && TIME_RE.test(time) && opponent && location;
 
   const reset = () => {
     setDate(''); setTime(''); setOpponent(''); setCompetition(''); setGiornata(''); setHomeAway('CASA'); setLocation('');
     setOpponentLogoPath(undefined);
+    setLocationAuto(false);
   };
 
   useEffect(() => {
@@ -658,13 +663,22 @@ function SingleMatchModal({
   }, [competition]);
 
   // Scelta rapida di una squadra configurata per questa competizione: riusa nome, stadio (per il
-  // Luogo, se non già scritto a mano) e stemma — stessa logica di CompetitionModal.
+  // Luogo, se non già scritto a mano o comunque frutto dell'automatismo) e stemma — stessa logica
+  // di CompetitionModal.
   const pickTeam = (team: CompetitionTeam) => {
     setOpponent(team.name);
     setOpponentLogoPath(team.logoPath || undefined);
-    if (!location) {
+    if (!location || locationAuto) {
       const auto = homeAway === 'CASA' ? homeStadium : team.stadium;
-      if (auto) setLocation(auto);
+      if (auto) { setLocation(auto); setLocationAuto(true); }
+    }
+  };
+
+  const handleHomeAwayChange = (value: 'CASA' | 'TRASFERTA') => {
+    setHomeAway(value);
+    if (!location || locationAuto) {
+      const auto = value === 'CASA' ? homeStadium : teams.find((t) => t.name === opponent)?.stadium;
+      if (auto) { setLocation(auto); setLocationAuto(true); }
     }
   };
 
@@ -710,14 +724,19 @@ function SingleMatchModal({
 
           <Text style={styles.label}>Casa/Trasferta</Text>
           <View style={styles.pickerWrap}>
-            <Picker selectedValue={homeAway} onValueChange={(v) => setHomeAway(v)}>
+            <Picker selectedValue={homeAway} onValueChange={handleHomeAwayChange}>
               <Picker.Item value="CASA" label="CASA" />
               <Picker.Item value="TRASFERTA" label="TRASFERTA" />
             </Picker>
           </View>
 
           <Text style={styles.label}>Luogo</Text>
-          <TextInput value={location} onChangeText={setLocation} placeholder="Campo Comunale" style={styles.input} />
+          <TextInput
+            value={location}
+            onChangeText={(v) => { setLocation(v); setLocationAuto(false); }}
+            placeholder="Campo Comunale"
+            style={styles.input}
+          />
 
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
             <Pressable style={[styles.cta, { backgroundColor: '#9ca3af', flex: 1 }]} onPress={() => { reset(); onClose(); }}>

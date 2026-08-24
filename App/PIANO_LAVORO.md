@@ -159,6 +159,23 @@ Scegliendo una squadra dai chip si precompilano automaticamente anche Luogo (dal
 squadra in trasferta, o dal nuovo "Stadio di casa" configurabile in Admin se si gioca in casa) e lo
 stemma avversario della partita. Vedi CLAUDE.md per i dettagli tecnici completi.
 
+**Fix — quarto giro (2026-08-24)**: causa reale del problema precedente — qualunque partita già
+avviata reindirizzava dritta a Live, rendendo Altre Partite/Convocazione/Lista Gara irraggiungibili
+proprio quando servono di più (durante/dopo la partita). Ora Staff/Admin vedono sempre la griglia a
+4 riquadri, qualunque sia lo stato della partita (il Giocatore non cambia, va sempre dritto su Live
+dopo lo Start). Rimosso anche l'ultimo vincolo su Altre Partite: Competizione/Giornata sono ora
+opzionali, la sezione si usa comunque in ogni momento (senza di esse resta un elenco privato di
+quella sola partita, invece di condividersi con le altre nostre partite della giornata).
+
+**Fix — quinto giro (2026-08-24)**: due bug su "Squadre della competizione". Lo stemma non si
+riusciva a caricare mentre si stava aggiungendo una squadra NUOVA (l'icona 📷 esisteva solo sulle
+righe già salvate) — aggiunta anche lì, con anteprima immediata dell'immagine scelta (prima restava
+uno spinner per tutta la durata dell'upload, dando l'impressione che non fosse successo nulla). Il
+Luogo automatico non si aggiornava passando da CASA a TRASFERTA dopo aver scelto una squadra (il
+valore, una volta scritto la prima volta, veniva considerato "già compilato" e non più toccato) —
+ora si ricalcola ogni volta che cambia Casa/Trasferta o la squadra scelta, finché non viene
+modificato a mano. Vedi CLAUDE.md per i dettagli tecnici completi.
+
 ### Statistiche: gol subiti dal portiere come numero negativo (2026-08-24)
 La colonna "Gol" per il ruolo Portiere mostra già i gol subiti invece di quelli fatti — richiesta di
 Francesco: mostrarli come numero negativo (-1, -2, ...) invece di un numero semplice che poteva
