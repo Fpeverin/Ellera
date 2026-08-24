@@ -221,6 +221,17 @@ caricamento foto. Reso anche più permissivo il collegamento automatico allo ste
 avversario/squadra confrontato ignorando spazi e maiuscole/minuscole, cercando anche in altre
 competizioni se non trovato in quella della partita). Vedi CLAUDE.md per i dettagli tecnici completi.
 
+**Nuovo — undicesimo giro (2026-08-24)**: palette colori del calendario resa più netta —
+allenamento verde (invariato), competizioni a rotazione tra giallo/blu/rosso/viola (stessa
+competizione sempre stesso colore), nessuna competizione impostata ora grigio neutro invece del
+rosso di prima (per non confondersi con una competizione reale). Vedi CLAUDE.md per i dettagli
+tecnici completi.
+
+**Nuovo — dodicesimo giro (2026-08-24)**: stemma-segnaposto più grande e ben visibile in overlay
+sull'angolo di ogni giorno del calendario mensile con partita; su Live, stemmi di entrambe le
+squadre (56×56) sopra i nomi nel tabellone punteggio, con lo stesso recupero automatico dalle
+Squadre configurate se non già collegato alla partita. Vedi CLAUDE.md per i dettagli tecnici completi.
+
 ### Statistiche: gol subiti dal portiere come numero negativo (2026-08-24)
 La colonna "Gol" per il ruolo Portiere mostra già i gol subiti invece di quelli fatti — richiesta di
 Francesco: mostrarli come numero negativo (-1, -2, ...) invece di un numero semplice che poteva

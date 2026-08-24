@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, AppStateStatus, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, AppState, AppStateStatus, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../../context/AuthContext';
@@ -21,8 +21,10 @@ import {
 } from '../../../data/competitionRules';
 import ConvocatiPlayersModal from '../../../components/partite/ConvocatiPlayersModal';
 import TeamLogo from '../../../components/TeamLogo';
+import { findTeamLogoForOpponent } from '../../../data/competitionTeams';
 import { loadConvocazione, saveConvocatiPlayerIds } from '../../../data/convocazione';
-import { loadEvents, saveEvents } from '../../../data/events';
+import { loadEvents, patchEventData, saveEvents } from '../../../data/events';
+import { loadOrgLogoUrl, opponentLogoUrlFromPath } from '../../../data/organization';
 import {
   CardItem,
   GoalItem,
@@ -198,6 +200,8 @@ export default function LivePartita() {
   const [homeName, setHomeName] = useState<string>('Casa');
   const [awayName, setAwayName] = useState<string>('Trasferta');
   const [ourSide, setOurSide]   = useState<TeamSide | null>(null);
+  const [orgLogoUrl, setOrgLogoUrl] = useState<string | null>(null);
+  const [opponentLogoUrl, setOpponentLogoUrl] = useState<string | null>(null);
 
   // Un solo modale di inserimento evento (gol/cartellino/sostituzione/manuale) è aperto per volta:
   // uno stato "in salvataggio" condiviso basta a disabilitare il bottone e impedire un doppio tocco
@@ -266,6 +270,24 @@ export default function LivePartita() {
           setHomeName(CLUB_NAME); setAwayName(opponent || 'Ospiti'); setOurSide('HOME');
         } else {
           setHomeName(opponent || 'Avversari'); setAwayName(CLUB_NAME); setOurSide('AWAY');
+        }
+
+        // Stemmi delle due squadre per il tabellone — il nostro (logo squadra, Admin) e quello
+        // avversario, già collegato alla partita se ci si è passati da Convocazione/pagina scelta-
+        // partita; se manca ancora, stesso recupero automatico dalle Squadre configurate usato lì.
+        loadOrgLogoUrl().then(setOrgLogoUrl).catch(() => {});
+        const opponentLogoPath = (ev as any)?.opponentLogoPath;
+        if (opponentLogoPath) {
+          setOpponentLogoUrl(opponentLogoUrlFromPath(opponentLogoPath));
+        } else if (opponent) {
+          findTeamLogoForOpponent((ev as any)?.competition, opponent)
+            .then((match) => {
+              if (match?.logoPath && matchId) {
+                patchEventData(matchId, { opponentLogoPath: match.logoPath }).catch(() => {});
+                setOpponentLogoUrl(match.logoUrl);
+              }
+            })
+            .catch(() => {});
         }
 
         if (ev?.status === 'FINISHED') setIsFinished(true);
@@ -487,6 +509,8 @@ export default function LivePartita() {
 
   const scoreHome = useMemo(() => goals.filter((g) => g.team === 'HOME').length, [goals]);
   const scoreAway = useMemo(() => goals.filter((g) => g.team === 'AWAY').length, [goals]);
+  const homeCrestUrl = ourSide === 'AWAY' ? opponentLogoUrl : orgLogoUrl;
+  const awayCrestUrl = ourSide === 'AWAY' ? orgLogoUrl : opponentLogoUrl;
 
   /* ---------------- SOSTITUZIONI ---------------- */
   const [subs, setSubs] = useState<SubItem[]>([]);
@@ -1240,6 +1264,11 @@ export default function LivePartita() {
         {/* HEADER MATCH */}
         <View style={styles.scoreBoard}>
           <View style={[styles.teamSection, ourSide === 'HOME' && styles.ourTeam]}>
+            {homeCrestUrl ? (
+              <Image source={{ uri: homeCrestUrl }} style={styles.teamCrest} resizeMode="contain" />
+            ) : (
+              <View style={styles.teamCrestPlaceholder} />
+            )}
             <Text style={styles.teamName} numberOfLines={1}>{homeName}</Text>
             <Text style={[styles.teamScore, ourSide === 'HOME' && styles.ourScore]}>{scoreHome}</Text>
           </View>
@@ -1264,6 +1293,11 @@ export default function LivePartita() {
           </View>
 
           <View style={[styles.teamSection, ourSide === 'AWAY' && styles.ourTeam]}>
+            {awayCrestUrl ? (
+              <Image source={{ uri: awayCrestUrl }} style={styles.teamCrest} resizeMode="contain" />
+            ) : (
+              <View style={styles.teamCrestPlaceholder} />
+            )}
             <Text style={[styles.teamName, { textAlign: 'right' }]} numberOfLines={1}>{awayName}</Text>
             <Text style={[styles.teamScore, ourSide === 'AWAY' && styles.ourScore]}>{scoreAway}</Text>
           </View>
@@ -2169,6 +2203,18 @@ const styles = StyleSheet.create({
   },
   ourTeam: {
     backgroundColor: 'transparent',
+  },
+  teamCrest: {
+    width: 56,
+    height: 56,
+    marginBottom: 4,
+  },
+  teamCrestPlaceholder: {
+    width: 56,
+    height: 56,
+    marginBottom: 4,
+    borderRadius: 8,
+    backgroundColor: '#e5e7eb',
   },
   teamName: {
     fontSize: 14,

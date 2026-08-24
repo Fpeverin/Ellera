@@ -1418,6 +1418,42 @@ tra **tutte** le squadre configurate dall'organizzazione, qualunque competizione
   maiuscole/spazi leggermente diversi, o in un'altra competizione) e verificare che si colleghi da
   solo.
 
+### Palette colori calendario più netta — 2026-08-24 (undicesimo giro)
+Francesco: "Cambiamo i colori delle competizioni distinguendoli in modo più netto sia fra di loro
+che con gli allenamenti (verde, giallo, blu, rosso, viola)". `app/utils/eventDisplay.ts`
+(`eventColor`, unico punto usato da Home e Calendario per le pillole della griglia mensile):
+- **Allenamento**: verde brand `#1b7f3b`, invariato.
+- **Competizione** (a rotazione stabile per nome — stessa competizione sempre stesso colore):
+  giallo `#ca8a04` (scelto scuro abbastanza da restare leggibile col testo bianco della pillola —
+  un giallo pieno sarebbe stato illeggibile), blu `#2563eb`, rosso `#dc2626`, viola `#7c3aed`.
+- **Nessuna competizione impostata**: prima rosso (`#e74c3c`) — cambiato in grigio neutro
+  `#64748b`, altrimenti si sarebbe confuso con una competizione reale colorata di rosso dalla
+  rotazione. Non richiesto esplicitamente ma necessario per evitare l'ambiguità.
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti; anteprima visiva delle 6 pillole
+  colorate mostrata in chat per controllo leggibilità/distinzione prima di pubblicare.
+
+### Stemma più grande sul calendario + stemmi delle due squadre su Live — 2026-08-24 (dodicesimo giro)
+Francesco: "Mi piacerebbe che il logo sul calendario (se presente) fosse un po' più grande come se
+fosse il segnaposto di quel giorno. Inoltre vorrei avere sul live gli stemmi delle due squadre
+abbastanza grandi".
+
+**Calendario** (`app/components/MonthCalendarGrid.tsx`): nuovo `dayMarker` — un cerchio 20×20 (26×26
+su schermi larghi) con bordo bianco, posizionato in overlay nell'angolo in alto a destra della
+cella del giorno, con lo stemma della prima partita di quel giorno che ne ha uno configurato. Fa da
+"segnaposto" visibile a colpo d'occhio sfogliando il mese, più prominente del piccolo stemma già
+presente dentro la pillola (che resta, utile per distinguere partite diverse nello stesso giorno
+nel raro caso ce ne sia più di una).
+
+**Live** (`app/eventi/partita/[id]/live.tsx`): il tabellone punteggio (`scoreBoard`) mostra ora lo
+stemma di entrambe le squadre (56×56) sopra il nome — il nostro logo squadra (`loadOrgLogoUrl`) e
+quello avversario, quest'ultimo con lo stesso recupero automatico dalle Squadre configurate già
+usato in Convocazione/pagina scelta-partita (se non ancora collegato alla partita). Un riquadro
+grigio placeholder quando manca uno stemma, per non sbilanciare il tabellone.
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti. **Da verificare dal vero**:
+  sfogliare il calendario mensile e controllare che lo stemma-segnaposto sia ben visibile sul
+  giorno della partita; aprire Live di una partita con stemmi disponibili e controllare che
+  compaiano entrambi, ben dimensionati, sopra i nomi delle squadre.
+
 ## Permessi Staff per Importa/Esporta/Modello/Seleziona — 2026-08-03
 
 Richiesta di Francesco: i bottoni **Importa Excel/Esporta Excel/Modello** (Rosa, Partite, Allenamenti)

@@ -6,12 +6,19 @@
 // si vedeva né la competizione né il numero di giornata.
 import { CalendarEvent } from '../data/events';
 
-// Una partita senza competizione impostata resta rossa (comportamento di prima); con una
-// competizione impostata prende un colore stabile ricavato dal nome — stessa competizione, stesso
-// colore sempre, diverse competizioni si distinguono a colpo d'occhio.
+// Tavolozza a 5 colori nettamente distinti, come richiesto da Francesco (2026-08-24, undicesimo
+// giro): verde per gli allenamenti (invariato, il verde del brand), giallo/blu/rosso/viola a
+// rotazione per le competizioni (stessa competizione = stesso colore sempre, tramite hash del
+// nome). Una partita senza competizione impostata usa un grigio neutro invece del rosso di prima —
+// altrimenti si sarebbe confusa con una competizione reale colorata di rosso dalla rotazione.
 const COMPETITION_PALETTE = [
-  '#2980b9', '#8e44ad', '#d35400', '#16a085', '#c0392b', '#0f766e', '#b45309', '#0891b2',
+  '#ca8a04', // giallo (scuro abbastanza da restare leggibile col testo bianco della pillola)
+  '#2563eb', // blu
+  '#dc2626', // rosso
+  '#7c3aed', // viola
 ];
+const NO_COMPETITION_COLOR = '#64748b'; // grigio neutro — partita senza competizione impostata
+const TRAINING_COLOR = '#1b7f3b'; // verde brand, invariato
 
 function hashString(s: string): number {
   let h = 0;
@@ -23,9 +30,9 @@ function hashString(s: string): number {
 }
 
 export function eventColor(ev: CalendarEvent): string {
-  if (ev.type === 'ALLENAMENTO') return '#1b7f3b';
+  if (ev.type === 'ALLENAMENTO') return TRAINING_COLOR;
   const competition = (ev as any).competition as string | undefined;
-  if (!competition) return '#e74c3c';
+  if (!competition) return NO_COMPETITION_COLOR;
   return COMPETITION_PALETTE[hashString(competition) % COMPETITION_PALETTE.length];
 }
 

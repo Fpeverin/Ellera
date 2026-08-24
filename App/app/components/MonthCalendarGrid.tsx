@@ -97,6 +97,10 @@ export default function MonthCalendarGrid({ events, onSelectEvent }: Props) {
 
       const topTwo = list.slice(0, 2);
       const more = list.length - topTwo.length;
+      // Stemma più grande come "segnaposto" del giorno — quello della prima partita con logo tra
+      // gli eventi di quel giorno (richiesta di Francesco: più visibile di quello piccolo dentro la
+      // pillola, che resta comunque per distinguere eventi diversi nello stesso giorno).
+      const dayLogoUrl = list.map(opponentLogo).find((url): url is string => !!url) ?? null;
 
       cells.push(
         <Pressable
@@ -114,6 +118,10 @@ export default function MonthCalendarGrid({ events, onSelectEvent }: Props) {
           >
             {d}
           </Text>
+
+          {dayLogoUrl && (
+            <Image source={{ uri: dayLogoUrl }} style={[styles.dayMarker, isWide && styles.dayMarkerWide]} />
+          )}
 
           <View style={styles.pillsWrap}>
             {topTwo.map((ev) => {
@@ -289,6 +297,14 @@ const styles = StyleSheet.create({
   todayNumber: { color: '#1b7f3b' },
   otherMonth: { opacity: 0.35 },
   otherMonthText: { color: '#999' },
+
+  dayMarker: {
+    position: 'absolute', top: 2, right: 2,
+    width: 20, height: 20, borderRadius: 10,
+    borderWidth: 1.5, borderColor: '#fff',
+    backgroundColor: '#fff',
+  },
+  dayMarkerWide: { width: 26, height: 26, borderRadius: 13 },
 
   pillsWrap: { marginTop: 4, gap: 2 },
   pill: {
