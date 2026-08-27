@@ -2153,3 +2153,42 @@ guadagnato l'ultimo pezzo che aveva solo la Rosa Giocatori: collegare un account
 
 Nessuna dipendenza nuova (`@react-native-picker/picker` già presente) → arriva via OTA. Richiede
 l'esecuzione di `App/supabase/15_schema_staff_invites_and_config.sql` su Supabase.
+
+## Lista Gara: Arbitro e Assistenti Arbitro, configurabile — 2026-08-27
+
+Richiesta di Francesco: "Su Lista Gara nelle partite deve essere possibile inserire Arbitro,
+Assistente Arbitro 1 e Assistente Arbitro 2. Questo deve essere configurabile come per lo staff
+(cioè l'admin può attivarlo o disattivarlo)" — stesso pattern on/off già esistente per la sezione
+Staff della Lista Gara (`lista_gara_show_staff`), replicato pari pari per una nuova sezione
+"Direzione di Gara".
+
+**Differenza di design rispetto allo Staff**: i tre ruoli arbitrali non sono persone della Rosa
+Staff (gli arbitri sono designati dalla federazione/lega, non fanno parte della squadra), quindi
+niente picker da un elenco — sono **tre campi di testo libero** (nome e cognome), non collegati a
+nessun'altra entità dell'app.
+
+- **Schema** — `App/supabase/30_schema_lista_gara_arbitri_toggle.sql`: nuova colonna
+  `organizations.lista_gara_show_arbitri boolean not null default true`, stesso pattern esatto di
+  `lista_gara_show_staff` (`26_schema_lista_gara_staff_toggle.sql`). Nessuna colonna nuova per i
+  nomi: vivono nella colonna jsonb `match_live.lista_gara` già esistente, campo `arbitri` aggiunto
+  al tipo `ListaGaraData` (`app/data/matchLive.ts`): `arbitri?: Partial<Record<'arbitro' |
+  'assistente1' | 'assistente2', string>>`, nuova costante `LISTA_GARA_ARBITRI_ROLES`.
+- `app/data/organization.ts`: `loadListaGaraShowArbitri`/`saveListaGaraShowArbitri`, mirror
+  esatto di `loadListaGaraShowStaff`/`saveListaGaraShowStaff`.
+- `app/squadra/staff.tsx` (Admin → Configurazioni): nuovo switch "Arbitri nella Lista Gara" subito
+  sotto "Staff nella Lista Gara", stesso stile/comportamento (autosalva, disabilitato durante il
+  salvataggio, rollback locale se la scrittura fallisce).
+- `app/eventi/partita/[id]/listaGara.tsx`: nuova sezione "Direzione di Gara" (visibile solo se il
+  toggle è attivo), tre righe con `TextInput` per Arbitro/Assistente Arbitro 1/Assistente Arbitro 2
+  — a differenza delle righe Titolari/Panchina/Staff (che aprono un picker al tocco), qui si scrive
+  direttamente; autosalva al blur del campo (come gli altri campi testuali dell'app: Luogo/Data
+  della modale export, Competizione/Giornata di Altre Partite), non a ogni tocco. La stessa sezione
+  compare anche nel PDF esportato, come blocco a piena larghezza sotto le due colonne
+  Titolari+Panchina/Staff (tabella a due colonne: ruolo — nome, "—" se non compilato), omesso
+  interamente se il toggle è disattivato — stessa logica della sezione Staff nel PDF.
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti. **Da verificare dal vero**:
+  attivare/disattivare il toggle da Admin → Configurazioni e controllare che la sezione compaia/
+  sparisca sia a schermo che nel PDF; compilare i tre nomi, uscire e rientrare nella Lista Gara e
+  controllare che restino salvati; generare il PDF e controllare che i tre nomi (o i trattini se
+  vuoti) compaiano nel blocco "Direzione di Gara". Richiede l'esecuzione su Supabase di
+  `App/supabase/30_schema_lista_gara_arbitri_toggle.sql`.

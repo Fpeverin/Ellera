@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { loadPendingInvites, revokeInvite, type PendingInvite } from '../data/invites';
 import {
   loadHomeStadium,
+  loadListaGaraShowArbitri,
   loadListaGaraShowStaff,
   loadNotifyConfig,
   loadOrgLogoUrl,
@@ -17,6 +18,7 @@ import {
   loadStaffRoleOptions,
   loadSurveysEnabled,
   saveHomeStadium,
+  saveListaGaraShowArbitri,
   saveListaGaraShowStaff,
   saveNotifyConfig,
   saveShowTrainingAttendance,
@@ -69,6 +71,8 @@ export default function AdminScreen() {
   const [exportPermissionsBusy, setExportPermissionsBusy] = useState(false);
   const [listaGaraShowStaff, setListaGaraShowStaff] = useState(true);
   const [listaGaraShowStaffBusy, setListaGaraShowStaffBusy] = useState(false);
+  const [listaGaraShowArbitri, setListaGaraShowArbitri] = useState(true);
+  const [listaGaraShowArbitriBusy, setListaGaraShowArbitriBusy] = useState(false);
   const [homeStadium, setHomeStadium] = useState('');
   const [homeStadiumBusy, setHomeStadiumBusy] = useState(false);
 
@@ -85,7 +89,7 @@ export default function AdminScreen() {
     if (!membership) return;
     setLoading(true);
     try {
-      const [m, p, logo, roles, staff, showAttendance, notifyLive, notifyEdit, surveysOn, exportPerms, listaGaraStaff, homeStadiumValue] = await Promise.all([
+      const [m, p, logo, roles, staff, showAttendance, notifyLive, notifyEdit, surveysOn, exportPerms, listaGaraStaff, listaGaraArbitri, homeStadiumValue] = await Promise.all([
         loadOrgMembers(membership.orgId),
         loadPendingInvites(membership.orgId),
         loadOrgLogoUrl(),
@@ -97,6 +101,7 @@ export default function AdminScreen() {
         loadSurveysEnabled(),
         loadStaffExportPermissions(),
         loadListaGaraShowStaff(),
+        loadListaGaraShowArbitri(),
         loadHomeStadium(),
       ]);
       setMembers(m);
@@ -110,6 +115,7 @@ export default function AdminScreen() {
       setSurveysEnabled(surveysOn);
       setExportPermissions(exportPerms);
       setListaGaraShowStaff(listaGaraStaff);
+      setListaGaraShowArbitri(listaGaraArbitri);
       setHomeStadium(homeStadiumValue);
     } catch {
       Alert.alert('Errore', 'Impossibile caricare i dati dello staff.');
@@ -238,6 +244,19 @@ export default function AdminScreen() {
       Alert.alert('Errore', 'Impossibile salvare l\'impostazione.');
     } finally {
       setListaGaraShowStaffBusy(false);
+    }
+  };
+
+  const handleToggleListaGaraShowArbitri = async (value: boolean) => {
+    setListaGaraShowArbitriBusy(true);
+    setListaGaraShowArbitri(value);
+    try {
+      await saveListaGaraShowArbitri(value);
+    } catch {
+      setListaGaraShowArbitri(!value);
+      Alert.alert('Errore', 'Impossibile salvare l\'impostazione.');
+    } finally {
+      setListaGaraShowArbitriBusy(false);
     }
   };
 
@@ -468,6 +487,21 @@ export default function AdminScreen() {
               value={listaGaraShowStaff}
               onValueChange={handleToggleListaGaraShowStaff}
               disabled={listaGaraShowStaffBusy}
+            />
+          </View>
+
+          <View style={styles.switchRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.configLabel}>Arbitri nella Lista Gara</Text>
+              <Text style={styles.cardHint}>
+                Se attivato, nella Lista Gara di ogni partita è possibile inserire Arbitro,
+                Assistente Arbitro 1 e Assistente Arbitro 2 (nomi liberi), visibili anche nel PDF.
+              </Text>
+            </View>
+            <Switch
+              value={listaGaraShowArbitri}
+              onValueChange={handleToggleListaGaraShowArbitri}
+              disabled={listaGaraShowArbitriBusy}
             />
           </View>
 

@@ -65,11 +65,14 @@ export const LISTA_GARA_STAFF_ROLES = [
   'dirigenteAccompagnatore',
 ] as const;
 export type ListaGaraStaffRole = typeof LISTA_GARA_STAFF_ROLES[number];
+export const LISTA_GARA_ARBITRI_ROLES = ['arbitro', 'assistente1', 'assistente2'] as const;
+export type ListaGaraArbitriRole = typeof LISTA_GARA_ARBITRI_ROLES[number];
 export type ListaGaraData = {
   numbers: Record<string, string>; // "1".."20" -> playerId
   staff: Partial<Record<ListaGaraStaffRole, string>>;
   captainNumber?: string;     // "1".."20" — numero del capitano, se indicato
   viceCaptainNumber?: string; // "1".."20" — numero del vice capitano, se indicato
+  arbitri?: Partial<Record<ListaGaraArbitriRole, string>>; // testo libero — non collegati a Rosa/Staff
 };
 
 async function getColumn<T>(eventId: string, column: string): Promise<T | null> {

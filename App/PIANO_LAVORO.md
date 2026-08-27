@@ -112,6 +112,15 @@ dato il precedente miss sullo stesso set di funzionalità (campo invisibile su w
 
 ## Completato
 
+### Lista Gara: Arbitro e Assistenti Arbitro, configurabile (2026-08-27)
+Richiesta di Francesco: poter inserire in Lista Gara Arbitro, Assistente Arbitro 1 e Assistente
+Arbitro 2, con lo stesso interruttore on/off dell'Admin già esistente per la sezione Staff. Nuova
+sezione "Direzione di Gara" in Lista Gara — a differenza di Titolari/Panchina/Staff (scelti da un
+elenco), qui sono tre nomi liberi digitati a mano, dato che gli arbitri non fanno parte della
+squadra. Compare anche nel PDF esportato, visibile/nascosta insieme al resto in base al nuovo
+switch "Arbitri nella Lista Gara" in Admin → Configurazioni. Richiede l'esecuzione su Supabase di
+`30_schema_lista_gara_arbitri_toggle.sql`. Vedi CLAUDE.md per i dettagli tecnici completi.
+
 ### Calendario unificato, Competizione/Giornata, Altre Partite, pagina partita a 4 riquadri (2026-08-24)
 4 richieste di Francesco insieme, piano concordato e realizzato in 4 fasi (dettagli tecnici completi
 in CLAUDE.md):

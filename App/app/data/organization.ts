@@ -101,6 +101,20 @@ export async function saveListaGaraShowStaff(value: boolean): Promise<void> {
   if (error) throw error;
 }
 
+/** Mostra/nasconde la sezione Arbitro/Assistenti Arbitro nella Lista Gara (a schermo e nel PDF) — default: mostrata. */
+export async function loadListaGaraShowArbitri(): Promise<boolean> {
+  const orgId = getCurrentOrgId();
+  const { data, error } = await supabase.from('organizations').select('lista_gara_show_arbitri').eq('id', orgId).maybeSingle();
+  if (error) throw error;
+  return data?.lista_gara_show_arbitri ?? true;
+}
+
+export async function saveListaGaraShowArbitri(value: boolean): Promise<void> {
+  const orgId = getCurrentOrgId();
+  const { error } = await supabase.from('organizations').update({ lista_gara_show_arbitri: value }).eq('id', orgId);
+  if (error) throw error;
+}
+
 /** Attiva/disattiva l'intera sezione Sondaggi (nascosta a tutti, incluso Admin, se disattivata). */
 export async function loadSurveysEnabled(): Promise<boolean> {
   const orgId = getCurrentOrgId();

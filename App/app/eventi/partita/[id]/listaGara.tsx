@@ -15,13 +15,20 @@ import { useAuth } from '../../../context/AuthContext';
 import { loadConvocazione } from '../../../data/convocazione';
 import { CalendarEvent, loadEvents } from '../../../data/events';
 import {
+  LISTA_GARA_ARBITRI_ROLES,
   LISTA_GARA_STAFF_ROLES,
+  ListaGaraArbitriRole,
   ListaGaraData,
   ListaGaraStaffRole,
   loadListaGara,
   saveListaGara,
 } from '../../../data/matchLive';
-import { loadListaGaraShowStaff, loadOrgLogoUrl, opponentLogoUrlFromPath } from '../../../data/organization';
+import {
+  loadListaGaraShowArbitri,
+  loadListaGaraShowStaff,
+  loadOrgLogoUrl,
+  opponentLogoUrlFromPath,
+} from '../../../data/organization';
 import { loadStaffMembers, StaffMember } from '../../../data/staffRoster';
 import { usePlayers } from '../../../hooks/usePlayers';
 import { printOrShareHtml } from '../../../utils/webExport';
@@ -61,6 +68,12 @@ const STAFF_ROLE_ABBR: Record<ListaGaraStaffRole, string> = {
   preparatorePortieri: 'P.POR',
   fisioterapista: 'FISIO',
   dirigenteAccompagnatore: 'DIR',
+};
+
+const ARBITRI_ROLE_LABELS: Record<ListaGaraArbitriRole, string> = {
+  arbitro: 'Arbitro',
+  assistente1: 'Assistente Arbitro 1',
+  assistente2: 'Assistente Arbitro 2',
 };
 
 const STARTER_NUMBERS = Array.from({ length: 11 }, (_, i) => i + 1); // 1..11
@@ -107,17 +120,19 @@ export default function ListaGara() {
   const [exportForm, setExportForm] = useState<ExportForm | null>(null);
   const [exporting, setExporting] = useState(false);
   const [showStaffSection, setShowStaffSection] = useState(true);
+  const [showArbitriSection, setShowArbitriSection] = useState(true);
 
   useEffect(() => {
     (async () => {
       if (!matchId) return;
-      const [events, conv, staff, lg, orgLogo, showStaff] = await Promise.all([
+      const [events, conv, staff, lg, orgLogo, showStaff, showArbitri] = await Promise.all([
         loadEvents(),
         loadConvocazione(matchId),
         loadStaffMembers(),
         loadListaGara(matchId),
         loadOrgLogoUrl(),
         loadListaGaraShowStaff(),
+        loadListaGaraShowArbitri(),
       ]);
       const ev = events.find((e) => `${e.id}` === `${matchId}`) ?? null;
       setEvent(ev);
@@ -127,6 +142,7 @@ export default function ListaGara() {
       setData(lg);
       setOrgLogoUrl(orgLogo);
       setShowStaffSection(showStaff);
+      setShowArbitriSection(showArbitri);
       const opponentLogoPath = (ev as any)?.opponentLogoPath;
       setOpponentLogoUrl(opponentLogoPath ? opponentLogoUrlFromPath(opponentLogoPath) : null);
       setLoading(false);
@@ -186,6 +202,15 @@ export default function ListaGara() {
     const nextStaff = { ...data.staff };
     delete nextStaff[role];
     persist({ ...data, staff: nextStaff });
+  };
+
+  /** Nomi arbitro/assistenti: testo libero, non collegato a Rosa/Staff — autosalva al blur, come
+   * gli altri campi testuali dell'app, invece che a ogni tocco. */
+  const updateArbitroField = (role: ListaGaraArbitriRole, value: string) => {
+    setData((prev) => ({ ...prev, arbitri: { ...(prev.arbitri ?? {}), [role]: value } }));
+  };
+  const persistArbitri = () => {
+    saveListaGara(matchId, data).catch(() => {});
   };
 
   const nameForNumber = (number: number): string | null => {
@@ -267,6 +292,15 @@ export default function ListaGara() {
             )
             .join('')
         : '';
+      const arbitriRows = showArbitriSection
+        ? LISTA_GARA_ARBITRI_ROLES
+            .map(
+              (role) => `
+                <tr><td class="numCell" style="width:40%;">${esc(ARBITRI_ROLE_LABELS[role])}</td><td>${esc(data.arbitri?.[role] || '—')}</td></tr>
+              `
+            )
+            .join('')
+        : '';
 
       const styles = `
         <style>
@@ -326,6 +360,11 @@ export default function ListaGara() {
               </div>
               ` : ''}
             </div>
+
+            ${showArbitriSection ? `
+            <div class="sectionHeader" style="margin-top: 8px;">Direzione di Gara</div>
+            <table class="list">${arbitriRows}</table>
+            ` : ''}
           </body>
         </html>
       `;
@@ -477,6 +516,27 @@ export default function ListaGara() {
               </View>
             </View>
             {LISTA_GARA_STAFF_ROLES.map(renderStaffRow)}
+          </View>
+        )}
+
+        {showArbitriSection && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={[styles.sectionAccent, { backgroundColor: '#0f766e' }]} />
+              <Text style={styles.sectionTitle}>Direzione di Gara</Text>
+            </View>
+            {LISTA_GARA_ARBITRI_ROLES.map((role) => (
+              <View key={role} style={styles.arbitroRow}>
+                <Text style={styles.arbitroLabel}>{ARBITRI_ROLE_LABELS[role]}</Text>
+                <TextInput
+                  style={styles.arbitroInput}
+                  placeholder="Nome e cognome"
+                  value={data.arbitri?.[role] ?? ''}
+                  onChangeText={(v) => updateArbitroField(role, v)}
+                  onBlur={persistArbitri}
+                />
+              </View>
+            ))}
           </View>
         )}
 
@@ -668,6 +728,12 @@ const styles = StyleSheet.create({
   },
   staffBadgeText: { color: '#fff', fontWeight: '800', fontSize: 11 },
   staffRoleLabel: { fontWeight: '700', color: '#374151', fontSize: 13, marginBottom: 2 },
+  arbitroRow: { marginBottom: 8 },
+  arbitroLabel: { fontWeight: '700', color: '#374151', fontSize: 13, marginBottom: 4 },
+  arbitroInput: {
+    borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 12,
+    backgroundColor: '#fff', fontSize: 15, color: '#111',
+  },
   rowText: { fontSize: 15, color: '#111', fontWeight: '600' },
   rowTextEmpty: { color: '#9ca3af', fontWeight: '400', fontStyle: 'italic' },
 
