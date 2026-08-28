@@ -2192,3 +2192,37 @@ nessun'altra entità dell'app.
   controllare che restino salvati; generare il PDF e controllare che i tre nomi (o i trattini se
   vuoti) compaiano nel blocco "Direzione di Gara". Richiede l'esecuzione su Supabase di
   `App/supabase/30_schema_lista_gara_arbitri_toggle.sql`.
+
+## Live: id del giocatore ancora visibile nelle select — nuova causa (2026-08-28)
+
+Francesco: "Nella selezione sui live vedo ancora l'id del giocatore invece del nome" — stesso
+sintomo già affrontato più volte (vedi "id ancora al posto del nome", 2026-08-24), ma con una causa
+diversa e non ancora coperta da nessuno dei fix precedenti.
+
+**Causa**: `isPlayerInMatches` (`app/data/matchLive.ts`) — la funzione che decide se un giocatore
+può essere **eliminato del tutto** dalla Rosa (invece di essere solo spostato tra gli ex) —
+controllava solo `goals/subs/cards/lineup/convocazione`, **non** `live_formation` né `lista_gara`.
+Un giocatore entrato in campo a partita in corso (es. sostituto aggiunto a mano, mai nella lineup
+iniziale) o assegnato solo a un numero di Lista Gara poteva quindi essere cancellato definitivamente
+dalla Rosa senza alcun blocco — il suo id restava "orfano" per sempre in quelle due colonne: nessun
+nome da recuperare più, in nessun caso, perché il record del giocatore stesso non esiste più nel
+database (non è una race di caricamento, questa volta i dati sono davvero persi).
+
+**Fix**:
+1. `isPlayerInMatches` ora controlla anche `live_formation` (array di `{id, name, ...}`) e
+   `lista_gara` (sia `numbers` — numero→playerId — sia `staff`, per il caso player-coach
+   `player:<id>`) — da ora in poi questi giocatori non sono più eliminabili del tutto, stessa
+   regola già in vigore per lineup/convocazione.
+2. Per i dati **già sporchi** (giocatori già cancellati prima di questo fix, id ormai realmente
+   orfano): `withFreshNames` (`live.tsx`) ora riconosce il caso "Rosa già caricata (mappa non
+   vuota) ma id non trovato, e il nome salvato è ancora l'id grezzo" e lo sostituisce con
+   l'etichetta `(giocatore rimosso)` invece di lasciare l'id visibile nelle select — stesso pattern
+   già usato in Lista Gara (`nameForNumber`/`nameForStaffRole`) per un giocatore/staff rimosso.
+   Non tocca invece un nome già corretto per un giocatore poi eliminato (mostra comunque il nome
+   buono già in cache, non "rimosso"), e non scatta finché la Rosa non ha finito di caricare (niente
+   falsi positivi durante il caricamento).
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti. **Da verificare dal vero**: aprire
+  Live sulla partita segnalata da Francesco e controllare che la select mostri ora `(giocatore
+  rimosso)` invece dell'id; verificare che un tentativo di eliminare del tutto un giocatore già
+  entrato in campo/con un numero di Lista Gara venga ora bloccato (spostato tra gli ex) invece di
+  riuscire.

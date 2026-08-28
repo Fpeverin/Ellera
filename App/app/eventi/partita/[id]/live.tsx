@@ -324,7 +324,13 @@ export default function LivePartita() {
   const withFreshNames = (list: InCampoPlayer[]) =>
     list.map((p) => {
       const real = basePlayersById.get(p.id);
-      return real && real !== p.name ? { ...p, name: real } : p;
+      if (real) return real !== p.name ? { ...p, name: real } : p;
+      // Nessun nome trovato con la Rosa già caricata (mappa non vuota) e il nome salvato è ancora
+      // l'id grezzo (il fallback storico di initializeLiveFormationFromLineup): il giocatore è
+      // stato eliminato del tutto dalla Rosa (non solo spostato tra gli ex), non c'è più nessun
+      // nome vero da recuperare — meglio un'etichetta leggibile che l'id crudo nelle select.
+      if (basePlayersById.size > 0 && p.name === p.id) return { ...p, name: '(giocatore rimosso)' };
+      return p;
     });
 
   const [allPlayers, setAllPlayers] = useState<InCampoPlayer[]>([]);

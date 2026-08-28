@@ -112,6 +112,15 @@ dato il precedente miss sullo stesso set di funzionalità (campo invisibile su w
 
 ## Completato
 
+### Fix: id del giocatore ancora visibile nelle select di Live (2026-08-28)
+Francesco: "Nella selezione sui live vedo ancora l'id del giocatore invece del nome" — nuova causa,
+distinta da tutte quelle già corrette in passato: un giocatore poteva essere eliminato del tutto
+dalla Rosa (invece di finire tra gli ex) pur essendo già entrato in campo a partita in corso o
+assegnato a un numero di Lista Gara, perché `isPlayerInMatches` non controllava quei due punti —
+il suo id restava orfano per sempre, nessun nome più recuperabile. Corretto il controllo (ora blocca
+anche questi casi) e, per i dati già sporchi, le select di Live mostrano `(giocatore rimosso)`
+invece dell'id grezzo. Vedi CLAUDE.md per i dettagli tecnici completi.
+
 ### Lista Gara: Arbitro e Assistenti Arbitro, configurabile (2026-08-27)
 Richiesta di Francesco: poter inserire in Lista Gara Arbitro, Assistente Arbitro 1 e Assistente
 Arbitro 2, con lo stesso interruttore on/off dell'Admin già esistente per la sezione Staff. Nuova

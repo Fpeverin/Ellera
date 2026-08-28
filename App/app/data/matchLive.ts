@@ -150,7 +150,7 @@ export async function isPlayerInMatches(playerId: string, eventIds: string[]): P
   if (eventIds.length === 0) return false;
   const { data, error } = await supabase
     .from('match_live')
-    .select('goals, subs, cards, lineup, convocazione')
+    .select('goals, subs, cards, lineup, convocazione, live_formation, lista_gara')
     .in('event_id', eventIds);
   if (error) throw error;
 
@@ -160,12 +160,22 @@ export async function isPlayerInMatches(playerId: string, eventIds: string[]): P
     const cards = (row.cards ?? []) as CardItem[];
     const lineup = row.lineup as SavedLineup | null;
     const convocazione = row.convocazione as ConvocazioneData | null;
+    const liveFormation = (row.live_formation ?? []) as InCampoPlayer[];
+    const listaGara = row.lista_gara as ListaGaraData | null;
 
     if (goals.some((g) => g.playerId === playerId)) return true;
     if (cards.some((c) => c.playerId === playerId)) return true;
     if (subs.some((s) => s.outId === playerId || s.inId === playerId)) return true;
     if (lineup && (lineup.field?.includes(playerId) || lineup.bench?.includes(playerId))) return true;
     if (convocazione?.playerIds?.includes(playerId)) return true;
+    // Un giocatore poteva essere entrato in campo (sostituzione) o assegnato a un numero in Lista
+    // Gara senza mai comparire in lineup/convocazione (es. sostituto dell'ultimo minuto aggiunto a
+    // mano) — senza questi due controlli, eliminarlo del tutto dalla Rosa lasciava il suo id
+    // "orfano" per sempre in queste colonne: nessun nome da recuperare più, mostrato come id grezzo
+    // nelle select di Live (2026-08-28).
+    if (liveFormation.some((p) => p.id === playerId)) return true;
+    if (listaGara && Object.values(listaGara.numbers ?? {}).includes(playerId)) return true;
+    if (listaGara && Object.values(listaGara.staff ?? {}).includes(`player:${playerId}`)) return true;
   }
   return false;
 }
