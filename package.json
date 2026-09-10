@@ -1,0 +1,13 @@
+{
+  "name": "ellera-report-tools",
+  "private": true,
+  "description": "Strumenti da riga di comando per generare slide (HTML, PowerPoint, immagini) dai report Analisi Avversario, a partire da .docx, .pdf o .json.",
+  "dependencies": {
+    "puppeteer": "^25.9.0",
+    "pptxgenjs": "^4.0.1",
+    "jpeg-js": "^0.4.4",
+    "pdfjs-dist": "^3.11.174",
+    "jszip": "^3.10.1",
+    "fast-xml-parser": "^5.11.1"
+  }
+}

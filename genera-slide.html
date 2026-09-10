@@ -1,0 +1,571 @@
+<meta charset="UTF-8">
+<title>Genera Slide — Analisi Avversario</title>
+<style>
+:root{
+  --bg: #f3f1e8; --surface: #ffffff; --surface-2: #eae6d8; --ink: #1c1b17; --ink-soft: #5b5749;
+  --line: #d9d3bf; --pitch: #1f4d38; --pitch-dark: #123324; --pitch-tint: #e4ede7;
+  --amber: #b5762a; --amber-tint: #f2e2c6; --danger: #a8402f; --danger-tint: #f5e2dd;
+  --radius: 10px;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg: #14170f; --surface: #1b1f16; --surface-2: #232819; --ink: #ece9dd; --ink-soft: #b2ac99;
+    --line: #333a26; --pitch: #4f9a70; --pitch-dark: #2d6b48; --pitch-tint: #1c2a20;
+    --amber: #e2a35a; --amber-tint: #3a2c17; --danger: #e26854; --danger-tint: #3a2019;
+  }
+}
+:root[data-theme="dark"]{
+  --bg: #14170f; --surface: #1b1f16; --surface-2: #232819; --ink: #ece9dd; --ink-soft: #b2ac99;
+  --line: #333a26; --pitch: #4f9a70; --pitch-dark: #2d6b48; --pitch-tint: #1c2a20;
+  --amber: #e2a35a; --amber-tint: #3a2c17; --danger: #e26854; --danger-tint: #3a2019;
+}
+:root[data-theme="light"]{
+  --bg: #f3f1e8; --surface: #ffffff; --surface-2: #eae6d8; --ink: #1c1b17; --ink-soft: #5b5749;
+  --line: #d9d3bf; --pitch: #1f4d38; --pitch-dark: #123324; --pitch-tint: #e4ede7;
+  --amber: #b5762a; --amber-tint: #f2e2c6; --danger: #a8402f; --danger-tint: #f5e2dd;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.45;}
+.topbar{position:sticky;top:0;z-index:20;background:var(--pitch-dark);color:#f4f1e4;
+  display:flex;align-items:center;gap:14px;padding:12px 20px;flex-wrap:wrap;}
+.topbar .brand{font-weight:700;letter-spacing:.02em;font-size:15px;white-space:nowrap;}
+.topbar .brand small{display:block;font-weight:400;font-size:11px;opacity:.7;letter-spacing:.04em;}
+.wrap{max-width:720px;margin:0 auto;padding:28px 22px 60px;}
+h2{font-size:21px;margin:0 0 3px;}
+.sub{color:var(--ink-soft);font-size:13.5px;margin:0 0 22px;max-width:62ch;}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;}
+.card h3{font-size:14px;margin:0 0 10px;color:var(--pitch);text-transform:uppercase;letter-spacing:.03em;}
+label{display:block;font-size:12.5px;font-weight:600;letter-spacing:.02em;color:var(--ink-soft);
+  text-transform:uppercase;margin-bottom:6px;}
+input[type=text]{font-family:inherit;font-size:14px;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:7px;padding:9px 10px;width:100%;}
+input[type=text]:focus{outline:2px solid var(--pitch);outline-offset:1px;}
+.field{margin-bottom:14px;}
+.hint{font-size:12px;color:var(--ink-soft);margin-top:6px;}
+
+.drop{
+  border:2px dashed var(--line);border-radius:var(--radius);padding:28px 20px;text-align:center;
+  cursor:pointer;background:var(--surface-2);transition:border-color .15s, background .15s;
+}
+.drop:hover, .drop.drag{border-color:var(--pitch);background:var(--pitch-tint);}
+.drop input{display:none;}
+.drop .fname{font-weight:700;margin-top:6px;}
+.drop .ico{font-size:28px;opacity:.6;}
+
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;
+  padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit;}
+.btn:hover{border-color:var(--pitch);}
+.btn.primary{background:var(--amber);border-color:var(--amber);color:#241704;}
+.btn.primary:hover{filter:brightness(1.06);}
+.btn.primary:disabled{opacity:.5;cursor:default;filter:none;}
+.btn.ghost{background:transparent;}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
+
+.log{
+  font-family:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace;font-size:12.5px;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;
+  max-height:220px;overflow-y:auto;white-space:pre-wrap;display:none;
+}
+.log.show{display:block;}
+.log .err{color:var(--danger);}
+.log .ok{color:var(--pitch);}
+
+.summary{display:none;}
+.summary.show{display:block;}
+.summary table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px;}
+.summary td{padding:4px 6px;border-bottom:1px solid var(--line);}
+.summary td:first-child{color:var(--ink-soft);}
+.summary td:last-child{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;}
+
+.notice{font-size:12px;color:var(--ink-soft);background:var(--amber-tint);border:1px solid var(--amber);
+  border-radius:8px;padding:10px 12px;margin:0 0 18px;}
+</style>
+
+<div class="topbar">
+  <div class="brand">Genera Slide<small>Analisi Avversario &rarr; presentazione</small></div>
+</div>
+
+<div class="wrap">
+  <h2>Carica il report</h2>
+  <p class="sub">Accetta il file <strong>.json</strong> del report (qualità piena, consigliato quando disponibile) oppure il <strong>.pdf</strong> stampato da Word o da "Analisi Avversario — Generatore Report": in entrambi i casi produce automaticamente la stessa presentazione a slide del tool <code>genera-slide.js</code>.</p>
+
+  <div class="notice">Dal <strong>.json</strong> la ricostruzione è esatta, senza perdite (è la stessa fonte usata da "Generatore Report"). Dal <strong>.pdf</strong> l'estrazione è automatica dal testo — molto affidabile su titoli, sistema di gioco, marcatori, paragrafi e didascalie, ma resta un'estrazione euristica e le immagini risultano più compresse di quelle originali. Controlla il riepilogo prima di scaricare; se qualcosa non torna, scarica anche il .json ricostruito e correggilo a mano in "Analisi Avversario — Generatore Report".</div>
+
+  <div class="card">
+    <h3>1 &middot; File report (.json o .pdf)</h3>
+    <div class="drop" id="drop">
+      <div class="ico">&#128196;</div>
+      <div>Trascina qui il file .json o .pdf, o clicca per sceglierlo</div>
+      <div class="fname" id="fname"></div>
+      <input type="file" id="fileInput" accept=".pdf,.json,application/pdf,application/json">
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>2 &middot; Nome avversario</h3>
+    <div class="field">
+      <label>Squadra avversaria</label>
+      <input type="text" id="opponentInput" placeholder="Es. Terni FC">
+      <p class="hint">Da un file .json viene letto direttamente dal report. Da un .pdf te lo propongo dal nome del file, perché il PDF non lo riporta come testo isolato — correggilo se serve: è il titolo che comparirà in copertina.</p>
+    </div>
+  </div>
+
+  <div class="log" id="log"></div>
+
+  <div class="summary" id="summary">
+    <div class="card">
+      <h3>Riepilogo</h3>
+      <table id="summaryTable"></table>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn primary" id="btnGenerate" disabled>Genera slide ▸</button>
+    <button class="btn ghost" id="btnJson" disabled>Scarica anche il .json ricostruito</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="report-model.js"></script>
+<script src="slide-engine.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ================= estrazione: pdf -> flusso ordinato {text,image} ================= */
+const HEADERISH_MIN_SIZE = 9;
+
+function matMul(m1, m2) {
+  return [
+    m1[0] * m2[0] + m1[1] * m2[2],
+    m1[0] * m2[1] + m1[1] * m2[3],
+    m1[2] * m2[0] + m1[3] * m2[2],
+    m1[2] * m2[1] + m1[3] * m2[3],
+    m1[4] * m2[0] + m1[5] * m2[2] + m2[4],
+    m1[4] * m2[1] + m1[5] * m2[3] + m2[5],
+  ];
+}
+
+async function extractDoc(pdfBytes, onProgress) {
+  const doc = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
+  const allEntries = [];
+  const OPS = pdfjsLib.OPS;
+
+  for (let p = 1; p <= doc.numPages; p++) {
+    if (onProgress) onProgress(p, doc.numPages);
+    const page = await doc.getPage(p);
+    const tc = await page.getTextContent();
+    const opList = await page.getOperatorList();
+
+    const rawItems = tc.items
+      .filter(it => it.str != null && Math.abs(it.transform[3] || it.transform[0] || 0) >= HEADERISH_MIN_SIZE)
+      .map(it => {
+        const style = tc.styles[it.fontName] || {};
+        const fam = (style.fontFamily || '').toLowerCase();
+        return {
+          str: it.str,
+          bold: fam.includes('bold') || it.fontName === 'g_d0_f1' || it.fontName === 'g_d0_f5',
+          x: it.transform[4],
+          y: it.transform[5],
+          w: it.width,
+          size: Math.abs(it.transform[3] || it.transform[0] || 0),
+        };
+      });
+
+    const lines = [];
+    for (const it of rawItems) {
+      let line = lines.find(l => Math.abs(l.y - it.y) < 1.2);
+      if (!line) { line = { y: it.y, items: [] }; lines.push(line); }
+      line.items.push(it);
+    }
+    lines.sort((a, b) => b.y - a.y);
+    let prevLineY = null, prevLineSize = null;
+    for (const line of lines) {
+      const lineSize = Math.max.apply(null, line.items.map(it => it.size || 11));
+      const gap = prevLineY == null ? null : prevLineY - line.y;
+      const newParagraph = gap != null && gap > (prevLineSize || lineSize) * 1.55;
+      prevLineY = line.y; prevLineSize = lineSize;
+      line.newParagraph = newParagraph;
+    }
+    for (const line of lines) {
+      line.items.sort((a, b) => a.x - b.x);
+      let runs = [];
+      let curBold = null, curText = '';
+      let prevEndX = null;
+      for (const it of line.items) {
+        const gap = prevEndX == null ? 0 : it.x - prevEndX;
+        const boldChanged = curBold !== null && it.bold !== curBold;
+        const startsWithClosingPunct = /^[.,;:)\]!?%/]/.test(it.str);
+        const prevEndsWithOpening = /[(’'‘\-/]$/.test(curText);
+        let needSpace;
+        if (boldChanged) needSpace = !startsWithClosingPunct && !prevEndsWithOpening;
+        else needSpace = prevEndX != null && gap > 1.0 && !startsWithClosingPunct && !prevEndsWithOpening;
+        if (curBold === null) { curBold = it.bold; curText = it.str; }
+        else if (!boldChanged) { curText += (needSpace ? ' ' : '') + it.str; }
+        else { runs.push({ text: curText, bold: curBold }); curBold = it.bold; curText = (needSpace ? ' ' : '') + it.str; }
+        prevEndX = it.x + (it.w || 0);
+      }
+      if (curText) runs.push({ text: curText, bold: curBold });
+      runs = runs.filter(r => r.text.length);
+      const mdText = runs.map(r => r.bold ? '**' + r.text.trim() + '**' : r.text).join('');
+      allEntries.push({ type: 'text', page: p, y: line.y, text: mdText.replace(/[ \t]+/g, ' ').trim(), newParagraph: line.newParagraph });
+    }
+
+    let ctm = [1, 0, 0, 1, 0, 0];
+    const ctmStack = [];
+    const pageImages = [];
+    for (let i = 0; i < opList.fnArray.length; i++) {
+      const fn = opList.fnArray[i];
+      const args = opList.argsArray[i];
+      if (fn === OPS.save) ctmStack.push(ctm);
+      else if (fn === OPS.restore) ctm = ctmStack.pop() || ctm;
+      else if (fn === OPS.transform) ctm = matMul(args, ctm);
+      else if (fn === OPS.paintImageXObject || fn === OPS.paintJpegXObject) {
+        const y0 = ctm[5], y1 = 1 * ctm[3] + ctm[5];
+        pageImages.push({ objId: args[0], y: (y0 + y1) / 2 });
+      }
+    }
+    for (const pi of pageImages) {
+      const imgObj = await new Promise((resolve) => page.objs.get(pi.objId, resolve));
+      allEntries.push({ type: 'image', page: p, y: pi.y, imgObj });
+    }
+  }
+
+  allEntries.sort((a, b) => (a.page - b.page) || (b.y - a.y));
+  return allEntries;
+}
+
+/* oggetto pixel pdf.js -> data:image/jpeg URL, via un canvas offscreen */
+function imageObjToDataUrl(imgObj) {
+  const canvas = document.createElement('canvas');
+  // Nei browser moderni pdf.js decodifica i JPEG con ImageBitmap nativo (più veloce): in
+  // quel caso l'oggetto non ha .data (pixel grezzi) ma un bitmap già pronto da disegnare.
+  const bitmap = (typeof ImageBitmap !== 'undefined' && imgObj instanceof ImageBitmap)
+    ? imgObj
+    : (imgObj && imgObj.bitmap) || null;
+  if (bitmap) {
+    canvas.width = bitmap.width; canvas.height = bitmap.height;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0);
+    return canvas.toDataURL('image/jpeg', 0.86);
+  }
+
+  const { width, height, data, kind } = imgObj;
+  if (!data) throw new Error('immagine in un formato non riconosciuto (né bitmap né pixel grezzi)');
+  canvas.width = width; canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  const out = ctx.createImageData(width, height);
+  const px = out.data;
+  if (kind === 3) { // RGBA_32BPP
+    px.set(data);
+  } else if (kind === 1) { // GRAYSCALE_1BPP (bit-packed)
+    let bit = 0;
+    for (let i = 0; i < width * height; i++) {
+      const byte = data[bit >> 3];
+      const v = (byte >> (7 - (bit % 8))) & 1 ? 255 : 0;
+      px[i * 4] = v; px[i * 4 + 1] = v; px[i * 4 + 2] = v; px[i * 4 + 3] = 255;
+      bit++;
+    }
+  } else { // RGB_24BPP (default/più comune qui)
+    for (let i = 0, j = 0; i < width * height; i++, j += 3) {
+      px[i * 4] = data[j]; px[i * 4 + 1] = data[j + 1]; px[i * 4 + 2] = data[j + 2]; px[i * 4 + 3] = 255;
+    }
+  }
+  ctx.putImageData(out, 0, 0);
+  return canvas.toDataURL('image/jpeg', 0.86);
+}
+
+/* ================= parsing: flusso -> stato report-avversario ================= */
+const HEADINGS = {
+  PRES_AVV: 'PRESENTAZIONE AVVERSARIO', ULTIMI: 'ULTIMI RISULTATI:', SCORE: 'SCORE:',
+  COPPA: 'PERCORSO IN COPPA', PRES_SQUADRA: 'PRESENTAZIONE SQUADRA', POSSESSO: 'FASE DI POSSESSO PALLA',
+  NON_POSSESSO: 'FASE DI NON POSSESSO', FORZA: 'PUNTI DI FORZA', DEBOLI: 'PUNTI DEBOLI',
+  PIAZZATI: 'CALCI PIAZZATI', A_FAVORE: 'A favore', CONTRO: 'Contro', LISTE: 'LISTE GARA DISPONIBILI',
+};
+const ALL_HEADINGS = Object.keys(HEADINGS).map(k => HEADINGS[k]);
+
+function stripBoldMarkers(s) { return s.replace(/\*\*/g, ''); }
+function isHeading(entry, text) { return !!entry && entry.type === 'text' && stripBoldMarkers(entry.text).trim() === text; }
+function isBullet(entry) { return !!entry && entry.type === 'text' && /^•\s*/.test(entry.text); }
+function bulletText(entry) { return entry.text.replace(/^•\s*/, '').trim(); }
+
+function parseScorersLine(line) {
+  const out = [];
+  const groupRe = /([^()]+)\((\d+)\)/g;
+  let m;
+  while ((m = groupRe.exec(line))) {
+    const names = m[1].replace(/\.$/, '').split(',').map(s => s.trim()).filter(Boolean);
+    const goals = Number(m[2]);
+    names.forEach(name => out.push({ name: name.replace(/,$/, '').trim(), goals }));
+  }
+  return out;
+}
+
+function groupParagraphs(textEntries) {
+  const paras = [];
+  let cur = [];
+  textEntries.forEach((e, idx) => {
+    if (idx > 0 && e.newParagraph) { if (cur.length) paras.push(cur.join(' ')); cur = []; }
+    cur.push(e.text);
+  });
+  if (cur.length) paras.push(cur.join(' '));
+  return paras;
+}
+
+function parseState(entries) {
+  const state = {
+    meta: { title: '', competition: '', opponent: '' },
+    crestLogo: null, agencyLogo: null,
+    presentation: { system: '', lastResults: [], cupToggle: false, cupResults: [], scorers: [], goalsFor: '', goalsAgainst: '', narrative: '' },
+    possession: { intro: '', blocks: [] },
+    nonPossession: { intro: '', blocks: [] },
+    strengths: '', weaknesses: '',
+    setPiecesFor: { bullets: [], blocks: [] },
+    setPiecesAgainst: { bullets: [], blocks: [] },
+  };
+
+  let i = 0;
+  const n = entries.length;
+  const peek = () => entries[i];
+  const next = () => entries[i++];
+  const atHeading = (text) => isHeading(peek(), text);
+  const isAnyHeading = (entry) => entry.type === 'text' && ALL_HEADINGS.includes(stripBoldMarkers(entry.text).trim());
+
+  if (peek() && peek().type === 'text') state.meta.title = stripBoldMarkers(next().text);
+  while (i < n && !atHeading(HEADINGS.PRES_AVV)) {
+    const e = next();
+    if (e.type === 'image' && !state.crestLogo) state.crestLogo = e.imgObj;
+    else if (e.type === 'text' && !state.meta.competition && stripBoldMarkers(e.text).trim() && !/cura di|gare visionate|^•/i.test(e.text)) {
+      state.meta.competition = stripBoldMarkers(e.text);
+    }
+  }
+  if (peek()) next();
+
+  if (peek() && peek().type === 'text' && /^SISTEMA DI GIOCO:/i.test(stripBoldMarkers(peek().text))) {
+    state.presentation.system = stripBoldMarkers(next().text).replace(/^SISTEMA DI GIOCO:\s*/i, '');
+  }
+
+  function readBulletList(onBullet) {
+    let cur = null;
+    while (i < n && peek() && peek().type === 'text' && !isAnyHeading(peek())) {
+      const e = peek();
+      if (isBullet(e)) { next(); if (cur != null) onBullet(cur); cur = bulletText(e); }
+      else if (cur != null && !e.newParagraph) { next(); cur += ' ' + e.text.trim(); }
+      else break;
+    }
+    if (cur != null) onBullet(cur);
+  }
+  function collectParagraphsUntilHeading(stopHeadingText) {
+    const buf = [];
+    while (i < n && !atHeading(stopHeadingText)) { const e = next(); if (e.type === 'text') buf.push(e); }
+    return groupParagraphs(buf).join('\n\n');
+  }
+  function collectIntroAndBlocks(stopHeadingText, noIntro) {
+    const buf = [];
+    while (i < n && !atHeading(stopHeadingText)) buf.push(next());
+    const blocks = [];
+    let introParas = [];
+    let pendingTextRun = [];
+    let firstImageSeen = false;
+    for (const e of buf) {
+      if (e.type === 'image') {
+        if (!firstImageSeen && !noIntro) {
+          const paras = groupParagraphs(pendingTextRun);
+          const caption = paras.pop() || '';
+          introParas = paras;
+          blocks.push({ caption, image: e.imgObj, videoRef: '', videoLink: '' });
+        } else {
+          const caption = groupParagraphs(pendingTextRun).join(' ');
+          blocks.push({ caption, image: e.imgObj, videoRef: '', videoLink: '' });
+        }
+        pendingTextRun = [];
+        firstImageSeen = true;
+      } else pendingTextRun.push(e);
+    }
+    if (pendingTextRun.length) {
+      const caption = groupParagraphs(pendingTextRun).join(' ');
+      if (firstImageSeen || noIntro) blocks.push({ caption, image: null, videoRef: '', videoLink: '' });
+      else introParas = groupParagraphs(pendingTextRun);
+    }
+    return { intro: introParas.join('\n\n'), blocks };
+  }
+
+  if (atHeading(HEADINGS.ULTIMI)) { next(); readBulletList(t => state.presentation.lastResults.push(t)); }
+  if (atHeading(HEADINGS.SCORE)) {
+    next();
+    readBulletList(b => {
+      let m;
+      if ((m = b.match(/^GOL FATTI:\s*(\d+)/i))) state.presentation.goalsFor = Number(m[1]);
+      else if ((m = b.match(/^GOL SUBITI:\s*(\d+)/i))) state.presentation.goalsAgainst = Number(m[1]);
+      else if ((m = b.match(/^MARCATORI:\s*(.+)/i))) state.presentation.scorers = parseScorersLine(m[1]);
+    });
+  }
+  if (atHeading(HEADINGS.COPPA)) { next(); state.presentation.cupToggle = true; readBulletList(t => state.presentation.cupResults.push(t)); }
+  if (atHeading(HEADINGS.PRES_SQUADRA)) { next(); state.presentation.narrative = collectParagraphsUntilHeading(HEADINGS.POSSESSO); }
+  if (atHeading(HEADINGS.POSSESSO)) { next(); state.possession = collectIntroAndBlocks(HEADINGS.NON_POSSESSO); }
+  if (atHeading(HEADINGS.NON_POSSESSO)) { next(); state.nonPossession = collectIntroAndBlocks(HEADINGS.FORZA); }
+  if (atHeading(HEADINGS.FORZA)) { next(); state.strengths = collectParagraphsUntilHeading(HEADINGS.DEBOLI); }
+  if (atHeading(HEADINGS.DEBOLI)) { next(); state.weaknesses = collectParagraphsUntilHeading(HEADINGS.PIAZZATI); }
+  if (atHeading(HEADINGS.PIAZZATI)) {
+    next();
+    if (atHeading(HEADINGS.A_FAVORE)) {
+      next();
+      const bullets = [];
+      readBulletList(t => bullets.push(t));
+      const { blocks } = collectIntroAndBlocks(HEADINGS.CONTRO, true);
+      state.setPiecesFor = { bullets, blocks };
+    }
+    if (atHeading(HEADINGS.CONTRO)) {
+      next();
+      const bullets = [];
+      readBulletList(t => bullets.push(t));
+      const { blocks } = collectIntroAndBlocks(HEADINGS.LISTE, true);
+      state.setPiecesAgainst = { bullets, blocks };
+    }
+  }
+
+  return state;
+}
+
+/* ================= collegamento UI ================= */
+const dropEl = document.getElementById('drop');
+const fileInput = document.getElementById('fileInput');
+const fnameEl = document.getElementById('fname');
+const opponentInput = document.getElementById('opponentInput');
+const logEl = document.getElementById('log');
+const summaryEl = document.getElementById('summary');
+const summaryTable = document.getElementById('summaryTable');
+const btnGenerate = document.getElementById('btnGenerate');
+const btnJson = document.getElementById('btnJson');
+
+let reconstructedState = null;
+let fileBaseName = '';
+
+function log(msg, cls) {
+  logEl.classList.add('show');
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function guessOpponentFromFilename(name) {
+  return name
+    .replace(/\.(pdf|json)$/i, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b(giornata|report|analisi|avversario|pdf|json)\b/gi, '')
+    .replace(/\d+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function downloadBlob(filename, blob) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+dropEl.addEventListener('click', () => fileInput.click());
+dropEl.addEventListener('dragover', e => { e.preventDefault(); dropEl.classList.add('drag'); });
+dropEl.addEventListener('dragleave', () => dropEl.classList.remove('drag'));
+dropEl.addEventListener('drop', e => {
+  e.preventDefault(); dropEl.classList.remove('drag');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+async function handleFile(file) {
+  fnameEl.textContent = file.name;
+  const isJson = /\.json$/i.test(file.name) || file.type === 'application/json';
+  fileBaseName = file.name.replace(/\.(pdf|json)$/i, '');
+  opponentInput.value = guessOpponentFromFilename(file.name);
+  logEl.innerHTML = ''; logEl.classList.add('show');
+  summaryEl.classList.remove('show');
+  btnGenerate.disabled = true; btnJson.disabled = true;
+  reconstructedState = null;
+
+  try {
+    let state;
+    if (isJson) {
+      log('Lettura file .json…');
+      state = JSON.parse(await file.text());
+      log('Report .json caricato: qualità piena, nessuna estrazione necessaria.', 'ok');
+      if (state.meta && state.meta.opponent) opponentInput.value = state.meta.opponent;
+    } else {
+      log('Lettura file PDF…');
+      const buf = await file.arrayBuffer();
+      log('Estrazione testo e immagini dal PDF…');
+      const entries = await extractDoc(new Uint8Array(buf), (p, total) => log(`  pagina ${p}/${total}…`));
+      log(`Estratti ${entries.length} elementi (${entries.filter(e => e.type === 'image').length} immagini).`, 'ok');
+
+      log('Ricostruzione struttura report…');
+      state = parseState(entries);
+
+      log('Conversione immagini in formato utilizzabile…');
+      let imgFailures = 0;
+      function safeConvert(imgObj, where) {
+        try { return imageObjToDataUrl(imgObj); }
+        catch (e) { imgFailures++; log('  immagine non convertita (' + where + '): ' + (e && e.message || e), 'err'); return null; }
+      }
+      if (state.crestLogo) state.crestLogo = safeConvert(state.crestLogo, 'stemma');
+      state.agencyLogo = state.agencyLogo ? safeConvert(state.agencyLogo, 'logo') : (state.crestLogo || null);
+      [['possesso', state.possession], ['fuori possesso', state.nonPossession], ['calci piazzati a favore', state.setPiecesFor], ['calci piazzati contro', state.setPiecesAgainst]]
+        .forEach(([label, section]) => {
+          section.blocks.forEach((b, i) => { if (b.image) b.image = safeConvert(b.image, label + ' #' + (i + 1)); });
+        });
+      if (imgFailures) log(`${imgFailures} immagine/i non convertibili: nella slide corrispondente comparirà il segnaposto.`, 'err');
+    }
+
+    reconstructedState = state;
+    log('Pronto.', 'ok');
+
+    summaryTable.innerHTML = [
+      ['Sistema di gioco', state.presentation.system || '—'],
+      ['Ultimi risultati', state.presentation.lastResults.length],
+      ['Marcatori', state.presentation.scorers.length],
+      ['Paragrafi presentazione', (state.presentation.narrative || '').split('\n\n').filter(Boolean).length],
+      ['Blocchi possesso palla (con immagine)', state.possession.blocks.filter(b => b.image).length + '/' + state.possession.blocks.length],
+      ['Blocchi fuori possesso (con immagine)', state.nonPossession.blocks.filter(b => b.image).length + '/' + state.nonPossession.blocks.length],
+      ['Note calci piazzati a favore', state.setPiecesFor.bullets.length],
+      ['Note calci piazzati contro', state.setPiecesAgainst.bullets.length],
+      ['Stemma avversario riconosciuto', state.crestLogo ? 'sì' : 'no'],
+    ].map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+    summaryEl.classList.add('show');
+
+    btnGenerate.disabled = false;
+    btnJson.disabled = false;
+  } catch (err) {
+    console.error(err);
+    log('Errore durante la lettura: ' + (err && err.message || err), 'err');
+  }
+}
+
+btnGenerate.addEventListener('click', () => {
+  if (!reconstructedState) return;
+  const opponent = opponentInput.value.trim() || fileBaseName || 'Avversario';
+  const data = Object.assign({}, reconstructedState, {
+    meta: Object.assign({}, reconstructedState.meta, { opponent, title: reconstructedState.meta.title || 'ANALISI AVVERSARIO' }),
+  });
+  try {
+    const html = buildSlideDeckHtml(data);
+    downloadBlob('Slide - ' + opponent.replace(/[\\/:*?"<>|]/g, '') + '.html', new Blob([html], { type: 'text/html' }));
+    log('Slide generate e scaricate.', 'ok');
+  } catch (err) {
+    console.error(err);
+    log('Errore nella generazione delle slide: ' + (err && err.message || err), 'err');
+  }
+});
+
+btnJson.addEventListener('click', () => {
+  if (!reconstructedState) return;
+  const opponent = opponentInput.value.trim() || fileBaseName || 'Avversario';
+  const data = Object.assign({}, reconstructedState, {
+    meta: Object.assign({}, reconstructedState.meta, { opponent }),
+  });
+  downloadBlob('report-' + opponent.replace(/[^a-z0-9-_]+/gi, '_') + '.json', new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+});
+</script>
