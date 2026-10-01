@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 //
 // Sincronizza "Altre Partite" con i risultati reali del girone, presi da TuttoCampo.it — eseguito
-// da GitHub Actions (.github/workflows/sync-tuttocampo.yml) su uno schedule, mai manualmente da un
-// dispositivo. Per ogni nostra partita (eventi tipo PARTITA) con la Competizione configurata sotto,
+// in locale (scripts/run-sync-tuttocampo.ps1, pianificato con l'Utilita' di pianificazione di
+// Windows sul PC di Francesco), NON da GitHub Actions: TuttoCampo riconosce gli IP "cloud" dei
+// runner GitHub e restituisce pagine senza i dati delle partite (verificato dal vero, 2026-10-01 —
+// stesso identico script, stesso Chromium: funziona in locale, trova sempre "0 partite" da GitHub
+// Actions). Per ogni nostra partita (eventi tipo PARTITA) con la Competizione configurata sotto,
 // trova la sua Giornata e scarica da TuttoCampo i risultati di TUTTE le squadre di quella giornata
 // (tranne la nostra, già tenuta sincronizzata da Live tramite syncOwnMatchFixture in
 // app/data/matchdayFixtures.ts) — squadre, risultato, marcatori, più uno screenshot della sezione
@@ -12,9 +15,10 @@
 // altrePartite.tsx le mostra come non modificabili a mano (si aggiornano da sole ad ogni sync),
 // stesso principio già in uso per la riga della nostra partita (campo `match_id`).
 //
-// Variabili d'ambiente richieste (vedi .github/workflows/sync-tuttocampo.yml):
-//   SUPABASE_URL                 - stessa URL del progetto (vars.EXPO_PUBLIC_SUPABASE_URL)
-//   SUPABASE_SERVICE_ROLE_KEY    - service role key (bypassa RLS, SOLO lato server/CI — mai nel client)
+// Variabili d'ambiente richieste (vedi .env.sync-tuttocampo.example e run-sync-tuttocampo.ps1 — il
+// file reale ".env.sync-tuttocampo.local" non è mai committato, vedi .gitignore):
+//   SUPABASE_URL                 - stessa URL del progetto (EXPO_PUBLIC_SUPABASE_URL)
+//   SUPABASE_SERVICE_ROLE_KEY    - service role key (bypassa RLS, SOLO in locale — mai nel client)
 //   TEAMBOARD_ORG_ID             - uuid dell'organizzazione (squadra) su cui scrivere
 //   TUTTOCAMPO_COMPETITION_NAME  - stringa ESATTA usata come "Competizione" sulle nostre partite
 //                                  (es. "Campionato") — deve combaciare carattere per carattere
@@ -128,29 +132,41 @@ async function main() {
 
   // 1) Le nostre partite di questa competizione -> insieme delle Giornate da controllare. Stessa
   //    colonna dinamica "data" jsonb di app/data/events.ts (competition/giornata non sono colonne
-  //    reali), quindi il filtro è fatto qui in JS dopo aver letto tutte le PARTITA dell'org.
+  //    reali, "date" invece sì), quindi il filtro è fatto qui in JS dopo aver letto tutte le
+  //    PARTITA dell'org.
   const { data: events, error: eventsError } = await supabase
     .from('events')
-    .select('id, data')
+    .select('id, date, data')
     .eq('org_id', ORG_ID)
     .eq('type', 'PARTITA');
   if (eventsError) throw eventsError;
+
+  // Solo le giornate la cui nostra partita cade in una finestra di ±7 giorni da oggi (settimana
+  // appena passata, per recuperare risultati non ancora arrivati, + prossima settimana) — senza
+  // questo filtro lo script ricontrollava OGNI giornata della stagione a ogni esecuzione, anche
+  // quelle concluse da mesi o lontanissime nel futuro, inutilmente (richiesta di Francesco,
+  // 2026-10-01, dopo aver visto il primo giro completo girare su tutte le 30 giornate).
+  const WINDOW_DAYS = 7;
+  const todayMs = Date.now();
+  const minDate = new Date(todayMs - WINDOW_DAYS * 86400000).toISOString().slice(0, 10);
+  const maxDate = new Date(todayMs + WINDOW_DAYS * 86400000).toISOString().slice(0, 10);
 
   const giornate = Array.from(
     new Set(
       (events ?? [])
         .filter((e) => (e.data?.competition ?? '') === COMPETITION_NAME && e.data?.giornata)
+        .filter((e) => e.date && e.date >= minDate && e.date <= maxDate)
         .map((e) => String(e.data.giornata))
     )
   ).filter((g) => /^\d+$/.test(g)); // TuttoCampo indicizza le giornate come numeri interi
 
   if (giornate.length === 0) {
     console.log(
-      `Nessuna partita con Competizione "${COMPETITION_NAME}" e Giornata impostata: niente da sincronizzare.`
+      `Nessuna partita con Competizione "${COMPETITION_NAME}" tra ${minDate} e ${maxDate}: niente da sincronizzare oggi.`
     );
     return;
   }
-  console.log(`Giornate da controllare: ${giornate.join(', ')}`);
+  console.log(`Giornate da controllare (${minDate} .. ${maxDate}): ${giornate.join(', ')}`);
 
   // TuttoCampo risponde 403 Forbidden allo User-Agent di default di Playwright (bot detection) —
   // serve uno User-Agent/locale "normali" da browser desktop vero per ottenere le pagine (verificato
@@ -229,9 +245,14 @@ async function main() {
           (match.scorers ? ` | ${match.scorers}` : '')
       );
 
-      // Screenshot formazioni -> allegato (sostituisce quello di un sync precedente, stesso id
-      // deterministico: non si accumulano screenshot vecchi a ogni esecuzione giornaliera).
-      const shot = await screenshotFormations(page);
+      // Screenshot formazioni -> allegato, solo se la partita ha già un risultato (cioè è stata
+      // giocata, almeno in parte): la sezione #match_formations esiste nella pagina ANCHE prima
+      // del fischio d'inizio, ma vuota/non ancora compilata — senza questo controllo si allegava
+      // uno screenshot inutile anche per partite future (visto dal vero, 2026-10-01). Sostituisce
+      // quello di un sync precedente, stesso id deterministico: non si accumulano screenshot
+      // vecchi a ogni esecuzione giornaliera.
+      const played = match.homeScore != null && match.awayScore != null;
+      const shot = played ? await screenshotFormations(page) : null;
       if (shot) {
         const attachmentId = `tc-shot-${id}`;
         const storagePath = `${ORG_ID}/${id}/formazioni.png`;

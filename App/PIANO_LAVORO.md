@@ -115,19 +115,30 @@ dato il precedente miss sullo stesso set di funzionalità (campo invisibile su w
 ### Sincronizzazione automatica "Altre Partite" da TuttoCampo (2026-10-01)
 Richiesta di Francesco: aggiornare da sola la sezione Altre Partite con i risultati reali delle
 altre squadre del girone (Eccellenza Umbria Girone A), senza inserirli a mano. Nuovo script
-(`App/scripts/sync-tuttocampo.js`, Playwright) eseguito una volta al giorno da una GitHub Action
-(`sync-tuttocampo.yml`): legge squadre/risultato/marcatori da TuttoCampo.it per ogni giornata in cui
-abbiamo una partita, salta sempre la nostra (già sincronizzata da Live), e allega anche uno
-screenshot della sezione Formazioni di ogni partita. Le righe importate sono segnalate con un badge
-dedicato e non modificabili a mano (si aggiornano da sole ogni giorno). **Richiede configurazione
-manuale una tantum su GitHub** (un secret + 3 variabili, vedi CLAUDE.md) e l'esecuzione su Supabase
-di `32_schema_matchday_fixtures_source.sql` — non attiva finché Francesco non la completa.
+(`App/scripts/sync-tuttocampo.js`, Playwright): legge squadre/risultato/marcatori da TuttoCampo.it
+per ogni giornata in cui abbiamo una partita, salta sempre la nostra (già sincronizzata da Live), e
+allega anche uno screenshot della sezione Formazioni di ogni partita. Le righe importate sono
+segnalate con un badge dedicato e non modificabili a mano (si aggiornano da sole a ogni sync).
+Richiede l'esecuzione su Supabase di `32_schema_matchday_fixtures_source.sql` — non attiva finché
+Francesco non la completa insieme alla configurazione sotto.
 
-**Fix dopo i primi due lanci reali (2026-10-01)**: Node 20→22 (supabase-js richiede WebSocket
-nativo); TuttoCampo blocca lo User-Agent di default di Playwright (403) e le righe dei risultati
-sono `<tr data-link>`, non `<a href>` — entrambi corretti e verificati dal vero in locale (Giornata
-4, 8/8 partite estratte con risultato/marcatori/screenshot formazioni). Vedi CLAUDE.md per i
-dettagli. Ancora da confermare dal vero: la scrittura su Supabase dal prossimo lancio in CI.
+**Tre giri di debug sul primo lancio reale (2026-10-01)**, l'ultimo dei quali ha cambiato il piano:
+1. Node 20→22 (supabase-js richiede WebSocket nativo).
+2. TuttoCampo blocca lo User-Agent di default di Playwright (403) e le righe dei risultati sono
+   `<tr data-link>`, non `<a href>` — entrambi corretti, verificati dal vero in locale (Giornata 4,
+   8/8 partite estratte con risultato/marcatori/screenshot formazioni).
+3. Anche con questi due fix, **da GitHub Actions il sito restituisce sempre pagine senza dati**
+   (una seconda chiamata AJAX interna funziona in locale ma non dagli IP "cloud" dei runner GitHub)
+   — non correggibile via codice. **Decisione: l'automazione gira dal PC di Francesco** (Utilità di
+   pianificazione di Windows, `scripts/run-sync-tuttocampo.ps1`), non più da GitHub Actions
+   (rimossa). Scartata anche l'idea di farla girare sul cellulare: non praticabile, serve un
+   browser vero (Playwright/Chromium). Vedi CLAUDE.md per il setup passo-passo.
+
+**Primo giro completo dal PC, due fix su richiesta di Francesco (2026-10-01)**: ricontrollava tutte
+le 30 giornate della stagione a ogni esecuzione (inutile) — ora solo quelle entro ±7 giorni da oggi;
+allegava uno screenshot anche a partite non ancora giocate — ora solo se la partita ha già un
+risultato. Nuovo script una tantum `scripts/cleanup-unplayed-attachments.js` per rimuovere gli
+allegati sbagliati già creati dal primo giro. Vedi CLAUDE.md per i dettagli.
 
 ### Nuovo documento TEST_CASES.md (2026-10-01)
 Richiesta di Francesco: un documento con tutti i casi di test dell'app, da tenere aggiornato ad ogni

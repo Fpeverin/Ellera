@@ -250,7 +250,7 @@ File: `app/eventi/partita/[id]/altrePartite.tsx`, `app/data/matchdayFixtures.ts`
 | AP-05 | Allega foto/PDF a un incontro | Incontro inserito | "Allega" → scegli file | Allegato caricato, elencato sotto l'incontro | Admin/Staff |
 | AP-06 | Anteprima allegato immagine | Allegato immagine presente | Tocca l'allegato | Anteprima a schermo intero dentro l'app (non apertura in browser esterno) | Admin/Staff |
 | AP-07 | Elimina incontro/allegato | — | Elimina | Rimosso ovunque sia condiviso (altre nostre partite della stessa giornata) | Admin/Staff |
-| AP-08 | Import automatico da TuttoCampo | GH Action `sync-tuttocampo.yml` configurata ed eseguita per una Giornata con nostra partita | Apri Altre Partite di quella partita | Incontri delle altre squadre presenti con badge "🌐 Importata da TuttoCampo", risultato, marcatori e screenshot Formazioni allegato; nessuna riga per la nostra partita (quella resta quella sincronizzata da Live) | Admin/Staff |
+| AP-08 | Import automatico da TuttoCampo | `scripts/run-sync-tuttocampo.ps1` eseguito dal PC (Task Scheduler o a mano) per una Giornata con nostra partita | Apri Altre Partite di quella partita | Incontri delle altre squadre presenti con badge "🌐 Importata da TuttoCampo", risultato, marcatori e screenshot Formazioni allegato; nessuna riga per la nostra partita (quella resta quella sincronizzata da Live) | Admin/Staff |
 | AP-09 | Riga importata non modificabile a mano | Incontro con badge TuttoCampo | Prova "✏️ Modifica"/"🗑️ Elimina" | Bottoni assenti (stesso trattamento della riga "nostra"); "📎 Allega foto/PDF" resta disponibile | Admin/Staff |
 
 ---

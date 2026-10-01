@@ -2295,11 +2295,17 @@ nel momento stesso in cui viene spostata tra gli ex, invece di restare visibile 
 Richiesta di Francesco: aggiornare in automatico la sezione Altre Partite con i risultati reali
 delle altre squadre del girone (Eccellenza Umbria Girone A), presi da TuttoCampo.it, senza doverli
 inserire a mano partita per partita. Decisioni prese insieme (vedi conversazione): dati da importare
-= squadre, risultato e marcatori (non arbitro/assistenti — quelli restano manuali in Lista Gara);
-dove far girare l'automazione = **GitHub Actions**, stesso meccanismo già in uso per gli
-aggiornamenti OTA (`eas-update.yml`), nessun nuovo servizio da imparare; frequenza = una volta al
-giorno. Aggiunta anche, su richiesta successiva: uno **screenshot della sezione Formazioni** di ogni
-partita, allegato come se fosse una foto caricata a mano.
+= squadre, risultato e marcatori (non arbitro/assistenti — quelli restano manuali in Lista Gara) più,
+su richiesta successiva, uno **screenshot della sezione Formazioni** di ogni partita, allegato come
+se fosse una foto caricata a mano; frequenza = una volta al giorno.
+
+**Dove gira, versione finale: in locale sul PC di Francesco** (Utilità di pianificazione di
+Windows), NON GitHub Actions — il piano originale era GitHub Actions (stesso meccanismo degli
+aggiornamenti OTA), ma TuttoCampo si è rivelato impraticabile da lì (vedi "Fix — secondo lancio
+reale" sotto): blocca silenziosamente gli IP "cloud" dei runner GitHub, senza nemmeno un errore
+esplicito da poter correggere via codice. Dato che lo script usa comunque un browser vero
+(Playwright, per lo screenshot) e quindi non è adatto a girare sul cellulare, il PC di Francesco
+(IP residenziale normale, già con tutto installato) è rimasto l'unica opzione praticabile.
 
 **Cosa offre TuttoCampo** (verificato navigando il sito dal vero prima di scrivere lo script):
 `https://www.tuttocampo.it/Umbria/Eccellenza/GironeA/Giornata{N}` elenca i link a ogni singola
@@ -2309,12 +2315,12 @@ ha un tabellino completo — risultato, riga `MARCATORI: 40' pt F. Retini (P), 2
 squadre), già presente nell'HTML iniziale senza bisogno di cliccare su nessuna tab.
 
 **Nuovo script** `App/scripts/sync-tuttocampo.js` (Node, **Playwright** — serve un browser vero, non
-solo `fetch`, per lo screenshot), eseguito SOLO da CI, mai da un dispositivo:
+solo `fetch`, per lo screenshot), eseguito in locale (vedi sotto), mai da CI:
 1. Legge le nostre partite (`events`, tipo `PARTITA`) con `data->>'competition'` uguale alla
    variabile `TUTTOCAMPO_COMPETITION_NAME` — ne ricava l'insieme delle Giornate da controllare
    (stesso principio "giriamo solo dove serve", niente calendario stagionale da mantenere a mano).
-2. Per ciascuna Giornata, apre `.../GironeA/GiornataN`, raccoglie gli URL di ogni partita
-   (`a[href*="/Partita/"]`, deduplicati).
+2. Per ciascuna Giornata, apre `.../GironeA/GiornataN`, raccoglie gli URL di ogni partita (le righe
+   sono `<tr data-link="...">`, non `<a href>` — vedi "Fix" sotto, deduplicati).
 3. Per ciascuna partita: squadre dal `<title>` della pagina (`"X vs Y - ..."`, sempre presente anche
    prima del fischio d'inizio), risultato e marcatori via regex sul testo (`Tabellino X - Y N - N` e
    `MARCATORI: ...`) — **una partita con Ellera in casa o trasferta viene sempre saltata**
@@ -2335,39 +2341,48 @@ matchdayFixtures.ts`: `MatchdayFixture.source` esposto; `app/eventi/partita/[id]
 manuali (stesso motivo: un'esecuzione successiva dello script sovrascriverebbe comunque una
 correzione fatta a mano) — badge dedicato "🌐 Importata da TuttoCampo", allegati sempre permessi.
 
-**Nuova GitHub Action** `.github/workflows/sync-tuttocampo.yml` — schedule giornaliero (07:00 UTC,
-dopo le partite del weekend) + `workflow_dispatch` per un lancio manuale da Francesco quando vuole.
-Installa anche Chromium (`npx playwright install chromium --with-deps`) prima di eseguire lo script.
+**Esecuzione locale** (sostituisce il piano originale "GitHub Action", vedi sopra e i due Fix
+sotto):
+- `App/scripts/run-sync-tuttocampo.ps1` — script PowerShell che legge
+  `App/.env.sync-tuttocampo.local` (file reale, **mai committato**: pattern `.env*.local` già in
+  `App/.gitignore`), imposta le variabili d'ambiente per il processo e lancia `npm run
+  sync:tuttocampo`. Si ferma con un errore chiaro se il file manca o se la service role key è
+  ancora il valore segnaposto.
+- `App/.env.sync-tuttocampo.example` — template committato (nessun segreto vero) con lo stesso
+  elenco di variabili, da copiare come `.env.sync-tuttocampo.local` e compilare.
+- Pianificato con l'**Utilità di pianificazione di Windows** (Task Scheduler) sul PC di Francesco —
+  non richiede che l'AI abbia accesso a nessuna piattaforma esterna, solo che il PC sia acceso
+  nella fascia oraria scelta. Configurazione (fatta da Francesco, UNA TANTUM):
+  1. Copia `App/.env.sync-tuttocampo.example` in `App/.env.sync-tuttocampo.local` e compila
+     `SUPABASE_SERVICE_ROLE_KEY` (dashboard Supabase → Settings → API → "service_role" key, **mai**
+     l'anon key — **segreto vero, mai incollarlo in chat**); gli altri valori sono già precompilati
+     nell'esempio (non sensibili, già comparsi in chiaro nei log del vecchio tentativo con GitHub
+     Actions): `TEAMBOARD_ORG_ID=9766a9e4-a82a-4913-b726-e03000f15079`,
+     `TUTTOCAMPO_COMPETITION_NAME=Campionato`,
+     `TUTTOCAMPO_LEAGUE_URL=https://www.tuttocampo.it/Umbria/Eccellenza/GironeA`.
+  2. Apri "Utilità di pianificazione" (Task Scheduler) → Crea attività di base → nome a scelta,
+     trigger giornaliero all'orario preferito (es. 09:00) → Azione "Avvia un programma" →
+     Programma/script: `powershell.exe` → Aggiungi argomenti:
+     `-ExecutionPolicy Bypass -File "C:\gw-repo\AI\Ellera\App\scripts\run-sync-tuttocampo.ps1"`.
+  3. Facoltativo: un lancio manuale (tasto destro sull'attività → Esegui) per il primo test, invece
+     di aspettare il giorno dopo.
 
-**Configurazione richiesta UNA TANTUM su GitHub** (Settings → Secrets and variables → Actions),
-nessuna delle quali l'AI può impostare da sola:
-- **Secret** `SUPABASE_SERVICE_ROLE_KEY` — dalla dashboard Supabase (Settings → API → "service_role"
-  key, **mai** l'anon key): bypassa le policy RLS, serve perché lo script scrive su un'organizzazione
-  specifica senza un utente autenticato. **Segreto vero — mai incollarlo in chat**, va inserito
-  direttamente nell'interfaccia di GitHub.
-- **Variabile** `TEAMBOARD_ORG_ID` — uuid della riga Ellera in `organizations` (SQL Editor Supabase:
-  `select id from organizations where name = 'Ellera';`).
-- **Variabile** `TUTTOCAMPO_COMPETITION_NAME` — testo ESATTO scritto come "Competizione" sulle
-  nostre partite di questo campionato: deve combaciare carattere per carattere, altrimenti lo
-  script non trova nessuna Giornata da controllare. **Confermato da Francesco (2026-10-01):
-  `Campionato`.**
-- **Variabile** `TUTTOCAMPO_LEAGUE_URL` — `https://www.tuttocampo.it/Umbria/Eccellenza/GironeA`.
-  (`vars.EXPO_PUBLIC_SUPABASE_URL` è già configurata, riusata da questo stesso workflow.)
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti; `node --check` sullo script e test
+  della guardia (file env mancante/segnaposto) puliti. **Non eseguibile fino in fondo da qui**
+  (serve la service role key, che non ho — l'ultimo passo, la scrittura su Supabase, resta da
+  confermare dal vero dopo il primo lancio pianificato o manuale di Francesco): aprire poi Altre
+  Partite di una nostra partita già giocata e controllare che compaiano le altre squadre della
+  stessa giornata con badge "🌐 Importata da TuttoCampo", risultato, marcatori e screenshot
+  formazioni allegato.
 
-- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti; `node --check` sullo script pulito.
-  **Non eseguibile da qui** (serve l'accesso a Supabase e alle variabili GitHub, entrambi di
-  Francesco): lanciare `workflow_dispatch` a mano la prima volta dopo aver configurato
-  secret/variabili e lo script SQL, controllare i log dell'Action, poi aprire Altre Partite di una
-  nostra partita e controllare che compaiano le altre squadre della stessa giornata con badge
-  "🌐 Importata da TuttoCampo", risultato, marcatori e screenshot formazioni allegato.
+**Cronologia dei tentativi con GitHub Actions (poi abbandonata, vedi sopra):**
 
 **Fix — primo lancio reale (2026-10-01)**: secret/variabili configurati correttamente (lo script
 arrivava fino a `createClient`), ma il job falliva comunque: `@supabase/supabase-js` istanzia
 sempre un client Realtime nel costruttore (anche se questo script fa solo query dirette, mai
 sottoscrizioni) e quella inizializzazione cerca un `WebSocket` nativo — assente su Node 20,
-disponibile da Node 22. Fix: `node-version: 22` in `sync-tuttocampo.yml` (consigliato dallo stesso
-messaggio d'errore di supabase-js); non serve toccare `eas-update.yml`, che non usa supabase-js lato
-Node.
+disponibile da Node 22. Fix (nel workflow, poi rimosso insieme a tutto il resto): `node-version:
+22`, consigliato dallo stesso messaggio d'errore di supabase-js.
 
 **Fix — secondo lancio reale (2026-10-01)**: col fix sopra il job arrivava fino in fondo ("Fatto")
 ma trovava "0 partite" su **ogni** giornata, incluse quelle concluse da tempo — sintomo di un
@@ -2375,27 +2390,58 @@ blocco sistematico, non di un problema di una singola pagina. Diagnosticato in l
 stesso Playwright contro lo stesso URL (vedi script temporanei di debug, poi rimossi): due cause
 distinte, entrambe reali.
 1. **403 Forbidden**: TuttoCampo blocca lo User-Agent di default di Playwright (bot detection) — un
-   browser headless "nudo" non riceve nemmeno la pagina. Fix: `browser.newContext({ userAgent:
-   '...Chrome/129...', locale: 'it-IT', extraHTTPHeaders: {...} })` invece di `browser.newPage()`
-   diretto — User-Agent/lingua "normali" da browser desktop vero.
+   browser headless "nudo" non riceve nemmeno la pagina. Fix (ancora valido): `browser.newContext({
+   userAgent: '...Chrome/129...', locale: 'it-IT', extraHTTPHeaders: {...} })` invece di
+   `browser.newPage()` diretto — User-Agent/lingua "normali" da browser desktop vero.
 2. **Selettore sbagliato**: anche superato il 403, `a[href*="/Partita/"]` non trovava mai nulla — le
    righe dei risultati NON sono `<a href>` ma `<tr data-link="...URL...">` (il sito gestisce il click
-   via JavaScript, non con un link vero). Fix: selettore su `[data-link*="/Partita/"]`, estrazione
-   dell'URL dall'attributo `data-link` invece che da `.href`. Cambiato anche `waitUntil` da
-   `domcontentloaded` a `networkidle` per entrambe le navigazioni (giornata e singola partita):
-   il contenuto richiede che la pagina finisca di scaricare le risorse, non solo il DOM iniziale.
+   via JavaScript, non con un link vero). Fix (ancora valido): selettore su
+   `[data-link*="/Partita/"]`, estrazione dell'URL dall'attributo `data-link` invece che da `.href`.
+   Cambiato anche `waitUntil` da `domcontentloaded` a `networkidle` per entrambe le navigazioni
+   (giornata e singola partita): il contenuto richiede che la pagina finisca di scaricare le
+   risorse, non solo il DOM iniziale.
 
-Verificato dal vero in locale dopo il fix (non solo `node --check`): Giornata 4 trovata con tutte e
-8 le partite, squadre/risultato/marcatori estratti correttamente (es. "Bastia 1924 2 - 1 Tavernelle
-Calcio" con marcatori e minuti), screenshot di `#match_formations` generato (~250KB, contenuto
-reale, non vuoto) per le prime partite testate. **Non verificato lo scrivere su Supabase** (serve la
-service role key, che non ho): resta da controllare dal vero, dopo il prossimo
-`workflow_dispatch`, che le righe compaiano davvero in Altre Partite.
+Verificato dal vero **in locale** dopo questo fix (non solo `node --check`): Giornata 4 trovata con
+tutte e 8 le partite, squadre/risultato/marcatori estratti correttamente (es. "Bastia 1924 2 - 1
+Tavernelle Calcio" con marcatori e minuti), screenshot di `#match_formations` generato (~250KB,
+contenuto reale, non vuoto).
 
-**Nota per il futuro**: lo script ricontrolla OGNI giornata della stagione a ogni esecuzione (in
-questo caso 30), anche quelle concluse da mesi e che non cambiano più — funzionalmente corretto ma
-più lento/pesante del necessario su una stagione già avanzata. Se in futuro diventa un problema
-(tempo di esecuzione, bandwidth Supabase per gli screenshot ri-caricati ogni giorno), si può
-restringere alle sole giornate il cui evento in `events` cade in una finestra di date vicina a oggi
-(es. ±10 giorni) invece che su tutta la stagione — non fatto ora, nessuna richiesta esplicita di
-Francesco in merito.
+**Fix (in realtà: cambio di piano) — terzo lancio reale (2026-10-01)**: col fix sopra, il job su
+GitHub Actions tornava comunque a trovare "0 partite" su ogni giornata — ma stavolta impiegando un
+tempo realistico (~0.7-1s a pagina, non l'istantaneo di un blocco secco), quindi niente 403: pagine
+scaricate con successo (200) ma senza i dati delle partite. Indagato con `read_network_requests` nel
+browser di Claude Code: la pagina carica i risultati con una **seconda chiamata AJAX separata**
+(`.../Web/Views/Results/ResultsView.php?...&match_day_id=N`, con un token di sessione) invece di
+averli tutti nell'HTML iniziale — e quella chiamata, eseguita dallo stesso identico script/Chromium,
+funziona sempre in locale ma restituisce dati vuoti (senza errore) quando parte da un IP "cloud" di
+GitHub Actions. Conclusione: **non è un bug correggibile via codice** — è il sito che tratta in modo
+diverso gli IP noti come datacenter/CI, probabilmente per riconoscimento di reputazione IP a monte
+della richiesta AJAX stessa.
+
+**Decisione (con Francesco)**: abbandonato GitHub Actions, spostata l'esecuzione sul PC di
+Francesco (IP residenziale, mai bloccato) via Utilità di pianificazione di Windows — vedi sopra per
+il setup finale. Scartata anche l'ipotesi "farlo girare sul cellulare" (chiesta da Francesco): non
+praticabile, lo script richiede un browser Chromium vero (~300MB) che non gira in background in
+automatico né su iOS né, in modo affidabile, su Android.
+
+**Fix — primo giro completo dal PC (2026-10-01)**: confermato funzionante (Francesco ha visto
+risultati/marcatori veri comparire durante l'esecuzione), ma emersi due problemi reali osservati dal
+vero mentre girava:
+1. **Ricontrollava tutte le 30 giornate della stagione a ogni esecuzione**, comprese quelle
+   concluse da mesi e quelle lontanissime nel futuro — esattamente la nota lasciata qui sotto in
+   precedenza, confermata da Francesco appena vista girare. Fix: filtro sulla `date` reale
+   dell'evento (non dentro `data`, colonna propria di `events`) — si controllano solo le giornate
+   la cui nostra partita cade in una finestra di **±7 giorni da oggi** (`WINDOW_DAYS` in
+   `sync-tuttocampo.js`), non l'intera stagione. Più leggero e più mirato: aggiorna i risultati
+   appena disponibili (settimana appena passata) senza sprecare tempo su giornate lontane nel
+   tempo in nessuna delle due direzioni.
+2. **Screenshot allegato anche a partite non ancora giocate**: `#match_formations` esiste nella
+   pagina ANCHE prima del fischio d'inizio (vuota/non compilata) — il controllo `count() === 0`
+   non lo intercettava. Fix: lo screenshot scatta solo se la partita ha già un risultato
+   (`match.homeScore != null && match.awayScore != null`), altrimenti viene saltato — si
+   recupererà da solo, stesso id deterministico, in un'esecuzione successiva una volta giocata.
+   **Pulizia dei dati già sporchi**: nuovo script una tantum `App/scripts/
+   cleanup-unplayed-attachments.js` — rimuove gli allegati già caricati per errore su partite
+   senza risultato (stesse variabili d'ambiente di sync-tuttocampo.js), eseguito una volta subito
+   dopo il fix per ripulire quanto creato dal primo giro (col codice vecchio) prima che questi due
+   fix fossero pronti.
