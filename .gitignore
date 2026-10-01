@@ -58,3 +58,7 @@ $RECYCLE.BIN/
 
 ### Video files (too large for git)
 *.mp4
+
+### Analisi Avversari: report locali (PDF/JSON con immagini incorporate, file LongoMatch) —
+### troppo pesanti per git e non sempre adatti a un repo pubblico, restano solo in locale.
+Analisi Avversari/
