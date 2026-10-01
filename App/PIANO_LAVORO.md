@@ -112,6 +112,26 @@ dato il precedente miss sullo stesso set di funzionalità (campo invisibile su w
 
 ## Completato
 
+### Sincronizzazione automatica "Altre Partite" da TuttoCampo (2026-10-01)
+Richiesta di Francesco: aggiornare da sola la sezione Altre Partite con i risultati reali delle
+altre squadre del girone (Eccellenza Umbria Girone A), senza inserirli a mano. Nuovo script
+(`App/scripts/sync-tuttocampo.js`, Playwright) eseguito una volta al giorno da una GitHub Action
+(`sync-tuttocampo.yml`): legge squadre/risultato/marcatori da TuttoCampo.it per ogni giornata in cui
+abbiamo una partita, salta sempre la nostra (già sincronizzata da Live), e allega anche uno
+screenshot della sezione Formazioni di ogni partita. Le righe importate sono segnalate con un badge
+dedicato e non modificabili a mano (si aggiornano da sole ogni giorno). **Richiede configurazione
+manuale una tantum su GitHub** (un secret + 3 variabili, vedi CLAUDE.md) e l'esecuzione su Supabase
+di `32_schema_matchday_fixtures_source.sql` — non attiva finché Francesco non la completa.
+
+### Nuovo documento TEST_CASES.md (2026-10-01)
+Richiesta di Francesco: un documento con tutti i casi di test dell'app, da tenere aggiornato ad ogni
+modifica e pensato soprattutto per essere usato dall'AI per attività automatiche (non solo da un
+tester umano). Creato `App/TEST_CASES.md` — comportamento atteso per ogni area (Rosa, Staff,
+Calendario, Competizioni, Convocazione, Lista Gara, Formazione/Tattiche, Live, Altre Partite,
+Statistiche, Archivio, Sondaggi, Notifiche, Admin, Import/Export, compatibilità multipiattaforma),
+organizzato in tabelle con ID stabili. CLAUDE.md aggiornato con la regola permanente: leggerlo prima
+di toccare una funzionalità, aggiornarlo dopo.
+
 ### Staff: Sposta tra gli ex + nuova figura Collaboratore Tecnico (2026-10-01)
 Richiesta di Francesco: "Sposta tra gli ex" anche per lo Staff Tecnico/Sanitario/Dirigenza, stesso
 principio già esistente per i Giocatori — di conseguenza solo lo Staff attivo è selezionabile per

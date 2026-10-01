@@ -24,6 +24,10 @@ export type MatchdayFixture = {
    * sincronizzata da altrePartite.tsx con risultato/marcatori presi da Live, non modificabile a
    * mano (resta comunque possibile allegare foto/PDF). Null per un incontro inserito a mano. */
   matchId: string | null;
+  /** 'tuttocampo' se importata in automatico (scripts/sync-tuttocampo.js, via GitHub Actions) —
+   * stesso principio di matchId: non modificabile a mano (si aggiorna da sola ad ogni sync), ma
+   * restano allegabili foto/PDF. Null per una riga inserita a mano o per la nostra partita. */
+  source: string | null;
 };
 
 function fromRow(row: any): MatchdayFixture {
@@ -37,6 +41,7 @@ function fromRow(row: any): MatchdayFixture {
     awayScore: row.away_score,
     scorers: row.scorers ?? '',
     matchId: row.match_id ?? null,
+    source: row.source ?? null,
   };
 }
 
@@ -80,7 +85,7 @@ export async function addFixture(
     scorers: input.scorers,
   });
   if (error) throw error;
-  return { id, competition, giornata, matchId: null, ...input };
+  return { id, competition, giornata, matchId: null, source: null, ...input };
 }
 
 /** Crea o aggiorna (upsert per id deterministico `own-{matchId}`) la riga che rappresenta una
@@ -108,7 +113,7 @@ export async function syncOwnMatchFixture(
     scorers: input.scorers,
   });
   if (error) throw error;
-  return { id, competition, giornata, matchId, ...input };
+  return { id, competition, giornata, matchId, source: null, ...input };
 }
 
 export async function updateFixture(id: string, input: FixtureInput): Promise<void> {

@@ -4,6 +4,13 @@
 > Non rimuovere, disattivare o riscrivere in modo sostanziale nessuna di queste funzionalità a meno che
 > Francesco non lo richieda esplicitamente. Questo file va aggiornato ogni volta che si aggiunge/rimuove
 > una funzionalità reale (non serve aggiornarlo per refactoring interni che non cambiano il comportamento).
+>
+> **[TEST_CASES.md](TEST_CASES.md)** elenca il comportamento atteso di ogni funzionalità, caso per caso —
+> pensato prima di tutto per essere letto dall'AI prima di toccare una schermata e verificato dopo averla
+> modificata (richiesta esplicita di Francesco, 2026-10-01: "i casi di test devono essere fatti e
+> aggiornati ad ogni modifica... devono servire specialmente all'AI per svolgere attività automatiche").
+> **Leggilo prima di modificare una funzionalità esistente, aggiornalo (o aggiungi una sezione) dopo averla
+> cambiata o dopo averne aggiunta una nuova** — stessa disciplina di questo file e di PIANO_LAVORO.md.
 
 ## Cos'è
 
@@ -2282,3 +2289,73 @@ nel momento stesso in cui viene spostata tra gli ex, invece di restare visibile 
   Tecnico" compaia tra i Ruoli disponibili per lo Staff in Admin → Configurazioni senza doverlo
   aggiungere a mano. Richiede l'esecuzione su Supabase di
   `App/supabase/31_schema_staff_ex_and_collaboratore_tecnico.sql`.
+
+## Sincronizzazione automatica "Altre Partite" da TuttoCampo — 2026-10-01
+
+Richiesta di Francesco: aggiornare in automatico la sezione Altre Partite con i risultati reali
+delle altre squadre del girone (Eccellenza Umbria Girone A), presi da TuttoCampo.it, senza doverli
+inserire a mano partita per partita. Decisioni prese insieme (vedi conversazione): dati da importare
+= squadre, risultato e marcatori (non arbitro/assistenti — quelli restano manuali in Lista Gara);
+dove far girare l'automazione = **GitHub Actions**, stesso meccanismo già in uso per gli
+aggiornamenti OTA (`eas-update.yml`), nessun nuovo servizio da imparare; frequenza = una volta al
+giorno. Aggiunta anche, su richiesta successiva: uno **screenshot della sezione Formazioni** di ogni
+partita, allegato come se fosse una foto caricata a mano.
+
+**Cosa offre TuttoCampo** (verificato navigando il sito dal vero prima di scrivere lo script):
+`https://www.tuttocampo.it/Umbria/Eccellenza/GironeA/Giornata{N}` elenca i link a ogni singola
+partita della giornata N; la pagina di ogni partita (es. `.../Partita/4.5/pontevecchio-ellera-calcio`)
+ha un tabellino completo — risultato, riga `MARCATORI: 40' pt F. Retini (P), 20' st R. Croitoriu (E)`
+— e una sezione Formazioni con id **`#match_formations`** stabile (titolari+panchina di entrambe le
+squadre), già presente nell'HTML iniziale senza bisogno di cliccare su nessuna tab.
+
+**Nuovo script** `App/scripts/sync-tuttocampo.js` (Node, **Playwright** — serve un browser vero, non
+solo `fetch`, per lo screenshot), eseguito SOLO da CI, mai da un dispositivo:
+1. Legge le nostre partite (`events`, tipo `PARTITA`) con `data->>'competition'` uguale alla
+   variabile `TUTTOCAMPO_COMPETITION_NAME` — ne ricava l'insieme delle Giornate da controllare
+   (stesso principio "giriamo solo dove serve", niente calendario stagionale da mantenere a mano).
+2. Per ciascuna Giornata, apre `.../GironeA/GiornataN`, raccoglie gli URL di ogni partita
+   (`a[href*="/Partita/"]`, deduplicati).
+3. Per ciascuna partita: squadre dal `<title>` della pagina (`"X vs Y - ..."`, sempre presente anche
+   prima del fischio d'inizio), risultato e marcatori via regex sul testo (`Tabellino X - Y N - N` e
+   `MARCATORI: ...`) — **una partita con Ellera in casa o trasferta viene sempre saltata**
+   (`isOurTeam`, match su "ellera" case-insensitive): quella riga resta di competenza esclusiva di
+   `syncOwnMatchFixture` (sincronizzata da Live), non va duplicata né contesa tra due scrittori.
+4. Upsert su `matchday_fixtures` con **id deterministico** `tc-{competizione}-{giornata}-{casa}-
+   {trasferta}` (slug ASCII) — stesso principio di `own-{matchId}`: rilanciare lo script ogni giorno
+   aggiorna la stessa riga, non la duplica.
+5. Screenshot di `#match_formations` → carica su Storage (`matchday-attachments`,
+   `{orgId}/{fixtureId}/formazioni.png`) e upsert su `matchday_fixture_attachments` con id
+   deterministico `tc-shot-{id}` (sostituisce lo screenshot di un sync precedente invece di
+   accumularne uno nuovo ogni giorno).
+
+**Schema** — `App/supabase/32_schema_matchday_fixtures_source.sql`: nuova colonna
+`matchday_fixtures.source text` (nullable; `'tuttocampo'` per le righe importate). `app/data/
+matchdayFixtures.ts`: `MatchdayFixture.source` esposto; `app/eventi/partita/[id]/altrePartite.tsx`:
+`isImported = f.source === 'tuttocampo'` trattato come `isOwn` per bloccare Modifica/Elimina
+manuali (stesso motivo: un'esecuzione successiva dello script sovrascriverebbe comunque una
+correzione fatta a mano) — badge dedicato "🌐 Importata da TuttoCampo", allegati sempre permessi.
+
+**Nuova GitHub Action** `.github/workflows/sync-tuttocampo.yml` — schedule giornaliero (07:00 UTC,
+dopo le partite del weekend) + `workflow_dispatch` per un lancio manuale da Francesco quando vuole.
+Installa anche Chromium (`npx playwright install chromium --with-deps`) prima di eseguire lo script.
+
+**Configurazione richiesta UNA TANTUM su GitHub** (Settings → Secrets and variables → Actions),
+nessuna delle quali l'AI può impostare da sola:
+- **Secret** `SUPABASE_SERVICE_ROLE_KEY` — dalla dashboard Supabase (Settings → API → "service_role"
+  key, **mai** l'anon key): bypassa le policy RLS, serve perché lo script scrive su un'organizzazione
+  specifica senza un utente autenticato. **Segreto vero — mai incollarlo in chat**, va inserito
+  direttamente nell'interfaccia di GitHub.
+- **Variabile** `TEAMBOARD_ORG_ID` — uuid della riga Ellera in `organizations` (SQL Editor Supabase:
+  `select id from organizations where name = 'Ellera';`).
+- **Variabile** `TUTTOCAMPO_COMPETITION_NAME` — testo ESATTO scritto come "Competizione" sulle
+  nostre partite di questo campionato (es. "Campionato"): deve combaciare carattere per carattere,
+  altrimenti lo script non trova nessuna Giornata da controllare.
+- **Variabile** `TUTTOCAMPO_LEAGUE_URL` — `https://www.tuttocampo.it/Umbria/Eccellenza/GironeA`.
+  (`vars.EXPO_PUBLIC_SUPABASE_URL` è già configurata, riusata da questo stesso workflow.)
+
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti; `node --check` sullo script pulito.
+  **Non eseguibile da qui** (serve l'accesso a Supabase e alle variabili GitHub, entrambi di
+  Francesco): lanciare `workflow_dispatch` a mano la prima volta dopo aver configurato
+  secret/variabili e lo script SQL, controllare i log dell'Action, poi aprire Altre Partite di una
+  nostra partita e controllare che compaiano le altre squadre della stessa giornata con badge
+  "🌐 Importata da TuttoCampo", risultato, marcatori e screenshot formazioni allegato.

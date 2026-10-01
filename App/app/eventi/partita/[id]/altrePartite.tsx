@@ -365,6 +365,8 @@ export default function AltrePartite() {
               const homeLogo = teams.find((t) => t.name === f.homeTeam)?.logoUrl;
               const awayLogo = teams.find((t) => t.name === f.awayTeam)?.logoUrl;
               const isOwn = !!f.matchId && f.matchId === matchId;
+              const isImported = f.source === 'tuttocampo';
+              const isLocked = isOwn || isImported;
               return (
                 <View key={f.id} style={styles.fixtureCard}>
                   <View style={styles.fixtureHeaderRow}>
@@ -380,6 +382,7 @@ export default function AltrePartite() {
                     </View>
                   </View>
                   {isOwn && <Text style={styles.ownBadge}>🔴 Aggiornata automaticamente da Live</Text>}
+                  {isImported && <Text style={styles.ownBadge}>🌐 Importata da TuttoCampo</Text>}
                   {!!f.scorers && <Text style={styles.scorersText}>⚽ {f.scorers}</Text>}
 
                   {attachments.length > 0 && (
@@ -415,7 +418,7 @@ export default function AltrePartite() {
 
                   {!readOnly && (
                     <View style={styles.fixtureActionsRow}>
-                      {!isOwn && (
+                      {!isLocked && (
                         <Pressable style={styles.smallBtn} onPress={() => openEditModal(f)}>
                           <Text style={styles.smallBtnText}>✏️ Modifica</Text>
                         </Pressable>
@@ -429,7 +432,7 @@ export default function AltrePartite() {
                           {uploadingFor === f.id ? 'Caricamento…' : '📎 Allega foto/PDF'}
                         </Text>
                       </Pressable>
-                      {!isOwn && (
+                      {!isLocked && (
                         <Pressable style={[styles.smallBtn, styles.smallBtnDanger]} onPress={() => confirmDeleteFixture(f)}>
                           <Text style={styles.smallBtnDangerText}>🗑️ Elimina</Text>
                         </Pressable>
