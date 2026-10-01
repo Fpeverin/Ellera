@@ -66,17 +66,21 @@ async function dismissCookieBanner(page) {
   }
 }
 
-/** Estrae dalla pagina di una Giornata gli URL (unici) di ogni singola partita. */
+/** Estrae dalla pagina di una Giornata gli URL (unici) di ogni singola partita. Le righe NON sono
+ * <a href>, ma <tr data-link="...URL..."> (il click è gestito via JavaScript dal sito) — un
+ * selettore su `a[href]` non trova mai nulla, anche a pagina caricata correttamente. */
 async function collectMatchUrls(page, giornataUrl) {
-  await page.goto(giornataUrl, { waitUntil: 'domcontentloaded' });
+  await page.goto(giornataUrl, { waitUntil: 'networkidle' });
   await dismissCookieBanner(page);
-  const hrefs = await page.$$eval('a[href*="/Partita/"]', (as) => as.map((a) => a.href));
-  return Array.from(new Set(hrefs));
+  const links = await page.$$eval('[data-link*="/Partita/"]', (els) =>
+    els.map((el) => el.getAttribute('data-link'))
+  );
+  return Array.from(new Set(links.filter(Boolean)));
 }
 
 /** Estrae dati di una singola partita dalla sua pagina TuttoCampo. */
 async function scrapeMatch(page, url) {
-  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.goto(url, { waitUntil: 'networkidle' });
   await dismissCookieBanner(page);
 
   const title = await page.title();
@@ -148,8 +152,18 @@ async function main() {
   }
   console.log(`Giornate da controllare: ${giornate.join(', ')}`);
 
+  // TuttoCampo risponde 403 Forbidden allo User-Agent di default di Playwright (bot detection) —
+  // serve uno User-Agent/locale "normali" da browser desktop vero per ottenere le pagine (verificato
+  // dal vero, 2026-10-01: stesso identico URL, 403 col default, 200 con questi header).
   const browser = await chromium.launch();
-  const page = await browser.newPage();
+  const context = await browser.newContext({
+    userAgent:
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+    viewport: { width: 1366, height: 900 },
+    locale: 'it-IT',
+    extraHTTPHeaders: { 'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7' },
+  });
+  const page = await context.newPage();
 
   let created = 0;
   let updated = 0;

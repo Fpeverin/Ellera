@@ -123,6 +123,12 @@ dedicato e non modificabili a mano (si aggiornano da sole ogni giorno). **Richie
 manuale una tantum su GitHub** (un secret + 3 variabili, vedi CLAUDE.md) e l'esecuzione su Supabase
 di `32_schema_matchday_fixtures_source.sql` — non attiva finché Francesco non la completa.
 
+**Fix dopo i primi due lanci reali (2026-10-01)**: Node 20→22 (supabase-js richiede WebSocket
+nativo); TuttoCampo blocca lo User-Agent di default di Playwright (403) e le righe dei risultati
+sono `<tr data-link>`, non `<a href>` — entrambi corretti e verificati dal vero in locale (Giornata
+4, 8/8 partite estratte con risultato/marcatori/screenshot formazioni). Vedi CLAUDE.md per i
+dettagli. Ancora da confermare dal vero: la scrittura su Supabase dal prossimo lancio in CI.
+
 ### Nuovo documento TEST_CASES.md (2026-10-01)
 Richiesta di Francesco: un documento con tutti i casi di test dell'app, da tenere aggiornato ad ogni
 modifica e pensato soprattutto per essere usato dall'AI per attività automatiche (non solo da un

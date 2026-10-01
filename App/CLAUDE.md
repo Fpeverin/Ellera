@@ -2368,3 +2368,34 @@ sottoscrizioni) e quella inizializzazione cerca un `WebSocket` nativo — assent
 disponibile da Node 22. Fix: `node-version: 22` in `sync-tuttocampo.yml` (consigliato dallo stesso
 messaggio d'errore di supabase-js); non serve toccare `eas-update.yml`, che non usa supabase-js lato
 Node.
+
+**Fix — secondo lancio reale (2026-10-01)**: col fix sopra il job arrivava fino in fondo ("Fatto")
+ma trovava "0 partite" su **ogni** giornata, incluse quelle concluse da tempo — sintomo di un
+blocco sistematico, non di un problema di una singola pagina. Diagnosticato in locale lanciando lo
+stesso Playwright contro lo stesso URL (vedi script temporanei di debug, poi rimossi): due cause
+distinte, entrambe reali.
+1. **403 Forbidden**: TuttoCampo blocca lo User-Agent di default di Playwright (bot detection) — un
+   browser headless "nudo" non riceve nemmeno la pagina. Fix: `browser.newContext({ userAgent:
+   '...Chrome/129...', locale: 'it-IT', extraHTTPHeaders: {...} })` invece di `browser.newPage()`
+   diretto — User-Agent/lingua "normali" da browser desktop vero.
+2. **Selettore sbagliato**: anche superato il 403, `a[href*="/Partita/"]` non trovava mai nulla — le
+   righe dei risultati NON sono `<a href>` ma `<tr data-link="...URL...">` (il sito gestisce il click
+   via JavaScript, non con un link vero). Fix: selettore su `[data-link*="/Partita/"]`, estrazione
+   dell'URL dall'attributo `data-link` invece che da `.href`. Cambiato anche `waitUntil` da
+   `domcontentloaded` a `networkidle` per entrambe le navigazioni (giornata e singola partita):
+   il contenuto richiede che la pagina finisca di scaricare le risorse, non solo il DOM iniziale.
+
+Verificato dal vero in locale dopo il fix (non solo `node --check`): Giornata 4 trovata con tutte e
+8 le partite, squadre/risultato/marcatori estratti correttamente (es. "Bastia 1924 2 - 1 Tavernelle
+Calcio" con marcatori e minuti), screenshot di `#match_formations` generato (~250KB, contenuto
+reale, non vuoto) per le prime partite testate. **Non verificato lo scrivere su Supabase** (serve la
+service role key, che non ho): resta da controllare dal vero, dopo il prossimo
+`workflow_dispatch`, che le righe compaiano davvero in Altre Partite.
+
+**Nota per il futuro**: lo script ricontrolla OGNI giornata della stagione a ogni esecuzione (in
+questo caso 30), anche quelle concluse da mesi e che non cambiano più — funzionalmente corretto ma
+più lento/pesante del necessario su una stagione già avanzata. Se in futuro diventa un problema
+(tempo di esecuzione, bandwidth Supabase per gli screenshot ri-caricati ogni giorno), si può
+restringere alle sole giornate il cui evento in `events` cade in una finestra di date vicina a oggi
+(es. ±10 giorni) invece che su tutta la stagione — non fatto ora, nessuna richiesta esplicita di
+Francesco in merito.
