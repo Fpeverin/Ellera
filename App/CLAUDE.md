@@ -2348,8 +2348,9 @@ nessuna delle quali l'AI può impostare da sola:
 - **Variabile** `TEAMBOARD_ORG_ID` — uuid della riga Ellera in `organizations` (SQL Editor Supabase:
   `select id from organizations where name = 'Ellera';`).
 - **Variabile** `TUTTOCAMPO_COMPETITION_NAME` — testo ESATTO scritto come "Competizione" sulle
-  nostre partite di questo campionato (es. "Campionato"): deve combaciare carattere per carattere,
-  altrimenti lo script non trova nessuna Giornata da controllare.
+  nostre partite di questo campionato: deve combaciare carattere per carattere, altrimenti lo
+  script non trova nessuna Giornata da controllare. **Confermato da Francesco (2026-10-01):
+  `Campionato`.**
 - **Variabile** `TUTTOCAMPO_LEAGUE_URL` — `https://www.tuttocampo.it/Umbria/Eccellenza/GironeA`.
   (`vars.EXPO_PUBLIC_SUPABASE_URL` è già configurata, riusata da questo stesso workflow.)
 
@@ -2359,3 +2360,11 @@ nessuna delle quali l'AI può impostare da sola:
   secret/variabili e lo script SQL, controllare i log dell'Action, poi aprire Altre Partite di una
   nostra partita e controllare che compaiano le altre squadre della stessa giornata con badge
   "🌐 Importata da TuttoCampo", risultato, marcatori e screenshot formazioni allegato.
+
+**Fix — primo lancio reale (2026-10-01)**: secret/variabili configurati correttamente (lo script
+arrivava fino a `createClient`), ma il job falliva comunque: `@supabase/supabase-js` istanzia
+sempre un client Realtime nel costruttore (anche se questo script fa solo query dirette, mai
+sottoscrizioni) e quella inizializzazione cerca un `WebSocket` nativo — assente su Node 20,
+disponibile da Node 22. Fix: `node-version: 22` in `sync-tuttocampo.yml` (consigliato dallo stesso
+messaggio d'errore di supabase-js); non serve toccare `eas-update.yml`, che non usa supabase-js lato
+Node.

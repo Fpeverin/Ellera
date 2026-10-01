@@ -28,7 +28,12 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # @supabase/supabase-js istanzia sempre un client Realtime (anche se questo script non lo
+          # usa, fa solo query dirette) — su Node 20 manca il WebSocket nativo richiesto per
+          # inizializzarlo e il semplice createClient() va in crash. Node 22+ lo risolve (consigliato
+          # dallo stesso messaggio d'errore di supabase-js). Non serve toccare eas-update.yml (Node
+          # 20 lì va bene, non usa supabase-js lato Node).
+          node-version: 22
 
       - name: Installa le dipendenze
         run: npm ci
