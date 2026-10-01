@@ -244,10 +244,13 @@ export default function ListaGara() {
     };
   };
 
-  /** Candidati per un ruolo di staff: solo persone della Rosa Staff (mai giocatori) — convocati prima, poi il resto. */
+  /** Candidati per un ruolo di staff: solo persone della Rosa Staff (mai giocatori) — convocati
+   * prima, poi il resto dello Staff attivo (chi è tra gli ex non è proponibile per un nuovo ruolo,
+   * stesso principio dei soli giocatori attivi in candidatesForNumber — ma se un convocato era già
+   * stato assegnato a un ruolo prima di finire tra gli ex, resta comunque tra i "Convocati"). */
   const candidatesForStaffRole = () => {
     const convocatiStaff = staffMembers.filter((s) => convocatiStaffIds.includes(s.id));
-    const otherStaff = staffMembers.filter((s) => !convocatiStaffIds.includes(s.id));
+    const otherStaff = staffMembers.filter((s) => !convocatiStaffIds.includes(s.id) && !s.isEx);
     return {
       convocati: convocatiStaff.map((s) => ({ kind: 'staff' as const, id: s.id, name: s.name })),
       staff: otherStaff.map((s) => ({ kind: 'staff' as const, id: s.id, name: s.name })),

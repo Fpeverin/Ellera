@@ -13,6 +13,7 @@ export type StaffMember = {
   name: string;
   category: StaffCategory;
   role: string | null;
+  isEx: boolean;
 };
 
 export type NewStaffMemberInput = {
@@ -27,6 +28,7 @@ function rowToStaffMember(row: any): StaffMember {
     name: row.name,
     category: row.category,
     role: row.role ?? null,
+    isEx: !!row.is_ex,
   };
 }
 
@@ -43,6 +45,7 @@ export async function addStaffMember(input: NewStaffMemberInput): Promise<StaffM
     name: input.name.trim(),
     category: input.category,
     role: input.role?.trim() || null,
+    isEx: false,
   };
   const { error } = await supabase.from('staff_members').insert({
     id: newMember.id,
@@ -65,5 +68,13 @@ export async function updateStaffMember(
 
 export async function removeStaffMember(id: string): Promise<void> {
   const { error } = await supabase.from('staff_members').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/** Sposta una persona tra gli ex (o la riattiva) — stesso principio di moveToEx/moveToExMany per i
+ * giocatori (app/hooks/usePlayers.ts): una persona tra gli ex non è più selezionabile per una
+ * nuova Convocazione/Lista Gara, ma resta visibile dove già convocata in passato. */
+export async function setStaffMemberEx(id: string, isEx: boolean): Promise<void> {
+  const { error } = await supabase.from('staff_members').update({ is_ex: isEx }).eq('id', id);
   if (error) throw error;
 }

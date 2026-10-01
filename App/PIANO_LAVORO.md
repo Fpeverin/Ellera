@@ -112,6 +112,14 @@ dato il precedente miss sullo stesso set di funzionalità (campo invisibile su w
 
 ## Completato
 
+### Staff: Sposta tra gli ex + nuova figura Collaboratore Tecnico (2026-10-01)
+Richiesta di Francesco: "Sposta tra gli ex" anche per lo Staff Tecnico/Sanitario/Dirigenza, stesso
+principio già esistente per i Giocatori — di conseguenza solo lo Staff attivo è selezionabile per
+una nuova Convocazione/Lista Gara (chi è già convocato/assegnato in passato resta comunque
+visibile, non sparisce se spostato tra gli ex dopo). Aggiunta anche la nuova figura "Collaboratore
+Tecnico" tra i ruoli disponibili per lo Staff Tecnico. Richiede l'esecuzione su Supabase di
+`31_schema_staff_ex_and_collaboratore_tecnico.sql`. Vedi CLAUDE.md per i dettagli tecnici completi.
+
 ### Fix: id del giocatore ancora visibile nelle select di Live (2026-08-28)
 Francesco: "Nella selezione sui live vedo ancora l'id del giocatore invece del nome" — nuova causa,
 distinta da tutte quelle già corrette in passato: un giocatore poteva essere eliminato del tutto

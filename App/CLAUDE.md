@@ -2226,3 +2226,59 @@ database (non è una race di caricamento, questa volta i dati sono davvero persi
   rimosso)` invece dell'id; verificare che un tentativo di eliminare del tutto un giocatore già
   entrato in campo/con un numero di Lista Gara venga ora bloccato (spostato tra gli ex) invece di
   riuscire.
+
+## Staff: Sposta tra gli ex + nuova figura Collaboratore Tecnico — 2026-10-01
+
+Richiesta di Francesco: "Dobbiamo sviluppare una logica di Sposta tra gli ex anche sullo staff
+tecnico. Di conseguenza anche sullo staff si può convocare solo gli attivi e non gli ex. Inoltre va
+prevista la figura del collaboratore tecnico che fa parte dello staff tecnico" — stesso principio
+già esistente per i Giocatori (`players.is_ex`, `app/hooks/usePlayers.ts`), replicato per lo Staff
+(Tecnico/Sanitario/Dirigenza), con le stesse conseguenze a cascata su dove lo Staff viene scelto
+per una partita.
+
+**Schema** — `App/supabase/31_schema_staff_ex_and_collaboratore_tecnico.sql`:
+- `staff_members.is_ex boolean not null default false` — stesso identico pattern di
+  `players.is_ex`.
+- Nuovo ruolo **"Collaboratore Tecnico"** aggiunto sia al default di
+  `organizations.staff_roles` (organizzazioni future) sia, con un `update`, alle organizzazioni
+  già esistenti (il default di una colonna non si applica retroattivamente alle righe già
+  scritte) — da Admin → Configurazioni compare quindi già pronto tra i Ruoli disponibili per lo
+  Staff, nessuna azione manuale richiesta.
+
+**`app/data/staffRoster.ts`**: `StaffMember` esteso con `isEx: boolean` (da `is_ex`); nuova
+`setStaffMemberEx(id, isEx)` — un solo toggle per spostare tra gli ex e riattivare, invece di due
+funzioni separate come per i giocatori (qui non serve una versione "many" per selezione multipla,
+la Rosa Staff non ha quella UI).
+
+**`app/squadra/staffRoster.tsx`**: ogni categoria ora mostra gli attivi come prima e, se presenti,
+un blocco "Ex" sotto (card più trasparenti, `opacity: 0.7`) con un bottone "↩️ Riattiva" al posto
+di "📤 Invita"/"🔄 Sposta tra ex" — gli attivi hanno invece un nuovo bottone "🔄 Sposta tra ex"
+accanto a Modifica/Invita/Rimuovi. Azione diretta, nessuna conferma (stesso comportamento di
+"Sposta tra ex giocatori" in Rosa — solo l'eliminazione definitiva chiede conferma).
+
+**Solo lo Staff attivo selezionabile per una nuova Convocazione/Lista Gara** (conseguenza
+richiesta esplicitamente): stesso principio già in vigore per i giocatori (`candidatesForNumber`
+in Lista Gara usa solo `players`, attivi). Il filtro esclude sempre chi è tra gli ex **tranne** se
+già scelto in precedenza — altrimenti una persona già convocata/assegnata sparirebbe dalla vista
+nel momento stesso in cui viene spostata tra gli ex, invece di restare visibile dove già presente:
+- `app/eventi/partita/[id]/convocazione.tsx`: la checklist Staff per categoria ora filtra
+  `s.category === cat && (!s.isEx || staffIds.includes(s.id))` — un ex già convocato resta in
+  lista (e nel conteggio/PDF, già basati su `staffMembers` completo), uno NON ancora convocato
+  sparisce dalla scelta.
+- `app/eventi/partita/[id]/listaGara.tsx`: `candidatesForStaffRole()` — il gruppo "Convocati"
+  resta invariato (può includere un ex già convocato), il gruppo "il resto dello Staff" ora esclude
+  `s.isEx` (`!convocatiStaffIds.includes(s.id) && !s.isEx`).
+- **Non toccato** (stesso principio già in vigore per i giocatori, dove il collegamento account usa
+  `allPlayers` — attivi+ex — non solo attivi): il collegamento account↔persona in
+  `app/squadra/staff.tsx` (sezione "Gestione membri" → "Collegato alla persona dello Staff") e la
+  selezione del pubblico destinatario in `app/squadra/sondaggi/editor.tsx` restano invariati,
+  mostrano sempre tutto lo Staff — l'esclusione degli ex riguarda solo le convocazioni/Lista Gara di
+  una partita, non il collegamento account o i sondaggi.
+- **Verifica**: `tsc --noEmit` + `npx expo export -p web` puliti. **Da verificare dal vero**:
+  spostare una persona dello Staff Tecnico tra gli ex da Rosa Staff e controllare che non compaia
+  più tra le caselle selezionabili in una nuova Convocazione né tra i candidati di un ruolo Lista
+  Gara non ancora assegnato, ma resti visibile/conteggiata se già convocata in una partita
+  precedente; riattivarla e controllare che torni selezionabile; controllare che "Collaboratore
+  Tecnico" compaia tra i Ruoli disponibili per lo Staff in Admin → Configurazioni senza doverlo
+  aggiungere a mano. Richiede l'esecuzione su Supabase di
+  `App/supabase/31_schema_staff_ex_and_collaboratore_tecnico.sql`.

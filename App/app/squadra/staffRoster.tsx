@@ -19,6 +19,7 @@ import {
   addStaffMember,
   loadStaffMembers,
   removeStaffMember,
+  setStaffMemberEx,
   StaffCategory,
   StaffMember,
   updateStaffMember,
@@ -198,6 +199,21 @@ export default function StaffRoster() {
     }
   };
 
+  /** Sposta tra gli ex (o riattiva) — stesso principio di "Sposta tra ex giocatori" in Rosa: una
+   * persona tra gli ex non è più selezionabile per una nuova Convocazione/Lista Gara, ma resta
+   * visibile dove già convocata in passato. Azione diretta, nessuna conferma (come per i giocatori). */
+  const handleToggleEx = async (member: StaffMember) => {
+    setRowBusyId(member.id);
+    try {
+      await setStaffMemberEx(member.id, !member.isEx);
+      await load();
+    } catch {
+      Alert.alert('Errore', 'Impossibile aggiornare lo stato della persona.');
+    } finally {
+      setRowBusyId(null);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -218,10 +234,12 @@ export default function StaffRoster() {
 
         {CATEGORIES.map((cat) => {
           const inCategory = members.filter((m) => m.category === cat);
+          const active = inCategory.filter((m) => !m.isEx);
+          const ex = inCategory.filter((m) => m.isEx);
           return (
             <View key={cat} style={styles.section}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>{CATEGORY_LABELS[cat]} ({inCategory.length})</Text>
+                <Text style={styles.sectionTitle}>{CATEGORY_LABELS[cat]} ({active.length})</Text>
                 {isAdmin && (
                   <Pressable style={styles.smallBtn} onPress={() => openAdd(cat)}>
                     <Text style={styles.smallBtnText}>+ Aggiungi</Text>
@@ -229,10 +247,10 @@ export default function StaffRoster() {
                 )}
               </View>
 
-              {inCategory.length === 0 ? (
+              {active.length === 0 ? (
                 <Text style={styles.emptyText}>Nessuno censito.</Text>
               ) : (
-                inCategory.map((m) => (
+                active.map((m) => (
                   <View key={m.id} style={styles.memberCard}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.memberName}>{m.name}</Text>
@@ -256,6 +274,13 @@ export default function StaffRoster() {
                             </Text>
                           </Pressable>
                         )}
+                        <Pressable
+                          style={styles.memberActionBtn}
+                          onPress={() => handleToggleEx(m)}
+                          disabled={rowBusyId === m.id}
+                        >
+                          <Text style={styles.memberActionText}>🔄 Sposta tra ex</Text>
+                        </Pressable>
                         <Pressable style={styles.memberActionBtn} onPress={() => setConfirmRemove(m)}>
                           <Text style={[styles.memberActionText, { color: '#dc2626' }]}>Rimuovi</Text>
                         </Pressable>
@@ -263,6 +288,37 @@ export default function StaffRoster() {
                     )}
                   </View>
                 ))
+              )}
+
+              {ex.length > 0 && (
+                <View style={styles.exBlock}>
+                  <Text style={styles.exTitle}>Ex ({ex.length})</Text>
+                  {ex.map((m) => (
+                    <View key={m.id} style={[styles.memberCard, styles.memberCardEx]}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.memberName}>{m.name}</Text>
+                        {m.role ? <Text style={styles.memberRole}>{m.role}</Text> : null}
+                      </View>
+                      {isAdmin && (
+                        <View style={styles.memberActions}>
+                          <Pressable style={styles.memberActionBtn} onPress={() => openEdit(m)}>
+                            <Text style={styles.memberActionText}>Modifica</Text>
+                          </Pressable>
+                          <Pressable
+                            style={styles.memberActionBtn}
+                            onPress={() => handleToggleEx(m)}
+                            disabled={rowBusyId === m.id}
+                          >
+                            <Text style={[styles.memberActionText, { color: '#1b7f3b' }]}>↩️ Riattiva</Text>
+                          </Pressable>
+                          <Pressable style={styles.memberActionBtn} onPress={() => setConfirmRemove(m)}>
+                            <Text style={[styles.memberActionText, { color: '#dc2626' }]}>Rimuovi</Text>
+                          </Pressable>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
               )}
             </View>
           );
@@ -388,6 +444,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
+  exBlock: { marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#e5e7eb' },
+  exTitle: { fontSize: 13, fontWeight: '700', color: '#94a3b8', marginBottom: 4, textTransform: 'uppercase' },
+  memberCardEx: { opacity: 0.7 },
   memberName: { fontSize: 15, fontWeight: '700', color: '#1e293b' },
   memberRole: { fontSize: 12, color: '#64748b', marginTop: 2 },
   memberActions: { gap: 6, alignItems: 'flex-end' },

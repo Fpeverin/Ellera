@@ -502,7 +502,13 @@ export default function Convocazione() {
           <View style={[styles.section, isWide && styles.columnFlex]}>
             <Text style={styles.sectionTitle}>Staff convocato ({staffIds.length})</Text>
             {CATEGORIES.map((cat) => {
-              const inCategory = staffMembers.filter((s) => s.category === cat);
+              // Solo lo Staff attivo è selezionabile per una nuova convocazione (stesso principio
+              // di "players", attivi, per i giocatori) — chi è già convocato ma nel frattempo
+              // spostato tra gli ex resta comunque nella checklist (e nel conteggio/PDF), non
+              // sparisce: lo stesso filtro andrebbe a nascondere una selezione già fatta.
+              const inCategory = staffMembers.filter(
+                (s) => s.category === cat && (!s.isEx || staffIds.includes(s.id))
+              );
               return (
                 <View style={styles.staffCategoryBlock} key={cat}>
                   <Text style={styles.staffCategoryTitle}>
