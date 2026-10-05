@@ -2460,3 +2460,10 @@ a mano lo stesso script funzionava, quindi cause intermittenti. Due correzioni:
    caricamento e a volte una giornata risultava "0 partite" in silenzio (osservato dal vero).
 **Nota**: se una partita non ha risultato nemmeno su TuttoCampo (es. rinviata, o risultato non
 ancora inserito dagli utenti del sito) l'app non può mostrarlo — i dati arrivano da lì.
+
+**Causa reale dei fallimenti pianificati (2026-10-05)** — grazie al log: l'attività pianificata
+usciva con `browserType.launch: Executable doesn't exist at ...\ms-playwright\chromium_headless_shell-1243\...`.
+Il Chromium di Playwright va installato **nel Windows reale di Francesco**
+(`npx playwright install chromium`, da un terminale suo, cartella `App`): l'installazione fatta
+dall'AI dentro la propria sessione è visibile solo a quella sessione, non a Task Scheduler (che
+quindi falliva con codice 1), anche se lanciato dall'AI lo stesso script sembrava funzionare.
