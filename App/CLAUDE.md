@@ -2445,3 +2445,18 @@ vero mentre girava:
    senza risultato (stesse variabili d'ambiente di sync-tuttocampo.js), eseguito una volta subito
    dopo il fix per ripulire quanto creato dal primo giro (col codice vecchio) prima che questi due
    fix fossero pronti.
+
+**Fix — "non ha aggiornato i risultati questa settimana" (2026-10-05)**: l'attività pianificata
+`TUTTOCAMPO_ELLERA` era terminata con codice di uscita 1 (verificato con `Get-ScheduledTaskInfo`),
+ma in background non si vede nulla e non esisteva alcun log: impossibile sapere perché. Rilanciato
+a mano lo stesso script funzionava, quindi cause intermittenti. Due correzioni:
+1. **Log su file**: `run-sync-tuttocampo.ps1` scrive tutto l'output (e gli errori) in
+   `App/logs/sync-tuttocampo.log`, in coda a ogni esecuzione (cartella `logs/` in `.gitignore`).
+   Da controllare per primo se un aggiornamento manca.
+2. **Caricamento più robusto** in `sync-tuttocampo.js`: `loadPage()` (DOM + attesa limitata della
+   rete, un ritentativo; `networkidle` da solo andava in timeout a 30s su qualche pagina per via di
+   script pubblicitari) e, per l'elenco partite, attesa esplicita del selettore `[data-link*=
+   "/Partita/"]` con fino a 3 tentativi: le righe arrivano da una chiamata AJAX successiva al
+   caricamento e a volte una giornata risultava "0 partite" in silenzio (osservato dal vero).
+**Nota**: se una partita non ha risultato nemmeno su TuttoCampo (es. rinviata, o risultato non
+ancora inserito dagli utenti del sito) l'app non può mostrarlo — i dati arrivano da lì.

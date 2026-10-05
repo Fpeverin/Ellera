@@ -40,6 +40,9 @@ yarn-error.*
 .env
 .env*.local
 
+# log locali di scripts/run-sync-tuttocampo.ps1
+logs/
+
 # typescript
 *.tsbuildinfo
 

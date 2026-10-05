@@ -70,21 +70,51 @@ async function dismissCookieBanner(page) {
   }
 }
 
+/** Apre una pagina in modo tollerante: `networkidle` da solo andava in timeout (30s) su qualche
+ * pagina per via di script pubblicitari/tracker che non smettono mai di fare richieste, facendo
+ * saltare in silenzio la partita (visto dal vero, 2026-10-05). Qui si aspetta solo il DOM, poi si
+ * concede un tempo limitato alla rete per assestarsi senza considerarne la mancanza un errore;
+ * un solo ritentativo se il caricamento iniziale fallisce proprio. */
+async function loadPage(page, url) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      break;
+    } catch (err) {
+      if (attempt === 2) throw err;
+    }
+  }
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+}
+
 /** Estrae dalla pagina di una Giornata gli URL (unici) di ogni singola partita. Le righe NON sono
  * <a href>, ma <tr data-link="...URL..."> (il click è gestito via JavaScript dal sito) — un
  * selettore su `a[href]` non trova mai nulla, anche a pagina caricata correttamente. */
 async function collectMatchUrls(page, giornataUrl) {
-  await page.goto(giornataUrl, { waitUntil: 'networkidle' });
-  await dismissCookieBanner(page);
-  const links = await page.$$eval('[data-link*="/Partita/"]', (els) =>
-    els.map((el) => el.getAttribute('data-link'))
-  );
-  return Array.from(new Set(links.filter(Boolean)));
+  // Le righe arrivano da una chiamata AJAX successiva al caricamento della pagina: aspettarle
+  // esplicitamente (non basta il networkidle, che a volte scatta prima che la chiamata parta) e,
+  // se non compaiono, ricaricare una volta — senza, una giornata poteva risultare "0 partite"
+  // in silenzio e restare non aggiornata per l'intera esecuzione (visto dal vero, 2026-10-05).
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await loadPage(page, giornataUrl);
+    await dismissCookieBanner(page);
+    try {
+      await page.waitForSelector('[data-link*="/Partita/"]', { timeout: 20000 });
+    } catch {
+      console.warn(`  nessuna partita visibile (tentativo ${attempt}/3)`);
+      continue;
+    }
+    const links = await page.$$eval('[data-link*="/Partita/"]', (els) =>
+      els.map((el) => el.getAttribute('data-link'))
+    );
+    return Array.from(new Set(links.filter(Boolean)));
+  }
+  return [];
 }
 
 /** Estrae dati di una singola partita dalla sua pagina TuttoCampo. */
 async function scrapeMatch(page, url) {
-  await page.goto(url, { waitUntil: 'networkidle' });
+  await loadPage(page, url);
   await dismissCookieBanner(page);
 
   const title = await page.title();
