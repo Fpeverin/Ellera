@@ -233,6 +233,7 @@ File: `app/eventi/partita/[id]/live.tsx`, `app/data/matchLive.ts`.
 | LIVE-11 | Fine partita | Partita avviata | "Fine partita" | Stato partita = terminata, cronometro fermo, evento salvato | Admin/Staff |
 | LIVE-12 | Durata partita impostata a mano | Partita mai seguita dal vivo (risultato inserito dopo) | Imposta la durata manualmente | Statistiche minutaggio coerenti con la durata indicata | Admin/Staff |
 | LIVE-13 | Stemmi squadre nello scoreboard | Stemmi configurati/disponibili per entrambe le squadre | Apri Live | Stemmi 56×56 sopra i nomi delle squadre; placeholder grigio se manca | Admin/Staff |
+| LIVE-15 | Lati casa/ospiti corretti | Partita IN CASA (Calendario: Casa) | Apri Live, registra un gol nostro | Ellera compare come squadra di casa (prima) nel tabellone, il gol va al nostro punteggio; Altre Partite, Statistiche e scheda giocatore concordano. Con "Trasferta" Ellera e' la seconda. Vale per ogni punto che decide casa/trasferta: usare sempre isHomeEvent (app/data/events.ts), mai confronti diretti con HOME/CASA | Admin/Staff |
 | LIVE-14 | Modali scorrevoli su schermo piccolo | Telefono in verticale | Apri un modale con Picker (Sostituzione, Inserimento manuale) | Tutto il contenuto raggiungibile scorrendo, Picker compreso, nulla sotto la barra di gesture | Admin/Staff |
 
 ---

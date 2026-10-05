@@ -111,3 +111,15 @@ export async function saveEvents(events: CalendarEvent[]): Promise<void> {
   const { error: deleteError } = await deleteQuery;
   if (deleteError) throw deleteError;
 }
+
+/** La NOSTRA squadra gioca in casa in questa partita? Unica fonte di verità per Live, Altre Partite,
+ * Statistiche, scheda giocatore e archivio. Il calendario salva `homeAway` come 'CASA'/'TRASFERTA'
+ * (versioni più vecchie: 'HOME'/'AWAY', o un booleano `isHome`): confrontare solo con 'HOME' — come
+ * facevano Live, Statistiche e scheda giocatore — dava sempre "trasferta" per ogni partita nuova, con
+ * gol e cartellini registrati sul lato sbagliato (visto il 2026-10-05, Ellera-Padule 2-0 mostrata 0-2).
+ * Senza nessuna indicazione si assume Casa, come fa già il resto del Calendario. */
+export function isHomeEvent(ev: any): boolean {
+  if (typeof ev?.isHome === 'boolean') return ev.isHome;
+  const ha = String(ev?.homeAway ?? '').trim().toUpperCase();
+  return !(ha === 'TRASFERTA' || ha === 'AWAY');
+}

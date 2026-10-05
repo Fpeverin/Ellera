@@ -23,7 +23,7 @@ import ConvocatiPlayersModal from '../../../components/partite/ConvocatiPlayersM
 import TeamLogo from '../../../components/TeamLogo';
 import { findTeamLogoForOpponent } from '../../../data/competitionTeams';
 import { loadConvocazione, saveConvocatiPlayerIds } from '../../../data/convocazione';
-import { loadEvents, patchEventData, saveEvents } from '../../../data/events';
+import { isHomeEvent, loadEvents, patchEventData, saveEvents } from '../../../data/events';
 import { loadOrgLogoUrl, opponentLogoUrlFromPath } from '../../../data/organization';
 import {
   CardItem,
@@ -263,10 +263,7 @@ export default function LivePartita() {
         const ev = events.find((e) => `${e.id}` === `${matchId}`);
 
         const opponent: string = (ev?.opponent ?? ev?.avversario ?? '').toString().trim();
-        const isHomeEvent: boolean =
-          typeof ev?.isHome === 'boolean' ? ev.isHome : (ev?.homeAway === 'HOME');
-
-        if (isHomeEvent) {
+        if (isHomeEvent(ev)) {
           setHomeName(CLUB_NAME); setAwayName(opponent || 'Ospiti'); setOurSide('HOME');
         } else {
           setHomeName(opponent || 'Avversari'); setAwayName(CLUB_NAME); setOurSide('AWAY');

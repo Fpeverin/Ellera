@@ -29,7 +29,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import TeamLogo from '../../../components/TeamLogo';
 import { useAuth } from '../../../context/AuthContext';
 import { CompetitionTeam, loadCompetitionTeams } from '../../../data/competitionTeams';
-import { CalendarEvent, loadEvents, patchEventData } from '../../../data/events';
+import { CalendarEvent, isHomeEvent, loadEvents, patchEventData } from '../../../data/events';
 import {
   addFixture,
   addFixtureAttachment,
@@ -109,7 +109,7 @@ export default function AltrePartite() {
   // Staff/Admin possono scrivere (RLS), un Giocatore vede l'ultimo stato sincronizzato.
   const syncOwnFixture = async (ev: CalendarEvent, comp: string, g: string) => {
     if (!matchId || readOnly) return;
-    const homeAway = ((ev as any).homeAway === 'TRASFERTA' ? 'TRASFERTA' : 'CASA') as 'CASA' | 'TRASFERTA';
+    const homeAway: 'CASA' | 'TRASFERTA' = isHomeEvent(ev) ? 'CASA' : 'TRASFERTA';
     const opponent = ev.opponent || 'Avversario';
     const homeTeam = homeAway === 'CASA' ? CLUB_NAME : opponent;
     const awayTeam = homeAway === 'CASA' ? opponent : CLUB_NAME;

@@ -1,5 +1,5 @@
 import { Player } from '../data/players';
-import { CalendarEvent, loadEvents, saveEvents } from '../data/events';
+import { CalendarEvent, isHomeEvent, loadEvents, saveEvents } from '../data/events';
 import { deleteMatchLive, loadCards, loadGoals, loadLineup, loadSubs } from '../data/matchLive';
 import { loadPhotoMap } from '../data/playerMedia';
 import { getCurrentOrgId } from '../lib/currentOrg';
@@ -241,7 +241,7 @@ export async function buildSeasonArchive(label: string, allPlayers: Player[]): P
     const lineup = normalizeLineup(lineupRaw, ev);
     // isHome e homeAway sono campi runtime non dichiarati nel tipo CalendarEvent
     const evAny = ev as any;
-    const isHome = evAny.isHome !== false && evAny.homeAway !== 'AWAY';
+    const isHome = isHomeEvent(evAny);
 
     return {
       id: String(ev.id),

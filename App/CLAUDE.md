@@ -2467,3 +2467,41 @@ Il Chromium di Playwright va installato **nel Windows reale di Francesco**
 (`npx playwright install chromium`, da un terminale suo, cartella `App`): l'installazione fatta
 dall'AI dentro la propria sessione è visibile solo a quella sessione, non a Task Scheduler (che
 quindi falliva con codice 1), anche se lanciato dall'AI lo stesso script sembrava funzionare.
+
+**Fix — partita finita senza formazioni/marcatori sul sito (2026-10-05)**: Tavernelle-Terni 2-2
+(giornata 5) restava senza risultato. Il "Tabellino" (da cui lo script leggeva punteggio e riga
+`MARCATORI:`) compare su TuttoCampo solo se qualcuno inserisce formazioni/marcatori; il risultato e
+i marcatori, però, sono comunque nell'intestazione della partita. Ora, senza tabellino, lo script
+ripiega su: punteggio da "Partita terminata / N / - / N" (solo a partita terminata, mai un parziale
+spacciato per finale) e marcatori da `.match-scorers ul.home|ul.away li` (colonna sinistra = casa),
+senza minuto, nel formato `N. Antognoni (Tav)` (prime 3 lettere della squadra). Lo screenshot delle
+formazioni scatta solo se c'è il tabellino (`hasReport`): senza, la sezione è vuota ("Inserisci
+formazioni").
+
+## Bug casa/trasferta in Live: lati invertiti per le partite in casa — 2026-10-05
+
+Francesco: nella giornata 5 Ellera-Padule risultava 0-2 (doppietta di Coulibaly "contro di noi") mentre
+è finita 2-0. Altre Partite mostrava Ellera correttamente prima, Live no.
+
+**Causa**: `live.tsx` decideva "giochiamo in casa?" con `ev.homeAway === 'HOME'`, ma il Calendario
+salva `'CASA'`/`'TRASFERTA'` (i valori HOME/AWAY sono di versioni vecchie) → condizione sempre falsa,
+Live ci considerava SEMPRE ospiti. Per le partite in trasferta il risultato era giusto per caso; per
+quelle in casa gol/cartellini/cambi nostri sono stati salvati con `team: 'AWAY'` (e quelli avversari con
+`'HOME'`). Lo stesso confronto sbagliato c'era in `statistiche.tsx` (che per questo funzionava "per
+caso" coi dati sbagliati: gol subiti dei portieri) e in `player/[id].tsx` (etichetta Casa/Trasferta
+sempre "Trasferta"); `archiveBuilder.ts` aveva l'errore opposto (`homeAway !== 'AWAY'` → ogni
+'TRASFERTA' trattata come casa). Questo è il "possibile bug preesistente" annotato il 2026-08-24.
+
+**Fix nel codice**: nuova `isHomeEvent(ev)` in `app/data/events.ts` (unica fonte di verità: accetta
+`isHome` booleano, 'CASA'/'TRASFERTA' e i vecchi 'HOME'/'AWAY'; senza indicazioni = casa), usata da
+Live, Altre Partite, Statistiche, scheda giocatore, archivio. **Convenzione dei dati dopo il fix**:
+`team: 'HOME'` = la squadra di casa della partita, `ourSide = isHomeEvent ? 'HOME' : 'AWAY'`.
+
+**Migrazione dati (UNA TANTUM)** — `App/scripts/migrate-live-sides.js`: per le partite IN CASA con
+dati scambia HOME↔AWAY su goals/cards/subs di `match_live` e sulle proposte ancora `pending`, ricalcola
+la riga `own-{id}` di Altre Partite, segna l'evento con `data.liveSidesFixed = true`. Senza `--apply` è
+una prova a vuoto. Con `--apply` salva PRIMA un backup completo in `App/logs/backup-live-sides-*.json`
+(ignorato da git; per ripristinare basta riscrivere quei valori). Rifiuta di rigirare se trova eventi già
+segnati (`--force` per ignorare). Le partite in trasferta NON vanno toccate (già coerenti).
+Da applicare subito dopo il rilascio del fix: finché codice e dati non sono allineati, i lati sono
+invertiti nell'uno o nell'altro senso.

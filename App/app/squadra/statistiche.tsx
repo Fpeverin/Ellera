@@ -1,5 +1,5 @@
 // app/squadra/statistiche.tsx
-import { CalendarEvent, loadEvents } from '@/app/data/events';
+import { CalendarEvent, isHomeEvent, loadEvents } from '@/app/data/events';
 import { loadLineup } from '@/app/data/matchLive';
 import { loadPhotoMap } from '@/app/data/playerMedia';
 import { usePlayers } from '@/app/hooks/usePlayers';
@@ -196,7 +196,7 @@ const onRightScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
         );
         const FULL = ev.matchDurationMinutes || inferredMaxMinute || 90;
 
-        const isHome = typeof ev.isHome === 'boolean' ? ev.isHome : (ev.homeAway === 'HOME');
+        const isHome = isHomeEvent(ev);
         const opponentTeam: TeamSide = isHome ? 'AWAY' : 'HOME';
 
         // per ogni giocatore

@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { CalendarEvent, loadEvents } from '../data/events';
+import { CalendarEvent, isHomeEvent, loadEvents } from '../data/events';
 import { createPlayerInvite, loadPlayerInviteStatus } from '../data/invites';
 import { removeMember } from '../data/staff';
 import {
@@ -465,7 +465,7 @@ export default function PlayerDetail() {
           }
 
           const opponent = (ev.opponent ?? ev.avversario ?? 'Avversari').toString();
-          const isHome = typeof ev.isHome === 'boolean' ? ev.isHome : (ev.homeAway === 'HOME');
+          const isHome = isHomeEvent(ev);
           const competition = (ev.competition ?? ev.competizione ?? ev.torneo ?? ev.league ?? ev.categoria ?? '').toString().trim() || undefined;
           const competitionPrefix = competition ? `${competition} - ` : '';
           const label = isHome ? `${competitionPrefix}🏟️ Casa vs ${opponent}` : `${competitionPrefix}🚍 Trasferta @ ${opponent}`;

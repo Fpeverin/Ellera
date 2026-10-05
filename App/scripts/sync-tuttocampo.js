@@ -133,12 +133,36 @@ async function scrapeMatch(page, url) {
     homeScore = Number(tabellinoMatch[1]);
     awayScore = Number(tabellinoMatch[2]);
   }
+  // Il "Tabellino" compare solo se qualcuno ha inserito formazioni/marcatori su TuttoCampo: una
+  // partita finita senza quei dati (es. Tavernelle-Terni 2-2, giornata 5) restava senza risultato
+  // pur avendolo nell'intestazione della pagina ("Partita terminata / 2 / - / 2"). Ripiego sul
+  // punteggio dell'intestazione, ma solo a partita terminata (mai un parziale spacciato per finale).
+  if (homeScore === null) {
+    const headerScore = bodyText.match(/Partita terminata\s*\n\s*(\d+)\s*\n\s*-\s*\n\s*(\d+)/);
+    if (headerScore) {
+      homeScore = Number(headerScore[1]);
+      awayScore = Number(headerScore[2]);
+    }
+  }
+  const hasReport = !!tabellinoMatch;
   const marcatoriMatch = bodyText.match(/MARCATORI:\s*([^\n]+)/);
   if (marcatoriMatch) {
     scorers = marcatoriMatch[1].trim();
+  } else {
+    // Senza tabellino i marcatori ci sono comunque, senza minuto, nell'intestazione della partita:
+    // <div class="match-scorers"><ul class="home">...</ul><ul class="away">...</ul></div> (colonna di
+    // sinistra = casa). Dal testo piatto della pagina casa/trasferta non si distinguerebbero.
+    const side = async (cls) =>
+      page.$$eval(`.match-scorers ul.${cls} li`, (els) => els.map((e) => (e.textContent || '').trim()).filter(Boolean));
+    const [homeNames, awayNames] = await Promise.all([side('home'), side('away')]);
+    const tag = (team) => team.trim().split(/\s+/)[0].slice(0, 3);
+    scorers = [
+      ...homeNames.map((n) => `${n} (${tag(homeTeam)})`),
+      ...awayNames.map((n) => `${n} (${tag(awayTeam)})`),
+    ].join(', ');
   }
 
-  return { url, homeTeam, awayTeam, homeScore, awayScore, scorers };
+  return { url, homeTeam, awayTeam, homeScore, awayScore, scorers, hasReport };
 }
 
 /** Screenshot della sezione Formazioni (#match_formations) — null se la partita non ce l'ha ancora
@@ -281,8 +305,9 @@ async function main() {
       // uno screenshot inutile anche per partite future (visto dal vero, 2026-10-01). Sostituisce
       // quello di un sync precedente, stesso id deterministico: non si accumulano screenshot
       // vecchi a ogni esecuzione giornaliera.
-      const played = match.homeScore != null && match.awayScore != null;
-      const shot = played ? await screenshotFormations(page) : null;
+      // Anche lo screenshot richiede il tabellino (formazioni davvero inserite su TuttoCampo): una
+      // partita finita ma senza formazioni ha la sezione vuota ("Inserisci formazioni").
+      const shot = match.hasReport ? await screenshotFormations(page) : null;
       if (shot) {
         const attachmentId = `tc-shot-${id}`;
         const storagePath = `${ORG_ID}/${id}/formazioni.png`;
