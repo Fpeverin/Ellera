@@ -2505,3 +2505,67 @@ una prova a vuoto. Con `--apply` salva PRIMA un backup completo in `App/logs/bac
 segnati (`--force` per ignorare). Le partite in trasferta NON vanno toccate (già coerenti).
 Da applicare subito dopo il rilascio del fix: finché codice e dati non sono allineati, i lati sono
 invertiti nell'uno o nell'altro senso.
+
+**Fix — tutte le partite "formato pagina inatteso" (2026-11-09)**: l'esecuzione delle 09:30 scartava
+ogni partita (16/16) ma chiudeva con esito 0, quindi nessun allarme. Causa: TuttoCampo ha cambiato il
+`<title>` delle pagine partita (da `X vs Y - Eccellenza ...` a `X - Y: risultato e marcatori | ...`) e
+`scrapeMatch` lo leggeva con una regex sul titolo. Pagina, tabellino, `.match-scorers` e
+`#match_formations` erano invariati. Ora i nomi vengono dall'`<h1>` "Partita X vs Y" (stabile), con
+ripiego sui due formati di titolo; il warning stampa titolo e h1 trovati. Due correzioni collegate:
+1. **Esito onesto**: se nessuna pagina partita è leggibile lo script esce con codice 2 e scrive
+   `ERRORE: ...` (Task Scheduler lo mostra fallito). Non simulato su un caso reale.
+2. **Marcatori dall'intestazione senza assist**: nei `<li>` di `.match-scorers` il primo `<a>` è il
+   marcatore, un secondo `<a>` grigio ("Assist di ...") è l'assistman, che veniva scambiato per un
+   marcatore (righe su più righe e doppie). Ora solo il primo `<a>`, formato come il tabellino
+   (`11' pt M. Branchesi (Viv)`), ordinato per minuto.
+Dettagli operativi e trappole del sito/Windows: `Agent/tuttocampo-sync.md`.
+
+## Live: espulsione sbagliata che blocca la sostituzione — 2026-11-09
+
+Francesco, Montone-Ellera (2026-11-08): per errore troppe ammonizioni a Convito → espulso mentre era
+in campo; al 54' sostituito da Roticiani ma l'app non permetteva il cambio ("non risulta in campo").
+Eliminate poi le ammonizioni in più, Convito risultava `expelled:false` ma `inField:false`.
+
+**Tre cause nello stesso flusso** (`live.tsx`):
+1. `recomputeExpulsionsFromCards` toglieva solo `expelled` e lasciava `inField:false`: un'espulsione
+   tolta non rimetteva il giocatore in campo. Ora lo ricostruisce da `lineup.field` (formazione
+   iniziale) + cambi registrati, ignorando i cartellini. Senza lineup salvata resta il comportamento
+   precedente. Limite: se la formazione iniziale è stata modificata dopo lo Start la ricostruzione può
+   sbagliare.
+2. Il 2° giallo crea un rosso automatico (`autoFromSecondYellow`) separato e ogni giallo successivo
+   ne creava un altro; eliminando un giallo il rosso restava. Ora `withNormalizedAutoReds` (chiamata da
+   `saveCards`, unico punto di scrittura dei cartellini) rigenera i rossi auto: uno solo per
+   giocatore, al minuto del suo 2° giallo, solo se i gialli sono ancora ≥ 2. I rossi diretti non si
+   toccano. Collassa anche i duplicati già salvati nelle partite vecchie (alla prima modifica).
+3. L'inserimento manuale di un cambio (`canSaveManual`) richiedeva chi esce "in campo" e chi entra
+   "in panchina" secondo lo stato corrente: impossibile registrare a posteriori un cambio il cui stato
+   era già (o erroneamente) diverso. Ora bastano due giocatori diversi non espulsi; il salvataggio
+   imposta esplicitamente esce=fuori, entra=dentro (non inverte), quindi è ripetibile. Il cambio
+   fatto in diretta (`canExecSub`) mantiene i vincoli di stato.
+
+Dati di quella partita: il cambio 54' Convito→Roticiani non è registrato (da inserire a mano o con
+script, vedi `Agent/teamboard-live.md`). Non aggiunto un avviso "è il 2° giallo, espellere?": possibile
+miglioramento, non richiesto.
+
+**Avviso al 2° giallo + fine partita che ricalcola le statistiche (2026-11-09)** — richieste di Francesco
+dopo il caso Montone-Ellera:
+1. **Avviso 2° giallo**: registrando un'ammonizione a un giocatore che ne ha già una (Live e
+   inserimento manuale) compare, al posto dei pulsanti Salva, un riquadro "⚠️ Seconda ammonizione:
+   verrà espulso (rosso automatico). Confermi?" con "Sì, espelli"/"Annulla". Inline nel modale (non
+   un secondo `Modal`, che su iOS non si apre se ne è già aperto uno). Si azzera se cambiano
+   giocatore/squadra/tipo. Non compare per un Giocatore che *propone* l'evento.
+2. **"Termina partita" e "Termina/aggiorna partita senza cronometro" ricalcolano sempre tutto**
+   (`finalizeMatchAndSave`). Le statistiche (squadra, scheda giocatore, archivio) leggono la COPIA di
+   gol/cambi/cartellini sull'evento (`events.data.goals/subs/cards`), non `match_live`: va riscritta a
+   ogni pressione, e ora lo fa rileggendo i dati veri da Supabase (prima usava lo stato della
+   schermata, che poteva essere indietro: su Montone-Ellera la copia aveva 2 cambi, i reali 3).
+   Usa `patchEventData` (tocca solo questo evento, non l'intero calendario). Aggiorna anche
+   punteggio, `resultText`, durata e lo stato della schermata. Il link "Termina/aggiorna senza
+   cronometro" ora compare anche a partita già terminata (prima spariva se la fase era "Fine
+   partita": nessun modo di riaggiornare). **Limite noto**: modificare eventi di una partita già
+   terminata NON aggiorna le statistiche finché non si preme di nuovo uno dei due pulsanti. L'unica
+   altra vista derivata da Live, la riga "nostra partita" di Altre Partite, si ricalcola ogni volta
+   che si apre quella schermata.
+3. **Dati Montone-Ellera riparati** (con backup in `App/logs/backup-montone-cambio-*.json`): aggiunto
+   il cambio 54' Convito→Roticiani in `match_live.subs`; la copia dell'evento riallineata (mancava
+   anche il cambio 64' Croitoriu→Dida).

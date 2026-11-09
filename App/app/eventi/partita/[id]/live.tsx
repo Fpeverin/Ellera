@@ -23,7 +23,7 @@ import ConvocatiPlayersModal from '../../../components/partite/ConvocatiPlayersM
 import TeamLogo from '../../../components/TeamLogo';
 import { findTeamLogoForOpponent } from '../../../data/competitionTeams';
 import { loadConvocazione, saveConvocatiPlayerIds } from '../../../data/convocazione';
-import { isHomeEvent, loadEvents, patchEventData, saveEvents } from '../../../data/events';
+import { isHomeEvent, loadEvents, patchEventData } from '../../../data/events';
 import { loadOrgLogoUrl, opponentLogoUrlFromPath } from '../../../data/organization';
 import {
   CardItem,
@@ -462,6 +462,13 @@ export default function LivePartita() {
     nextPhase();
   };
 
+  /** "Termina partita" e "Termina/aggiorna partita senza cronometro" passano entrambi da qui, e
+   * RICALCOLANO sempre tutto ciò da cui dipendono le statistiche di questa partita. Le statistiche
+   * (squadra, scheda giocatore, archivio) non leggono match_live ma la copia di gol/cambi/cartellini
+   * salvata sull'evento: va quindi riscritta ogni volta, e DAI DATI VERI su Supabase — non dallo
+   * stato della schermata, che può essere indietro (visto il 2026-11-09 su Montone-Ellera: la copia
+   * aveva 2 cambi, i dati reali 3, e i minuti di Croitoriu/Dida nelle statistiche erano sbagliati).
+   * Con patchEventData si tocca solo questo evento, invece di riscrivere l'intero calendario. */
   const finalizeMatchAndSave = async () => {
     try {
       setFinishBusy(true);
@@ -469,22 +476,26 @@ export default function LivePartita() {
       const parsedDuration = Math.round(Number(matchDurationInput));
       const matchDurationMinutes = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 90;
 
-      const events = await loadEvents();
-      const idx = events.findIndex((e) => `${e.id}` === `${matchId}`);
-      if (idx >= 0) {
-        const current = events[idx] ?? {};
-        events[idx] = {
-          ...current,
-          status: 'FINISHED',
-          score: { home: scoreHome, away: scoreAway },
-          resultText: `${homeName} ${scoreHome} - ${scoreAway} ${awayName}`,
-          goals,
-          subs,
-          cards,
-          matchDurationMinutes,
-        };
-        await saveEvents(events);
-      }
+      const [freshGoals, freshSubs, freshCards] = await Promise.all([
+        loadGoalsRemote(matchId!),
+        loadSubsRemote(matchId!),
+        loadCardsRemote(matchId!),
+      ]);
+      const finalHome = freshGoals.filter((g) => g.team === 'HOME').length;
+      const finalAway = freshGoals.filter((g) => g.team === 'AWAY').length;
+
+      await patchEventData(matchId!, {
+        status: 'FINISHED',
+        score: { home: finalHome, away: finalAway },
+        resultText: `${homeName} ${finalHome} - ${finalAway} ${awayName}`,
+        goals: freshGoals,
+        subs: freshSubs,
+        cards: freshCards,
+        matchDurationMinutes,
+      });
+      setGoals(freshGoals);
+      setSubs(freshSubs);
+      setCards(freshCards);
       await setStartedRemote(matchId!, true);
       await touchApp();
       setIsFinished(true);
@@ -545,7 +556,39 @@ export default function LivePartita() {
     })();
   }, [matchId]);
 
-  const saveCards = async (list: CardItem[]) => {
+  /** Rigenera da zero i rossi automatici da 2° giallo: uno solo per giocatore, al minuto del suo 2°
+   * giallo, e solo se i gialli sono ancora almeno due. Prima ogni giallo oltre il primo ne creava
+   * un altro, e eliminando un giallo messo per errore il rosso automatico restava lì: il giocatore
+   * rimaneva espulso (visto il 2026-11-08, Montone-Ellera, Convito). I rossi diretti (non auto)
+   * non si toccano. */
+  const withNormalizedAutoReds = (list: CardItem[]): CardItem[] => {
+    const keyOf = (c: CardItem) => c.team + '|' + (c.playerId || c.playerName);
+    const base = list.filter((c) => !c.autoFromSecondYellow);
+    const previousAuto = new Map(list.filter((c) => c.autoFromSecondYellow).map((c) => [keyOf(c), c]));
+    const yellows = new Map<string, number>();
+    const autos: CardItem[] = [];
+    for (const c of [...base].sort((a, b) => a.minute - b.minute || a.id.localeCompare(b.id))) {
+      if (c.color !== 'YELLOW') continue;
+      const key = keyOf(c);
+      const n = (yellows.get(key) || 0) + 1;
+      yellows.set(key, n);
+      if (n === 2) {
+        autos.push({
+          id: previousAuto.get(key)?.id ?? uid(),
+          minute: c.minute,
+          team: c.team,
+          color: 'RED',
+          playerId: c.playerId,
+          playerName: c.playerName,
+          autoFromSecondYellow: true,
+        });
+      }
+    }
+    return [...base, ...autos].sort((a, b) => a.minute - b.minute || a.id.localeCompare(b.id));
+  };
+
+  const saveCards = async (rawList: CardItem[]) => {
+    const list = withNormalizedAutoReds(rawList);
     await saveCardsRemote(matchId!, list);
     setCards(list);
     await touchApp();
@@ -573,12 +616,38 @@ export default function LivePartita() {
       }
     }
 
+    // Un'espulsione tolta (cartellino eliminato/corretto) deve riportare il giocatore dove era:
+    // prima si azzerava solo `expelled` e `inField` restava false, quindi un giocatore espulso per
+    // errore non risultava più in campo e non si poteva sostituire (Montone-Ellera, 2026-11-08).
+    // Dove stava lo si ricostruisce da formazione iniziale + cambi registrati, ignorando i cartellini.
+    const toRestore = allPlayers.filter((p) => p.expelled && !redSet.has((ourSide ?? 'HOME') + '|' + p.id));
+    let lineupField: string[] | null = null;
+    if (toRestore.length > 0) {
+      try {
+        const lu = await loadLineupRemote(matchId!);
+        lineupField = lu ? (lu.field || []).filter(Boolean) as string[] : null;
+      } catch {
+        lineupField = null; // senza formazione iniziale non si può sapere: resta fuori (comportamento precedente)
+      }
+    }
+    const inFieldFromHistory = (playerId: string): boolean => {
+      let on = lineupField ? lineupField.includes(playerId) : false;
+      for (const s of [...subs].sort((a, b) => a.minute - b.minute)) {
+        if (s.outId === playerId) on = false;
+        if (s.inId === playerId) on = true;
+      }
+      return on;
+    };
+
     let changed = false;
     const next = allPlayers.map(p => {
       const key = (ourSide ?? 'HOME') + '|' + p.id;
       const isExpelled = redSet.has(key);
       if (isExpelled && !p.expelled) { changed = true; return { ...p, inField: false, expelled: true }; }
-      if (!isExpelled && p.expelled) { changed = true; return { ...p, expelled: false }; }
+      if (!isExpelled && p.expelled) {
+        changed = true;
+        return { ...p, expelled: false, inField: lineupField ? inFieldFromHistory(p.id) : p.inField };
+      }
       return p;
     });
     if (!changed) return;
@@ -741,6 +810,7 @@ export default function LivePartita() {
   const [cardOpponentName, setCardOpponentName] = useState<string>(''); // per avversari
 
   const openCard = (color: CardColor) => {
+    setSecondYellowWarn(null);
     setCardColor(color);
     setCardTeam(ourSide ?? 'HOME');
     setCardMinute(currentMinutePlusOne());
@@ -759,7 +829,29 @@ export default function LivePartita() {
     await saveLiveFormation(next);
   };
 
+  /** Ammonizioni già prese da questo giocatore (stessa chiave di nome/id usata per il rosso automatico). */
+  const priorYellowsFor = (team: TeamSide, who: string) =>
+    who ? cards.filter((c) => c.color === 'YELLOW' && c.team + '|' + (c.playerId || c.playerName) === team + '|' + who).length : 0;
+
+  // Nome del giocatore per cui si sta per registrare un 2° giallo (= espulsione): finché è valorizzato
+  // il modale mostra un avviso con Conferma/Annulla al posto dei pulsanti Salva. Avviso messo dopo
+  // Montone-Ellera (2026-11-08): un giallo di troppo messo per errore espelle il giocatore in campo.
+  const [secondYellowWarn, setSecondYellowWarn] = useState<string | null>(null);
+  useEffect(() => { setSecondYellowWarn(null); }, [cardColor, cardTeam, cardPlayerId, cardOpponentName]);
+
   const persistCard = async () => {
+    if (!canSaveCard || savingEvent) return;
+    if (cardColor === 'YELLOW') {
+      const who = isOurTeam(cardTeam) ? cardPlayerId : cardOpponentName.trim();
+      if (priorYellowsFor(cardTeam, who) >= 1) {
+        setSecondYellowWarn(isOurTeam(cardTeam) ? (basePlayers.find((p) => p.id === cardPlayerId)?.name ?? who) : who);
+        return;
+      }
+    }
+    await doPersistCard();
+  };
+
+  const doPersistCard = async () => {
     if (!canSaveCard || savingEvent) return;
     setSavingEvent(true);
     try {
@@ -1134,9 +1226,13 @@ export default function LivePartita() {
 
     if (manualKind === 'SUB') {
       if (isManualOurTeam) {
-        const outOk = !!manualSubOutId && manualPlayers.some(p => p.id === manualSubOutId && p.inField && !p.expelled);
-        const inOk  = !!manualSubInId  && manualPlayers.some(p => p.id === manualSubInId  && !p.inField && !p.expelled);
-        return outOk && inOk;
+        // Inserimento manuale = correzione/registrazione a posteriori: non deve dipendere da dove
+        // la formazione di Live "crede" che siano i giocatori adesso (che è proprio la cosa
+        // sbagliata che si sta riparando). Bastano due giocatori diversi, non espulsi; il salvataggio
+        // poi imposta esplicitamente esce=fuori, entra=dentro (non inverte), quindi è ripetibile.
+        const outOk = !!manualSubOutId && manualPlayers.some(p => p.id === manualSubOutId && !p.expelled);
+        const inOk  = !!manualSubInId  && manualPlayers.some(p => p.id === manualSubInId  && !p.expelled);
+        return outOk && inOk && manualSubOutId !== manualSubInId;
       }
       // avversari: servono i nomi + minuto valido
       return !!manualSubOutId.trim() && !!manualSubInId.trim() && Number.isFinite(Number(manualMinute)) && manualMinute >= 1;
@@ -1155,7 +1251,26 @@ export default function LivePartita() {
     isManualOurTeam, manualPlayers
   ]);
 
+  // Stesso avviso del 2° giallo di Live, per l'inserimento manuale (vedi persistCard).
+  const [manualSecondYellowWarn, setManualSecondYellowWarn] = useState<string | null>(null);
+  // Se cambia chi/cosa si sta inserendo mentre l'avviso è aperto, l'avviso non è più valido.
+  useEffect(() => { setManualSecondYellowWarn(null); }, [manualKind, manualTeam, manualCardPlayerId, manualCardOpponent]);
+
   const persistManual = async () => {
+    if (!canSaveManual || savingEvent) return;
+    if (manualKind === 'CARD_YELLOW') {
+      const who = isManualOurTeam ? manualCardPlayerId : manualCardOpponent.trim();
+      if (priorYellowsFor(manualTeam, who) >= 1) {
+        setManualSecondYellowWarn(
+          isManualOurTeam ? (manualPlayers.find((p) => p.id === manualCardPlayerId)?.name ?? who) : who
+        );
+        return;
+      }
+    }
+    await doPersistManual();
+  };
+
+  const doPersistManual = async () => {
   if (!canSaveManual || savingEvent) return;
   setSavingEvent(true);
   try {
@@ -1362,7 +1477,7 @@ export default function LivePartita() {
         {/* Per una partita mai seguita dal vivo (nessuno ha premuto Start): il bottone "Fine
             partita" sopra non si raggiunge mai, perché richiede di passare per tutte le fasi.
             Questo link apre lo stesso modale (risultato + durata) indipendentemente dalla fase. */}
-        {!readOnly && phase !== 'FULL_TIME' && (
+        {!readOnly && (phase !== 'FULL_TIME' || isFinished) && (
           <Pressable style={styles.durationLink} onPress={() => setFinishOpen(true)}>
             <Text style={styles.durationLinkText}>🏁 Termina/aggiorna partita senza cronometro</Text>
           </Pressable>
@@ -1826,6 +1941,27 @@ export default function LivePartita() {
                 </>
               )}
 
+              {secondYellowWarn !== null && !readOnly ? (
+                <View style={styles.warnBox}>
+                  <Text style={styles.warnTitle}>⚠️ Seconda ammonizione</Text>
+                  <Text style={styles.warnText}>
+                    {secondYellowWarn || 'Questo giocatore'} ha già un'ammonizione: con questa verrà
+                    espulso (rosso automatico). Confermi?
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                    <Pressable
+                      style={[styles.modalBtn, { backgroundColor: '#b91c1c', flex: 1, opacity: savingEvent ? 0.5 : 1 }]}
+                      disabled={savingEvent}
+                      onPress={() => { setSecondYellowWarn(null); doPersistCard(); }}
+                    >
+                      <Text style={styles.modalBtnText}>{savingEvent ? 'Salvataggio…' : 'Sì, espelli'}</Text>
+                    </Pressable>
+                    <Pressable style={[styles.modalBtn, { backgroundColor: '#9ca3af', flex: 1 }]} onPress={() => setSecondYellowWarn(null)}>
+                      <Text style={styles.modalBtnText}>Annulla</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : (
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
                 <Pressable
                   style={[styles.modalBtn, { backgroundColor: cardColor === 'RED' ? '#b91c1c' : '#f59e0b', flex: 1, opacity: (canSaveCard && !savingEvent) ? 1 : 0.5 }]}
@@ -1838,6 +1974,7 @@ export default function LivePartita() {
                   <Text style={styles.modalBtnText}>Annulla</Text>
                 </Pressable>
               </View>
+              )}
               </ScrollView>
             </View>
           </View>
@@ -2153,6 +2290,27 @@ export default function LivePartita() {
                 )
               )}
 
+              {manualSecondYellowWarn !== null ? (
+                <View style={styles.warnBox}>
+                  <Text style={styles.warnTitle}>⚠️ Seconda ammonizione</Text>
+                  <Text style={styles.warnText}>
+                    {manualSecondYellowWarn || 'Questo giocatore'} ha già un'ammonizione: con questa verrà
+                    espulso (rosso automatico). Confermi?
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                    <Pressable
+                      style={[styles.modalBtn, { backgroundColor: '#b91c1c', flex: 1, opacity: savingEvent ? 0.5 : 1 }]}
+                      disabled={savingEvent}
+                      onPress={() => { setManualSecondYellowWarn(null); doPersistManual(); }}
+                    >
+                      <Text style={styles.modalBtnText}>{savingEvent ? 'Salvataggio…' : 'Sì, espelli'}</Text>
+                    </Pressable>
+                    <Pressable style={[styles.modalBtn, { backgroundColor: '#9ca3af', flex: 1 }]} onPress={() => setManualSecondYellowWarn(null)}>
+                      <Text style={styles.modalBtnText}>Annulla</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : (
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
                 <Pressable
                   style={[styles.modalBtn, { backgroundColor: '#111827', flex: 1, opacity: (canSaveManual && !savingEvent) ? 1 : 0.5 }]}
@@ -2165,6 +2323,7 @@ export default function LivePartita() {
                   <Text style={styles.modalBtnText}>Annulla</Text>
                 </Pressable>
               </View>
+              )}
               </ScrollView>
             </View>
           </View>
@@ -2274,6 +2433,16 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textDecorationLine: 'underline',
   },
+  warnBox: {
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+  },
+  warnTitle: { fontWeight: '800', color: '#92400e', marginBottom: 4 },
+  warnText: { color: '#78350f' },
   controlButton: {
     flex: 1,
     flexDirection: 'row',

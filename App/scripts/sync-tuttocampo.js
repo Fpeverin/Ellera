@@ -117,11 +117,19 @@ async function scrapeMatch(page, url) {
   await loadPage(page, url);
   await dismissCookieBanner(page);
 
+  // Nomi delle squadre. Fonte principale: <h1> "Partita X vs Y", rimasto identico quando TuttoCampo
+  // ha cambiato il <title> (il 2026-11-09 da "X vs Y - Eccellenza ..." a "X - Y: risultato e
+  // marcatori | Eccellenza ...": ogni partita veniva scartata come "formato inatteso"). Ripiego sui
+  // due formati di titolo, così basta che uno solo dei tre resti riconoscibile.
   const title = await page.title();
-  const titleMatch = title.match(/^(.+?)\s+vs\s+(.+?)\s+-\s+/i);
-  if (!titleMatch) return null;
-  const homeTeam = titleMatch[1].trim();
-  const awayTeam = titleMatch[2].trim();
+  const h1 = ((await page.locator('h1').first().textContent().catch(() => '')) || '').trim();
+  const nameMatch =
+    h1.match(/^Partita\s+(.+?)\s+vs\s+(.+?)$/i) ||
+    title.match(/^(.+?)\s+vs\s+(.+?)\s+-\s+/i) ||
+    title.match(/^(.+?)\s+-\s+(.+?):\s/);
+  if (!nameMatch) return { unreadable: true, title, h1 };
+  const homeTeam = nameMatch[1].trim();
+  const awayTeam = nameMatch[2].trim();
 
   const bodyText = await page.locator('body').innerText();
 
@@ -152,14 +160,35 @@ async function scrapeMatch(page, url) {
     // Senza tabellino i marcatori ci sono comunque, senza minuto, nell'intestazione della partita:
     // <div class="match-scorers"><ul class="home">...</ul><ul class="away">...</ul></div> (colonna di
     // sinistra = casa). Dal testo piatto della pagina casa/trasferta non si distinguerebbero.
+    // Ogni <li> ha il marcatore nel PRIMO <a> (dal 2026-11 con il minuto, "M. Branchesi (11' pt)");
+    // un eventuale secondo <a> grigio (title "Assist di ...") è l'assist, da ignorare — prenderlo
+    // aggiungeva l'assistman come se fosse un marcatore.
     const side = async (cls) =>
-      page.$$eval(`.match-scorers ul.${cls} li`, (els) => els.map((e) => (e.textContent || '').trim()).filter(Boolean));
+      page.$$eval(`.match-scorers ul.${cls} > li`, (els) =>
+        els
+          .map((li) => {
+            const a = li.querySelector('a');
+            return ((a ? a.textContent : li.textContent) || '').replace(/\s+/g, ' ').trim();
+          })
+          .filter(Boolean)
+      );
     const [homeNames, awayNames] = await Promise.all([side('home'), side('away')]);
     const tag = (team) => team.trim().split(/\s+/)[0].slice(0, 3);
-    scorers = [
-      ...homeNames.map((n) => `${n} (${tag(homeTeam)})`),
-      ...awayNames.map((n) => `${n} (${tag(awayTeam)})`),
-    ].join(', ');
+    // Stesso formato della riga MARCATORI del tabellino ("11' pt M. Branchesi (Viv)"), in ordine di
+    // minuto; senza minuto (formato vecchio dell'intestazione) resta "N. Antognoni (Tav)".
+    const fmt = (raw, team) => {
+      const m = raw.match(/^(.*?)\s*\((\d+)'?\s*(pt|st)?\)\s*$/i);
+      if (!m) return { key: 999, text: `${raw} (${tag(team)})` };
+      const half = (m[3] || '').toLowerCase();
+      return {
+        key: (half === 'st' ? 100 : 0) + Number(m[2]),
+        text: `${m[2]}' ${half} ${m[1]} (${tag(team)})`.replace(/\s+/g, ' '),
+      };
+    };
+    scorers = [...homeNames.map((n) => fmt(n, homeTeam)), ...awayNames.map((n) => fmt(n, awayTeam))]
+      .sort((a, b) => a.key - b.key)
+      .map((x) => x.text)
+      .join(', ');
   }
 
   return { url, homeTeam, awayTeam, homeScore, awayScore, scorers, hasReport };
@@ -238,6 +267,8 @@ async function main() {
   let created = 0;
   let updated = 0;
   let skipped = 0;
+  let readable = 0;
+  let unreadable = 0;
 
   for (const giornata of giornate) {
     const giornataUrl = `${LEAGUE_URL}/Giornata${giornata}`;
@@ -260,10 +291,12 @@ async function main() {
         console.warn(`  ${url}: errore durante la lettura (${err.message})`);
         continue;
       }
-      if (!match) {
-        console.warn(`  ${url}: formato pagina inatteso, saltata`);
+      if (match.unreadable) {
+        unreadable++;
+        console.warn(`  ${url}: formato pagina inatteso, saltata (titolo: "${match.title}", h1: "${match.h1}")`);
         continue;
       }
+      readable++;
       if (isOurTeam(match.homeTeam) || isOurTeam(match.awayTeam)) {
         console.log(`  ${match.homeTeam} - ${match.awayTeam}: nostra partita, saltata (sync da Live)`);
         skipped++;
@@ -332,6 +365,16 @@ async function main() {
 
   await browser.close();
   console.log(`\nFatto. Nuove: ${created} · Aggiornate: ${updated} · Nostre partite saltate: ${skipped}`);
+
+  // Se NESSUNA pagina è stata letta, TuttoCampo ha quasi certamente cambiato struttura: uscire con
+  // errore, così Task Scheduler lo mostra come fallito (il 2026-11-09 chiudeva con esito 0 senza
+  // aver salvato nulla e nessuno se ne accorgeva).
+  if (unreadable > 0 && readable === 0) {
+    console.error(
+      `ERRORE: ${unreadable} pagine partita non leggibili e nessuna letta: TuttoCampo ha probabilmente cambiato il formato delle pagine. Niente aggiornato.`
+    );
+    process.exitCode = 2;
+  }
 }
 
 main().catch((err) => {

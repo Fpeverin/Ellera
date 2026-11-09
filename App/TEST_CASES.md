@@ -233,8 +233,13 @@ File: `app/eventi/partita/[id]/live.tsx`, `app/data/matchLive.ts`.
 | LIVE-11 | Fine partita | Partita avviata | "Fine partita" | Stato partita = terminata, cronometro fermo, evento salvato | Admin/Staff |
 | LIVE-12 | Durata partita impostata a mano | Partita mai seguita dal vivo (risultato inserito dopo) | Imposta la durata manualmente | Statistiche minutaggio coerenti con la durata indicata | Admin/Staff |
 | LIVE-13 | Stemmi squadre nello scoreboard | Stemmi configurati/disponibili per entrambe le squadre | Apri Live | Stemmi 56×56 sopra i nomi delle squadre; placeholder grigio se manca | Admin/Staff |
-| LIVE-15 | Lati casa/ospiti corretti | Partita IN CASA (Calendario: Casa) | Apri Live, registra un gol nostro | Ellera compare come squadra di casa (prima) nel tabellone, il gol va al nostro punteggio; Altre Partite, Statistiche e scheda giocatore concordano. Con "Trasferta" Ellera e' la seconda. Vale per ogni punto che decide casa/trasferta: usare sempre isHomeEvent (app/data/events.ts), mai confronti diretti con HOME/CASA | Admin/Staff |
 | LIVE-14 | Modali scorrevoli su schermo piccolo | Telefono in verticale | Apri un modale con Picker (Sostituzione, Inserimento manuale) | Tutto il contenuto raggiungibile scorrendo, Picker compreso, nulla sotto la barra di gesture | Admin/Staff |
+| LIVE-15 | Lati casa/ospiti corretti | Partita IN CASA (Calendario: Casa) | Apri Live, registra un gol nostro | Ellera compare come squadra di casa (prima) nel tabellone, il gol va al nostro punteggio; Altre Partite, Statistiche e scheda giocatore concordano. Con "Trasferta" Ellera e' la seconda. Vale per ogni punto che decide casa/trasferta: usare sempre isHomeEvent (app/data/events.ts), mai confronti diretti con HOME/CASA | Admin/Staff |
+| LIVE-16 | Espulsione tolta riporta il giocatore in campo | Giocatore in campo con 2 gialli (espulso) | Elimina l'ammonizione in eccesso, poi prova una sostituzione in cui esce lui | Non risulta piu' espulso, torna tra quelli in campo (o fuori se era gia' stato sostituito prima), e si puo' sostituire | Admin/Staff |
+| LIVE-17 | Rosso automatico segue i gialli | Giocatore con 3 gialli (rossi auto doppi nei dati vecchi) | Elimina i gialli oltre il primo | Spariscono anche i rossi automatici, resta 1 giallo; con 2 gialli esiste un solo rosso automatico al minuto del 2° giallo; un rosso diretto non viene mai toccato | Admin/Staff |
+| LIVE-18 | Cambio manuale a posteriori | Partita con formazione Live gia' sbagliata/aggiornata | Inserimento manuale > Sostituzione con un giocatore che Live considera fuori campo come "esce" | Si salva (non richiede lo stato in campo/panchina), esce=fuori e entra=dentro, ripetibile senza invertire; i due giocatori devono essere diversi e non espulsi | Admin/Staff |
+| LIVE-19 | Avviso al 2° giallo | Giocatore con 1 ammonizione registrata | Registra un altro giallo (Live o inserimento manuale) | Compare "Seconda ammonizione ... verra' espulso, confermi?" al posto di Salva: "Sì, espelli" salva giallo + rosso automatico, "Annulla" non salva nulla e il modale resta aperto; al primo giallo non compare mai; cambiando giocatore l'avviso sparisce | Admin/Staff |
+| LIVE-20 | Fine partita ricalcola le statistiche | Partita con cambi/cartellini modificati dopo la prima chiusura | Premi "Termina partita" oppure "Termina/aggiorna partita senza cronometro" (visibile anche a partita terminata), poi apri Statistiche squadra | Minuti, cartellini e gol di quella partita riflettono i dati reali di Live (la copia su events.data e' riscritta da Supabase, non dallo stato della schermata) | Admin/Staff |
 
 ---
 
@@ -253,6 +258,8 @@ File: `app/eventi/partita/[id]/altrePartite.tsx`, `app/data/matchdayFixtures.ts`
 | AP-07 | Elimina incontro/allegato | — | Elimina | Rimosso ovunque sia condiviso (altre nostre partite della stessa giornata) | Admin/Staff |
 | AP-08 | Import automatico da TuttoCampo | `scripts/run-sync-tuttocampo.ps1` eseguito dal PC (Task Scheduler o a mano) per una Giornata con nostra partita | Apri Altre Partite di quella partita | Incontri delle altre squadre presenti con badge "🌐 Importata da TuttoCampo", risultato, marcatori e screenshot Formazioni allegato; nessuna riga per la nostra partita (quella resta quella sincronizzata da Live) | Admin/Staff |
 | AP-09 | Riga importata non modificabile a mano | Incontro con badge TuttoCampo | Prova "✏️ Modifica"/"🗑️ Elimina" | Bottoni assenti (stesso trattamento della riga "nostra"); "📎 Allega foto/PDF" resta disponibile | Admin/Staff |
+| AP-10 | Sync: esito onesto se il sito cambia formato | Sync TuttoCampo eseguito mentre le pagine partita non sono leggibili (nessuna riconosciuta) | Guarda il log e l'esito dell'attivita' pianificata | Il log riporta `ERRORE: ... TuttoCampo ha probabilmente cambiato il formato` con titolo e h1 trovati, esito attivita' diverso da 0 (non "riuscita senza aver salvato nulla"). Da verificare a mano: non esiste un test automatico | Admin |
+| AP-11 | Sync: marcatori senza assist | Partita finita senza tabellino, con assist in intestazione (es. Vivi Altotevere-Terni, giornata 10) | Apri Altre Partite di una nostra partita della giornata | Marcatori nel formato `11' pt M. Branchesi (Viv)`, in ordine di minuto, nessun assistman tra i marcatori | Admin/Staff |
 
 ---
 
@@ -363,3 +370,6 @@ ogni volta che si tocca un flusso di caricamento immagini o un `Picker`.
 - **2026-10-01**: creazione iniziale — prima stesura di tutte le sezioni, basata sullo stato
   dell'app a questa data (dopo "Staff: sposta tra gli ex + Collaboratore Tecnico").
 - **2026-10-01**: aggiunti AP-08/AP-09 per la sincronizzazione automatica da TuttoCampo.
+- **2026-11-09**: aggiunti AP-10 (esito onesto del sync) e AP-11 (marcatori senza assist).
+- **2026-11-09**: aggiunti LIVE-16/17/18 (espulsione tolta, rossi automatici, cambio manuale a posteriori).
+- **2026-11-09**: aggiunti LIVE-19 (avviso 2° giallo) e LIVE-20 (fine partita ricalcola le statistiche).
